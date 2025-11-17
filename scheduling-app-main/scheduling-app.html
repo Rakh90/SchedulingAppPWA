@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheduling App</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            overflow-x: auto;
+        }
+        
+        .nav-tab {
+            padding: 15px 25px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #495057;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        
+        .nav-tab:hover {
+            background: #e9ecef;
+        }
+        
+        .nav-tab.active {
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        
+        .list-item:hover {
+            background: #e9ecef;
+        }
+        
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            overflow-x: auto;
+            display: block;
+        }
+        
+        .schedule-table table {
+            width: 100%;
+            min-width: 800px;
+        }
+        
+        .schedule-table th,
+        .schedule-table td {
+            border: 1px solid #dee2e6;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .schedule-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        
+        .schedule-table td {
+            background: white;
+            min-height: 60px;
+            position: relative;
+        }
+        
+        .schedule-table tr:hover td {
+            background: #f8f9fa;
+        }
+        
+        .employee-name {
+            font-weight: 600;
+            background: #f8f9fa;
+        }
+        
+        .shift-cell {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .shift-cell:hover {
+            transform: scale(1.02);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .shift-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            color: white;
+        }
+        
+        .color-picker {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .color-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-option.selected {
+            border-color: #333;
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+        
+        .info-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-section h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .info-section textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        
+        .swap-request {
+            padding: 15px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        
+        .swap-request h4 {
+            margin-bottom: 8px;
+            color: #856404;
+        }
+        
+        .swap-request p {
+            margin: 5px 0;
+            color: #856404;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            
+            .schedule-table {
+                font-size: 12px;
+            }
+        }
+    </style>
+<link rel="manifest" href="manifest.json" type="application/manifest+json">
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        
+        const SHIFT_COLORS = [
+            { name: 'Blue', color: '#3498db' },
+            { name: 'Green', color: '#2ecc71' },
+            { name: 'Red', color: '#e74c3c' },
+            { name: 'Orange', color: '#f39c12' },
+            { name: 'Purple', color: '#9b59b6' },
+            { name: 'Teal', color: '#1abc9c' },
+            { name: 'Pink', color: '#e91e63' },
+            { name: 'Gray', color: '#95a5a6' }
+        ];
+
+        function SchedulingApp() {
+            const [locations, setLocations] = useState([
+                { id: 1, name: 'Main Office', info: '' }
+            ]);
+            const [employees, setEmployees] = useState([
+                { id: 1, name: 'John Doe' },
+                { id: 2, name: 'Jane Smith' }
+            ]);
+            const [shiftTypes, setShiftTypes] = useState([
+                { id: 1, name: 'Morning', startTime: '09:00', endTime: '17:00', color: '#3498db' },
+                { id: 2, name: 'Evening', startTime: '17:00', endTime: '01:00', color: '#2ecc71' }
+            ]);
+            const [schedules, setSchedules] = useState({});
+            const [swapRequests, setSwapRequests] = useState([]);
+            
+            const [currentLocation, setCurrentLocation] = useState(null);
+            const [activeTab, setActiveTab] = useState('locations');
+            const [showModal, setShowModal] = useState(false);
+            const [modalType, setModalType] = useState('');
+            
+            const [newEmployee, setNewEmployee] = useState('');
+            const [newLocation, setNewLocation] = useState('');
+            const [newShift, setNewShift] = useState({ name: '', startTime: '', endTime: '', color: '#3498db' });
+            const [editingInfo, setEditingInfo] = useState('');
+
+            useEffect(() => {
+                if (locations.length > 0 && !currentLocation) {
+                    setCurrentLocation(locations[0].id);
+                }
+            }, [locations]);
+
+            const addEmployee = () => {
+                if (newEmployee.trim()) {
+                    setEmployees([...employees, { id: Date.now(), name: newEmployee }]);
+                    setNewEmployee('');
+                }
+            };
+
+            const removeEmployee = (id) => {
+                setEmployees(employees.filter(emp => emp.id !== id));
+            };
+
+            const addLocation = () => {
+                if (newLocation.trim()) {
+                    const newLoc = { id: Date.now(), name: newLocation, info: '' };
+                    setLocations([...locations, newLoc]);
+                    setNewLocation('');
+                }
+            };
+
+            const removeLocation = (id) => {
+                setLocations(locations.filter(loc => loc.id !== id));
+                if (currentLocation === id) {
+                    setCurrentLocation(locations[0]?.id || null);
+                }
+            };
+
+            const addShiftType = () => {
+                if (newShift.name.trim() && newShift.startTime && newShift.endTime) {
+                    setShiftTypes([...shiftTypes, { ...newShift, id: Date.now() }]);
+                    setNewShift({ name: '', startTime: '', endTime: '', color: '#3498db' });
+                    setShowModal(false);
+                }
+            };
+
+            const removeShiftType = (id) => {
+                setShiftTypes(shiftTypes.filter(shift => shift.id !== id));
+            };
+
+            const assignShift = (locationId, employeeId, day, shiftId) => {
+                const key = `${locationId}-${employeeId}-${day}`;
+                setSchedules({ ...schedules, [key]: shiftId });
+            };
+
+            const removeShift = (locationId, employeeId, day) => {
+                const key = `${locationId}-${employeeId}-${day}`;
+                const newSchedules = { ...schedules };
+                delete newSchedules[key];
+                setSchedules(newSchedules);
+            };
+
+            const getShift = (locationId, employeeId, day) => {
+                const key = `${locationId}-${employeeId}-${day}`;
+                const shiftId = schedules[key];
+                return shiftTypes.find(shift => shift.id === shiftId);
+            };
+
+            const submitShiftChange = (locationId, employeeId, day, newShiftId) => {
+                const shift = shiftTypes.find(s => s.id === newShiftId);
+                const employee = employees.find(e => e.id === employeeId);
+                const location = locations.find(l => l.id === locationId);
+                
+                setSwapRequests([...swapRequests, {
+                    id: Date.now(),
+                    type: 'change',
+                    locationId,
+                    locationName: location.name,
+                    employeeId,
+                    employeeName: employee.name,
+                    day,
+                    newShift: shift,
+                    status: 'pending',
+                    date: new Date().toLocaleDateString()
+                }]);
+                setShowModal(false);
+            };
+
+            const submitShiftSwap = (fromEmpId, toEmpId, day) => {
+                const fromEmp = employees.find(e => e.id === fromEmpId);
+                const toEmp = employees.find(e => e.id === toEmpId);
+                const location = locations.find(l => l.id === currentLocation);
+                
+                setSwapRequests([...swapRequests, {
+                    id: Date.now(),
+                    type: 'swap',
+                    locationId: currentLocation,
+                    locationName: location.name,
+                    fromEmployee: fromEmp.name,
+                    toEmployee: toEmp.name,
+                    day,
+                    status: 'pending',
+                    date: new Date().toLocaleDateString()
+                }]);
+                setShowModal(false);
+            };
+
+            const approveRequest = (requestId) => {
+                setSwapRequests(swapRequests.filter(req => req.id !== requestId));
+            };
+
+            const denyRequest = (requestId) => {
+                setSwapRequests(swapRequests.filter(req => req.id !== requestId));
+            };
+
+            const updateLocationInfo = (locationId) => {
+                const updatedLocations = locations.map(loc => 
+                    loc.id === locationId ? { ...loc, info: editingInfo } : loc
+                );
+                setLocations(updatedLocations);
+                setEditingInfo('');
+            };
+
+            const currentLocationData = locations.find(loc => loc.id === currentLocation);
+
+            return (
+                <div className="app-container">
+                    <div className="header">
+                        <h1>📅 Scheduling App</h1>
+                        <p>Manage employees, shifts, and schedules across all locations</p>
+                    </div>
+
+                    <div className="nav-tabs">
+                        <button 
+                            className={`nav-tab ${activeTab === 'locations' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('locations')}
+                        >
+                            Locations
+                        </button>
+                        <button 
+                            className={`nav-tab ${activeTab === 'employees' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('employees')}
+                        >
+                            Employees
+                        </button>
+                        <button 
+                            className={`nav-tab ${activeTab === 'shifts' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('shifts')}
+                        >
+                            Shift Types
+                        </button>
+                        {locations.map(location => (
+                            <button 
+                                key={location.id}
+                                className={`nav-tab ${activeTab === `schedule-${location.id}` ? 'active' : ''}`}
+                                onClick={() => {
+                                    setActiveTab(`schedule-${location.id}`);
+                                    setCurrentLocation(location.id);
+                                }}
+                            >
+                                {location.name}
+                            </button>
+                        ))}
+                        <button 
+                            className={`nav-tab ${activeTab === 'requests' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('requests')}
+                        >
+                            Shift Requests ({swapRequests.length})
+                        </button>
+                    </div>
+
+                    <div className="content">
+                        {activeTab === 'locations' && (
+                            <div className="section">
+                                <h2 className="section-title">Work Locations</h2>
+                                <div className="form-group">
+                                    <label>Add New Location</label>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Location name"
+                                            value={newLocation}
+                                            onChange={(e) => setNewLocation(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && addLocation()}
+                                        />
+                                        <button className="btn btn-primary" onClick={addLocation}>
+                                            Add Location
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div style={{ marginTop: '20px' }}>
+                                    {locations.map(location => (
+                                        <div key={location.id} className="list-item">
+                                            <span>{location.name}</span>
+                                            <button 
+                                                className="btn btn-danger"
+                                                onClick={() => removeLocation(location.id)}
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'employees' && (
+                            <div className="section">
+                                <h2 className="section-title">Employees</h2>
+                                <div className="form-group">
+                                    <label>Add New Employee</label>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Employee name"
+                                            value={newEmployee}
+                                            onChange={(e) => setNewEmployee(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && addEmployee()}
+                                        />
+                                        <button className="btn btn-primary" onClick={addEmployee}>
+                                            Add Employee
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div style={{ marginTop: '20px' }}>
+                                    {employees.map(employee => (
+                                        <div key={employee.id} className="list-item">
+                                            <span>{employee.name}</span>
+                                            <button 
+                                                className="btn btn-danger"
+                                                onClick={() => removeEmployee(employee.id)}
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'shifts' && (
+                            <div className="section">
+                                <h2 className="section-title">Shift Types</h2>
+                                <button 
+                                    className="btn btn-primary" 
+                                    onClick={() => {
+                                        setModalType('addShift');
+                                        setShowModal(true);
+                                    }}
+                                >
+                                    Add New Shift Type
+                                </button>
+                                
+                                <div style={{ marginTop: '20px' }}>
+                                    {shiftTypes.map(shift => (
+                                        <div key={shift.id} className="list-item">
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                                <div 
+                                                    style={{ 
+                                                        width: '30px', 
+                                                        height: '30px', 
+                                                        borderRadius: '4px',
+                                                        background: shift.color 
+                                                    }}
+                                                />
+                                                <div>
+                                                    <strong>{shift.name}</strong>
+                                                    <div style={{ fontSize: '12px', color: '#666' }}>
+                                                        {shift.startTime} - {shift.endTime}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button 
+                                                className="btn btn-danger"
+                                                onClick={() => removeShiftType(shift.id)}
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab.startsWith('schedule-') && currentLocationData && (
+                            <div className="section">
+                                <h2 className="section-title">Schedule for {currentLocationData.name}</h2>
+                                
+                                <div className="schedule-table">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Employee</th>
+                                                {DAYS_OF_WEEK.map(day => (
+                                                    <th key={day}>{day}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {employees.map(employee => (
+                                                <tr key={employee.id}>
+                                                    <td className="employee-name">{employee.name}</td>
+                                                    {DAYS_OF_WEEK.map(day => {
+                                                        const shift = getShift(currentLocation, employee.id, day);
+                                                        return (
+                                                            <td 
+                                                                key={day}
+                                                                className="shift-cell"
+                                                                onClick={() => {
+                                                                    setModalType('assignShift');
+                                                                    setShowModal(true);
+                                                                    setNewShift({ employeeId: employee.id, day, locationId: currentLocation });
+                                                                }}
+                                                            >
+                                                                {shift ? (
+                                                                    <div>
+                                                                        <div 
+                                                                            className="shift-badge"
+                                                                            style={{ background: shift.color }}
+                                                                        >
+                                                                            {shift.name}
+                                                                        </div>
+                                                                        <div style={{ fontSize: '10px', marginTop: '4px', color: '#666' }}>
+                                                                            {shift.startTime} - {shift.endTime}
+                                                                        </div>
+                                                                        <div style={{ marginTop: '8px', display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                                                                            <button 
+                                                                                className="btn btn-secondary"
+                                                                                style={{ padding: '4px 8px', fontSize: '11px' }}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    removeShift(currentLocation, employee.id, day);
+                                                                                }}
+                                                                            >
+                                                                                Remove
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span style={{ color: '#ccc' }}>Click to assign</span>
+                                                                )}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="info-section">
+                                    <h3>Additional Information</h3>
+                                    <textarea
+                                        placeholder="Add notes, instructions, or additional information for this location..."
+                                        value={editingInfo || currentLocationData.info}
+                                        onChange={(e) => setEditingInfo(e.target.value)}
+                                    />
+                                    <button 
+                                        className="btn btn-primary"
+                                        style={{ marginTop: '10px' }}
+                                        onClick={() => updateLocationInfo(currentLocation)}
+                                    >
+                                        Save Information
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'requests' && (
+                            <div className="section">
+                                <h2 className="section-title">Shift Change & Swap Requests</h2>
+                                
+                                {swapRequests.length === 0 ? (
+                                    <p style={{ color: '#666', textAlign: 'center', padding: '40px' }}>
+                                        No pending requests
+                                    </p>
+                                ) : (
+                                    swapRequests.map(request => (
+                                        <div key={request.id} className="swap-request">
+                                            <h4>
+                                                {request.type === 'change' ? '🔄 Shift Change Request' : '🔀 Shift Swap Request'}
+                                            </h4>
+                                            <p><strong>Location:</strong> {request.locationName}</p>
+                                            <p><strong>Date:</strong> {request.day}</p>
+                                            {request.type === 'change' ? (
+                                                <>
+                                                    <p><strong>Employee:</strong> {request.employeeName}</p>
+                                                    <p><strong>Requested Shift:</strong> {request.newShift.name} ({request.newShift.startTime} - {request.newShift.endTime})</p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <p><strong>Swap:</strong> {request.fromEmployee} ↔️ {request.toEmployee}</p>
+                                                </>
+                                            )}
+                                            <p><strong>Submitted:</strong> {request.date}</p>
+                                            <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+                                                <button 
+                                                    className="btn btn-success"
+                                                    onClick={() => approveRequest(request.id)}
+                                                >
+                                                    Approve
+                                                </button>
+                                                <button 
+                                                    className="btn btn-danger"
+                                                    onClick={() => denyRequest(request.id)}
+                                                >
+                                                    Deny
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {showModal && modalType === 'addShift' && (
+                        <div className="modal" onClick={() => setShowModal(false)}>
+                            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                                <h2 className="modal-header">Add New Shift Type</h2>
+                                
+                                <div className="form-group">
+                                    <label>Shift Name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g., Morning, Evening, Night"
+                                        value={newShift.name}
+                                        onChange={(e) => setNewShift({ ...newShift, name: e.target.value })}
+                                    />
+                                </div>
+
+                                <div className="grid-2">
+                                    <div className="form-group">
+                                        <label>Start Time</label>
+                                        <input
+                                            type="time"
+                                            value={newShift.startTime}
+                                            onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>End Time</label>
+                                        <input
+                                            type="time"
+                                            value={newShift.endTime}
+                                            onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label>Shift Color</label>
+                                    <div className="color-picker">
+                                        {SHIFT_COLORS.map(colorOption => (
+                                            <div
+                                                key={colorOption.color}
+                                                className={`color-option ${newShift.color === colorOption.color ? 'selected' : ''}`}
+                                                style={{ background: colorOption.color }}
+                                                onClick={() => setNewShift({ ...newShift, color: colorOption.color })}
+                                                title={colorOption.name}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="modal-footer">
+                                    <button className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                                        Cancel
+                                    </button>
+                                    <button className="btn btn-primary" onClick={addShiftType}>
+                                        Add Shift
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {showModal && modalType === 'assignShift' && (
+                        <div className="modal" onClick={() => setShowModal(false)}>
+                            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                                <h2 className="modal-header">Assign Shift</h2>
+                                
+                                <div className="form-group">
+                                    <label>Select Shift Type</label>
+                                    <select
+                                        value=""
+                                        onChange={(e) => {
+                                            const shiftId = parseInt(e.target.value);
+                                            assignShift(newShift.locationId, newShift.employeeId, newShift.day, shiftId);
+                                            setShowModal(false);
+                                        }}
+                                    >
+                                        <option value="">Choose a shift...</option>
+                                        {shiftTypes.map(shift => (
+                                            <option key={shift.id} value={shift.id}>
+                                                {shift.name} ({shift.startTime} - {shift.endTime})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="modal-footer">
+                                    <button className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<SchedulingApp />, document.getElementById('root'));
+    </script>
+    <script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("service-worker.js");
+  }
+</script>
+</body>
+</html>
