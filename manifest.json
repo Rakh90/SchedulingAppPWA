@@ -2,7 +2,7 @@
   "name": "Scheduling App",
   "short_name": "Scheduler",
   "description": "Manage employee schedules across locations",
-  "start_url": "./scheduling-app.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
