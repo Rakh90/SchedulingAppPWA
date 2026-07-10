@@ -236,6 +236,7 @@
             font-size: 15px;
             font-weight: 700;
             word-break: break-word;
+            padding-left: 26px;
             padding-right: 26px;
         }
 
@@ -258,6 +259,35 @@
 
         .note-card-trash-btn:active {
             background: rgba(197,34,31,0.85);
+        }
+
+        .note-card-pin-btn {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(0,0,0,0.28);
+            color: white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            opacity: 0.65;
+            filter: grayscale(1);
+        }
+
+        .note-card-pin-btn.pinned {
+            background: rgba(102,126,234,0.85);
+            opacity: 1;
+            filter: none;
+        }
+
+        .note-card.pinned {
+            box-shadow: 0 0 0 2px #667eea, 0 4px 14px rgba(0,0,0,0.14);
         }
 
         .note-card-body {
@@ -1331,6 +1361,7 @@
                 table: null,
                 background: '#ffffff',
                 order: now,
+                pinned: false,
                 deletedAt: null,
                 createdAt: now,
                 updatedAt: now,
@@ -1344,6 +1375,7 @@
                 return {
                     deletedAt: raw.deletedAt || null,
                     order: raw.order != null ? raw.order : (raw.updatedAt || raw.createdAt || Date.now()),
+                    pinned: raw.pinned || false,
                     ...raw,
                 };
             }
@@ -1367,6 +1399,7 @@
                 table: raw.table || null,
                 background: raw.background || '#ffffff',
                 order: raw.updatedAt || raw.createdAt || Date.now(),
+                pinned: raw.pinned || false,
                 deletedAt: null,
                 createdAt: raw.createdAt || Date.now(),
                 updatedAt: raw.updatedAt || Date.now(),
@@ -1398,13 +1431,21 @@
             return (note.blocks || []).some(b => stripHtml(b.html).toLowerCase().includes(q));
         }
 
-        function NoteCard({ note, category, onOpen, onTrash, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp }) {
+        // Pinned notes always float above unpinned ones; used consistently for
+        // both the rendered list and the drag-reorder math so a drag never
+        // computes a splice index that the very next render's sort undoes.
+        function noteSortCompare(a, b) {
+            if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+            return (b.order || 0) - (a.order || 0);
+        }
+
+        function NoteCard({ note, category, onOpen, onTrash, onTogglePin, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp }) {
             const numbers = computeListNumbers(note.blocks);
             const previewBlocks = note.blocks.filter(b => b.html && stripHtml(b.html).trim()).slice(0, 4);
 
             return (
                 <div
-                    className={'note-card' + (isDragging ? ' dragging' : '') + (isThemeDark(note.background) ? ' dark-content' : '')}
+                    className={'note-card' + (isDragging ? ' dragging' : '') + (note.pinned ? ' pinned' : '') + (isThemeDark(note.background) ? ' dark-content' : '')}
                     style={{ ...resolveCardBackground(note.background), touchAction: dragEnabled ? 'none' : 'auto' }}
                     data-note-id={note.id}
                     onPointerDown={dragEnabled ? (e) => onCardPointerDown(e, note.id) : undefined}
@@ -1413,6 +1454,14 @@
                     onPointerCancel={dragEnabled ? onCardPointerUp : undefined}
                     onClick={(e) => { if (e.target.tagName === 'A') return; onOpen(note.id); }}
                 >
+                    <button
+                        className={'note-card-pin-btn' + (note.pinned ? ' pinned' : '')}
+                        title={note.pinned ? 'Unpin' : 'Pin to top'}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
+                    >
+                        📌
+                    </button>
                     <button
                         className="note-card-trash-btn"
                         title="Move to trash"
@@ -2017,6 +2066,14 @@
                     <div className="editor-header">
                         <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.16)', color: '#1a1a1a' }} onClick={handleBack}>←</button>
                         <div className="editor-header-actions">
+                            <button
+                                className={'icon-btn' + (draft.pinned ? ' active' : '')}
+                                style={{ background: draft.pinned ? 'rgba(102,126,234,0.85)' : 'rgba(0,0,0,0.16)', color: draft.pinned ? '#fff' : '#1a1a1a' }}
+                                title={draft.pinned ? 'Unpin' : 'Pin to top'}
+                                onClick={() => updateField('pinned', !draft.pinned)}
+                            >
+                                📌
+                            </button>
                             <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.16)', color: '#c5221f' }} onClick={() => setConfirmTrash(true)}>🗑</button>
                         </div>
                     </div>
@@ -2302,6 +2359,15 @@
                 }));
             }, [db]);
 
+            const togglePin = useCallback((id) => {
+                setNotes((prev) => prev.map((n) => {
+                    if (n.id !== id) return n;
+                    const updated = { ...n, pinned: !n.pinned };
+                    if (db) idbPut(db, 'notes', updated);
+                    return updated;
+                }));
+            }, [db]);
+
             const restoreNote = useCallback((id) => {
                 setNotes((prev) => prev.map((n) => {
                     if (n.id !== id) return n;
@@ -2424,7 +2490,7 @@
             // the very next render — this keeps the sort key itself live during
             // the drag, not just at drop.
             const reorderNotes = (prev, draggedId, targetId) => {
-                const active = prev.filter(n => !n.deletedAt).sort((a, b) => (b.order || 0) - (a.order || 0));
+                const active = prev.filter(n => !n.deletedAt).sort(noteSortCompare);
                 const trashed = prev.filter(n => n.deletedAt);
                 const dragIdx = active.findIndex(n => n.id === draggedId);
                 const targetIdx = active.findIndex(n => n.id === targetId);
@@ -2473,7 +2539,7 @@
                 if (dragRef.current.dragging) {
                     justDraggedRef.current = true;
                     setNotes((prev) => {
-                        const active = prev.filter(n => !n.deletedAt).sort((a, b) => (b.order || 0) - (a.order || 0));
+                        const active = prev.filter(n => !n.deletedAt).sort(noteSortCompare);
                         const trashed = prev.filter(n => n.deletedAt);
                         const base = Date.now();
                         const reOrdered = active.map((n, idx) => {
@@ -2526,7 +2592,7 @@
 
             const visibleNotes = notes
                 .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory) && noteMatchesSearch(n, searchQuery))
-                .sort((a, b) => (b.order || 0) - (a.order || 0));
+                .sort(noteSortCompare);
             const categoryById = Object.fromEntries(categories.map(c => [c.id, c]));
 
             const toggleSearch = () => {
@@ -2609,6 +2675,7 @@
                                         category={note.categoryId ? categoryById[note.categoryId] : null}
                                         onOpen={handleCardOpen}
                                         onTrash={trashNote}
+                                        onTogglePin={togglePin}
                                         dragEnabled={filterCategory === 'all'}
                                         isDragging={draggingId === note.id}
                                         onCardPointerDown={handleCardPointerDown}
