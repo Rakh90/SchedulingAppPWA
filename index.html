@@ -52,6 +52,7 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 18px 16px 14px;
+            padding-top: calc(18px + env(safe-area-inset-top, 0px));
         }
 
         .app-header h1 {
@@ -586,6 +587,7 @@
             border-bottom: 1px solid rgba(0,0,0,0.14);
             flex: 0 0 auto;
             background: rgba(255,255,255,0.6);
+            padding-top: calc(12px + env(safe-area-inset-top, 0px));
         }
 
         .editor-header-title {
