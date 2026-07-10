@@ -1759,6 +1759,7 @@
             const [previewPhoto, setPreviewPhoto] = useState(null);
             const [uploading, setUploading] = useState(false);
             const [dateCellActive, setDateCellActive] = useState(false);
+            const [confirmRemoveRow, setConfirmRemoveRow] = useState(false);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
             const mileageTableRef = useRef(null);
@@ -1899,6 +1900,13 @@
                 });
             };
 
+            const removeLastMileageRow = () => {
+                setDraft((d) => {
+                    if (!d.table || d.table.rows.length === 0) return d;
+                    return { ...d, table: { ...d.table, rows: d.table.rows.slice(0, -1) } };
+                });
+            };
+
             const updateMileageCell = (rowId, cellIndex, value) => {
                 setDraft((d) => {
                     if (!d.table) return d;
@@ -1991,7 +1999,7 @@
                                 onActiveDateCellChange={setDateCellActive}
                             />
                         ) : null}
-                        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, rowGap: 10, marginTop: 10 }}>
                             <button className="secondary-btn" onClick={addMileageRow}>+ Add Mileage Row</button>
                             <button
                                 className="secondary-btn"
@@ -2001,7 +2009,25 @@
                             >
                                 📅 Today
                             </button>
+                            <button
+                                className="secondary-btn"
+                                style={{ marginLeft: 'auto' }}
+                                disabled={!draft.table || draft.table.rows.length === 0}
+                                onClick={() => setConfirmRemoveRow(true)}
+                            >
+                                🗑 Remove Row
+                            </button>
                         </div>
+
+                        {confirmRemoveRow ? (
+                            <ConfirmSheet
+                                title="Remove last row?"
+                                message="The last row of the mileage table will be permanently removed."
+                                confirmLabel="Remove Row"
+                                onCancel={() => setConfirmRemoveRow(false)}
+                                onConfirm={() => { removeLastMileageRow(); setConfirmRemoveRow(false); }}
+                            />
+                        ) : null}
 
                         <div className="section-label">Photos</div>
                         <div className="photo-row">
