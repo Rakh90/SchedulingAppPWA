@@ -1073,7 +1073,8 @@
         .dark-content .editor-title-input,
         .dark-content .section-label,
         .dark-content .mileage-table th,
-        .dark-content .trash-row-title {
+        .dark-content .trash-row-title,
+        .dark-content .editor-header-title {
             color: #f3f4f8;
         }
 
@@ -1476,6 +1477,18 @@
                 return { backgroundImage: 'linear-gradient(rgba(0,0,0,0.32), rgba(0,0,0,0.32)), ' + theme.pageCss };
             }
             return {};
+        }
+
+        // Editor/Trash header icon buttons were hardcoded for a light header
+        // (dark badge, dark icon). Now that the header can pick up a dark
+        // theme too, they need to flip to a light badge/icon or they'd
+        // disappear against it.
+        function headerBadgeBg(isDark) {
+            return isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.16)';
+        }
+
+        function headerIconColor(isDark) {
+            return isDark ? '#ffffff' : '#1a1a1a';
         }
 
         function blankNote(categoryIds) {
@@ -2311,20 +2324,22 @@
                 ? { b: hasWholeLineTag(activeBlock.html, 'b'), i: hasWholeLineTag(activeBlock.html, 'i'), u: hasWholeLineTag(activeBlock.html, 'u') }
                 : { b: false, i: false, u: false };
 
+            const editorHeaderDark = isThemeDark(draft.background);
+
             return (
-                <div className={'editor-screen' + (isThemeDark(draft.background) ? ' dark-content' : '')} style={resolveCardBackground(draft.background)}>
-                    <div className="editor-header">
-                        <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.16)', color: '#1a1a1a' }} onClick={handleBack}>←</button>
+                <div className={'editor-screen' + (editorHeaderDark ? ' dark-content' : '')} style={resolvePageBackground(draft.background)}>
+                    <div className="editor-header" style={resolveHeaderBackground(draft.background)}>
+                        <button className="icon-btn" style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }} onClick={handleBack}>←</button>
                         <div className="editor-header-actions">
                             <button
                                 className={'icon-btn' + (draft.pinned ? ' active' : '')}
-                                style={{ background: draft.pinned ? 'rgba(102,126,234,0.85)' : 'rgba(0,0,0,0.16)', color: draft.pinned ? '#fff' : '#1a1a1a' }}
+                                style={draft.pinned ? { background: 'rgba(102,126,234,0.85)', color: '#fff' } : { background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
                                 title={draft.pinned ? 'Unpin' : 'Pin to top'}
                                 onClick={() => updateField('pinned', !draft.pinned)}
                             >
                                 📌
                             </button>
-                            <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.16)', color: '#c5221f' }} onClick={() => setConfirmTrash(true)}>🗑</button>
+                            <button className="icon-btn" style={{ background: headerBadgeBg(editorHeaderDark), color: '#c5221f' }} onClick={() => setConfirmTrash(true)}>🗑</button>
                         </div>
                     </div>
                     <div className="editor-body">
@@ -2515,15 +2530,16 @@
         function TrashScreen({ notes, background, onBack, onRestore, onDeleteForever, onEmptyTrash }) {
             const [confirmEmptyOpen, setConfirmEmptyOpen] = useState(false);
             const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+            const trashHeaderDark = isThemeDark(background);
 
             return (
-                <div className={'editor-screen' + (isThemeDark(background) ? ' dark-content' : '')} style={resolveCardBackground(background)}>
-                    <div className="editor-header">
-                        <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.16)', color: '#1a1a1a' }} onClick={onBack}>←</button>
+                <div className={'editor-screen' + (trashHeaderDark ? ' dark-content' : '')} style={resolvePageBackground(background)}>
+                    <div className="editor-header" style={resolveHeaderBackground(background)}>
+                        <button className="icon-btn" style={{ background: headerBadgeBg(trashHeaderDark), color: headerIconColor(trashHeaderDark) }} onClick={onBack}>←</button>
                         <div className="editor-header-title">Trash</div>
                         <button
                             className="icon-btn"
-                            style={{ background: 'rgba(0,0,0,0.16)', color: '#c5221f' }}
+                            style={{ background: headerBadgeBg(trashHeaderDark), color: '#c5221f' }}
                             onClick={() => setConfirmEmptyOpen(true)}
                             disabled={notes.length === 0}
                         >
