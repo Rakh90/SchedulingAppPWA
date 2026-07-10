@@ -652,6 +652,7 @@
         .editor-body {
             flex: 1 1 auto;
             overflow-y: auto;
+            overscroll-behavior-y: none;
             padding: 16px;
         }
 
@@ -1416,7 +1417,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v35';
+        const APP_VERSION = 'v36';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
