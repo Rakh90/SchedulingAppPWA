@@ -192,6 +192,28 @@
             font-size: 15px;
             font-weight: 700;
             word-break: break-word;
+            padding-right: 26px;
+        }
+
+        .note-card-trash-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(0,0,0,0.45);
+            color: white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+
+        .note-card-trash-btn:active {
+            background: rgba(197,34,31,0.85);
         }
 
         .note-card-body {
@@ -1030,7 +1052,7 @@
             return note.categoryId === filterCategory;
         }
 
-        function NoteCard({ note, category, onOpen, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp }) {
+        function NoteCard({ note, category, onOpen, onTrash, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp }) {
             const numbers = computeListNumbers(note.blocks);
             const previewBlocks = note.blocks.filter(b => b.html && stripHtml(b.html).trim()).slice(0, 6);
 
@@ -1045,6 +1067,14 @@
                     onPointerCancel={dragEnabled ? onCardPointerUp : undefined}
                     onClick={() => onOpen(note.id)}
                 >
+                    <button
+                        className="note-card-trash-btn"
+                        title="Move to trash"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); onTrash(note.id); }}
+                    >
+                        🗑
+                    </button>
                     {note.title ? <div className="note-card-title">{note.title}</div> : null}
                     {note.photos && note.photos.length > 0 ? (
                         <img className="note-card-thumb" src={note.photos[0].dataUrl} alt="" />
@@ -1872,6 +1902,7 @@
                                         note={note}
                                         category={note.categoryId ? categoryById[note.categoryId] : null}
                                         onOpen={handleCardOpen}
+                                        onTrash={trashNote}
                                         dragEnabled={filterCategory === 'all'}
                                         isDragging={draggingId === note.id}
                                         onCardPointerDown={handleCardPointerDown}
