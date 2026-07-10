@@ -614,15 +614,6 @@
         .block-editable u, .block-display u { text-decoration: underline; }
         .block-display a { color: #667eea; text-decoration: underline; }
 
-        .list-item-remove {
-            border: none;
-            background: transparent;
-            color: #c2c5cf;
-            font-size: 16px;
-            flex: 0 0 auto;
-            padding: 4px;
-        }
-
         .add-item-row {
             display: flex;
             align-items: center;
@@ -942,6 +933,54 @@
             });
         }
 
+        // Whole-line bold/italic/underline toggling, implemented as plain HTML
+        // wrapping/unwrapping instead of document.execCommand. execCommand relies
+        // on the browser's native text selection surviving a tap on the toolbar
+        // button, which Android often collapses as part of its own selection-UI
+        // handling regardless of preventDefault — this works identically on every
+        // device since it never depends on a selection existing at all. Multiple
+        // formats stack as nested wrapper tags (e.g. <u><i><b>text</b></i></u>).
+        function findTagLayer(html, upperTag) {
+            const container = document.createElement('div');
+            container.innerHTML = html || '';
+            let node = container;
+            while (node.childNodes.length === 1 && node.firstChild.nodeType === Node.ELEMENT_NODE) {
+                if (node.firstChild.tagName === upperTag) return true;
+                node = node.firstChild;
+            }
+            return false;
+        }
+
+        function hasWholeLineTag(html, tag) {
+            return findTagLayer(html, tag.toUpperCase());
+        }
+
+        function removeTagLayer(html, upperTag) {
+            const container = document.createElement('div');
+            container.innerHTML = html || '';
+            const recurse = (node) => {
+                if (node.childNodes.length === 1 && node.firstChild.nodeType === Node.ELEMENT_NODE) {
+                    const child = node.firstChild;
+                    if (child.tagName === upperTag) {
+                        while (child.firstChild) node.insertBefore(child.firstChild, child);
+                        node.removeChild(child);
+                        return;
+                    }
+                    recurse(child);
+                }
+            };
+            recurse(container);
+            return container.innerHTML;
+        }
+
+        function toggleWholeLineFormat(html, tag) {
+            const upper = tag.toUpperCase();
+            if (hasWholeLineTag(html, tag)) {
+                return removeTagLayer(html, upper);
+            }
+            return '<' + tag + '>' + (html || '') + '</' + tag + '>';
+        }
+
         const CATEGORY_COLORS = ['#667eea', '#e57373', '#f2a541', '#ffd54f', '#81c784', '#4dd0c9', '#4fc3f7', '#9575cd', '#f06292', '#a1887f'];
 
         const NOTE_BACKGROUNDS = [
@@ -1227,11 +1266,11 @@
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, activeType, onFormat, onSetType }) {
-            const runCmd = (cmd) => (e) => {
+        function LineToolbar({ hasActiveLine, activeType, activeFormats, onFormat, onSetType }) {
+            const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
-                document.execCommand(cmd);
+                onFormat(tag);
             };
             const runType = (type) => (e) => {
                 e.preventDefault();
@@ -1240,9 +1279,9 @@
             };
             return (
                 <div className="line-toolbar">
-                    <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runCmd('bold')} title="Bold"><b>B</b></button>
-                    <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runCmd('italic')} title="Italic"><i>I</i></button>
-                    <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runCmd('underline')} title="Underline"><u>U</u></button>
+                    <button className={'line-toolbar-btn' + (activeFormats.b ? ' active' : '')} disabled={!hasActiveLine} onMouseDown={runFormat('b')} title="Bold"><b>B</b></button>
+                    <button className={'line-toolbar-btn' + (activeFormats.i ? ' active' : '')} disabled={!hasActiveLine} onMouseDown={runFormat('i')} title="Italic"><i>I</i></button>
+                    <button className={'line-toolbar-btn' + (activeFormats.u ? ' active' : '')} disabled={!hasActiveLine} onMouseDown={runFormat('u')} title="Underline"><u>U</u></button>
                     <span className="line-toolbar-divider"></span>
                     {LINE_TYPE_ICONS.map(({ type, icon }) => (
                         <button
@@ -1259,7 +1298,7 @@
             );
         }
 
-        function BlockLine({ block, isEditing, listNumber, onStartEdit, onExitEdit, onCommit, onEnter, onBackspaceEmpty, onToggleChecked, onRemove }) {
+        function BlockLine({ block, isEditing, listNumber, onStartEdit, onExitEdit, onCommit, onEnter, onBackspaceEmpty, onToggleChecked }) {
             const editableRef = useRef(null);
 
             // Re-seed the contentEditable's DOM content every time this block enters
@@ -1337,7 +1376,6 @@
                             dangerouslySetInnerHTML={{ __html: block.html ? linkify(block.html) : '<span class="block-placeholder">List item</span>' }}
                         />
                     )}
-                    <button className="list-item-remove" onMouseDown={(e) => e.preventDefault()} onClick={() => onRemove(block.id)}>✕</button>
                 </div>
             );
         }
@@ -1375,6 +1413,27 @@
                 }));
             };
 
+            // Reads the live DOM (not stale React state) so a format toggle picks up
+            // whatever was just typed, then writes the result straight back into the
+            // DOM and refocuses — see the note above toggleWholeLineFormat for why
+            // this avoids execCommand entirely.
+            const toggleLineFormat = (tag) => {
+                if (!editingBlockId) return;
+                const el = document.querySelector('.block-editable');
+                if (!el) return;
+                const newHtml = sanitizeInlineHtml(toggleWholeLineFormat(el.innerHTML, tag));
+                el.innerHTML = newHtml;
+                el.focus();
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                range.collapse(false);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                const blockId = editingBlockId;
+                setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: newHtml } : b) }));
+            };
+
             const toggleChecked = (blockId) => {
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, checked: !b.checked } : b) }));
             };
@@ -1397,16 +1456,6 @@
                 const nextFocusId = draft.blocks[idx - 1] ? draft.blocks[idx - 1].id : (draft.blocks[idx + 1] ? draft.blocks[idx + 1].id : null);
                 setDraft((d) => ({ ...d, blocks: d.blocks.filter(b => b.id !== blockId) }));
                 setEditingBlockId(nextFocusId);
-            };
-
-            const removeBlock = (blockId) => {
-                setDraft((d) => {
-                    if (d.blocks.length <= 1) {
-                        return { ...d, blocks: [{ id: makeId(), type: 'text', html: '' }] };
-                    }
-                    return { ...d, blocks: d.blocks.filter(b => b.id !== blockId) };
-                });
-                if (editingBlockId === blockId) setEditingBlockId(null);
             };
 
             // Reads the live DOM of the block currently being edited so we don't
@@ -1453,6 +1502,9 @@
 
             const listNumbers = computeListNumbers(draft.blocks);
             const activeBlock = editingBlockId ? draft.blocks.find(b => b.id === editingBlockId) : null;
+            const activeFormats = activeBlock
+                ? { b: hasWholeLineTag(activeBlock.html, 'b'), i: hasWholeLineTag(activeBlock.html, 'i'), u: hasWholeLineTag(activeBlock.html, 'u') }
+                : { b: false, i: false, u: false };
 
             return (
                 <div className="editor-screen" style={resolveCardBackground(draft.background)}>
@@ -1485,6 +1537,8 @@
                             <LineToolbar
                                 hasActiveLine={!!editingBlockId}
                                 activeType={activeBlock ? activeBlock.type : null}
+                                activeFormats={activeFormats}
+                                onFormat={toggleLineFormat}
                                 onSetType={(type) => setBlockType(editingBlockId, type)}
                             />
                         </div>
@@ -1502,7 +1556,6 @@
                                     onEnter={handleEnter}
                                     onBackspaceEmpty={handleBackspaceEmpty}
                                     onToggleChecked={toggleChecked}
-                                    onRemove={removeBlock}
                                 />
                             ))}
                         </div>
