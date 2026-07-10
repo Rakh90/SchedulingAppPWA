@@ -1289,7 +1289,7 @@
 
         function NoteCard({ note, category, onOpen, onTrash, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp }) {
             const numbers = computeListNumbers(note.blocks);
-            const previewBlocks = note.blocks.filter(b => b.html && stripHtml(b.html).trim()).slice(0, 6);
+            const previewBlocks = note.blocks.filter(b => b.html && stripHtml(b.html).trim()).slice(0, 4);
 
             return (
                 <div
