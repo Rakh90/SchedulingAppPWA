@@ -757,6 +757,30 @@
             margin: 20px 0 10px;
         }
 
+        .section-label-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin: 20px 0 10px;
+        }
+
+        .csv-export-btn {
+            flex: 0 0 auto;
+            background: #f1f1f4;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .dark-content .csv-export-btn {
+            background: rgba(255,255,255,0.16);
+            color: #f3f4f8;
+        }
+
         .photo-row {
             display: flex;
             gap: 10px;
@@ -1758,6 +1782,31 @@
 
         const MILEAGE_COLUMNS = ['Date', 'Start Point', 'End Point', 'Miles'];
 
+        function csvEscapeCell(value) {
+            const s = String(value == null ? '' : value);
+            return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+        }
+
+        function mileageTableToCsv(table) {
+            const lines = [MILEAGE_COLUMNS.map(csvEscapeCell).join(',')];
+            table.rows.forEach((row) => lines.push(row.cells.map(csvEscapeCell).join(',')));
+            return lines.join('\r\n');
+        }
+
+        function downloadMileageCsv(table, noteTitle) {
+            const csv = mileageTableToCsv(table);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const safeName = (noteTitle || 'mileage').trim().replace(/[^a-z0-9\-_ ]/gi, '').trim() || 'mileage';
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = safeName + '-mileage.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
         // Always-visible row next to the category dropdown that acts on whichever
         // line currently has editing focus. Every button uses onMouseDown +
         // preventDefault so tapping it never blurs (and thus never loses) the
@@ -2124,7 +2173,17 @@
                             ))}
                         </div>
 
-                        <div className="section-label">Mileage Table</div>
+                        <div className="section-label-row">
+                            <div className="section-label" style={{ margin: 0 }}>Mileage Table</div>
+                            {draft.table && draft.table.rows.length > 0 ? (
+                                <button
+                                    className="csv-export-btn"
+                                    onClick={() => downloadMileageCsv(draft.table, draft.title)}
+                                >
+                                    ⬇ Export CSV
+                                </button>
+                            ) : null}
+                        </div>
                         {draft.table ? (
                             <MileageTable
                                 ref={mileageTableRef}
