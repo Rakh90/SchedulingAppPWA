@@ -95,6 +95,44 @@
             opacity: 0.4;
         }
 
+        .icon-btn.active {
+            background: rgba(255,255,255,0.4);
+        }
+
+        .search-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.16);
+            border-radius: 10px;
+            padding: 8px 10px;
+            margin-top: 12px;
+        }
+
+        .search-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: white;
+            font-size: 14px;
+        }
+
+        .search-input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .search-input:focus {
+            outline: none;
+        }
+
+        .search-clear-btn {
+            border: none;
+            background: transparent;
+            color: rgba(255,255,255,0.85);
+            font-size: 14px;
+            flex: 0 0 auto;
+        }
+
         /* ---------- Category tabs ---------- */
         .category-tabs {
             display: flex;
@@ -1353,6 +1391,13 @@
             return note.categoryId === filterCategory;
         }
 
+        function noteMatchesSearch(note, query) {
+            const q = (query || '').trim().toLowerCase();
+            if (!q) return true;
+            if (note.title && note.title.toLowerCase().includes(q)) return true;
+            return (note.blocks || []).some(b => stripHtml(b.html).toLowerCase().includes(q));
+        }
+
         function NoteCard({ note, category, onOpen, onTrash, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp }) {
             const numbers = computeListNumbers(note.blocks);
             const previewBlocks = note.blocks.filter(b => b.html && stripHtml(b.html).trim()).slice(0, 4);
@@ -2200,6 +2245,8 @@
             const [deleteCategoryId, setDeleteCategoryId] = useState(null);
             const [draggingId, setDraggingId] = useState(null);
             const [draggingCategoryId, setDraggingCategoryId] = useState(null);
+            const [showSearch, setShowSearch] = useState(false);
+            const [searchQuery, setSearchQuery] = useState('');
 
             const dragRef = useRef({ pointerId: null, noteId: null, timer: null, dragging: false, startX: 0, startY: 0 });
             const justDraggedRef = useRef(false);
@@ -2478,9 +2525,16 @@
             }
 
             const visibleNotes = notes
-                .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory))
+                .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory) && noteMatchesSearch(n, searchQuery))
                 .sort((a, b) => (b.order || 0) - (a.order || 0));
             const categoryById = Object.fromEntries(categories.map(c => [c.id, c]));
+
+            const toggleSearch = () => {
+                setShowSearch((s) => {
+                    if (s) setSearchQuery('');
+                    return !s;
+                });
+            };
 
             return (
                 <div className="home-screen">
@@ -2488,11 +2542,27 @@
                         <div className="header-row">
                             <h1>📓 Notepad</h1>
                             <div className="header-actions">
+                                <button className={'icon-btn' + (showSearch ? ' active' : '')} onClick={toggleSearch} title="Search">🔍</button>
                                 <button className="icon-btn" onClick={() => setShowDashboardBg(true)} title="Dashboard background">🎨</button>
                                 <button className="icon-btn" onClick={() => setView('trash')} title="Trash">🗑</button>
                                 <button className="icon-btn" onClick={() => setShowCategoryManager(true)} title="Categories">⚙</button>
                             </div>
                         </div>
+                        {showSearch ? (
+                            <div className="search-bar">
+                                <input
+                                    type="text"
+                                    className="search-input"
+                                    placeholder="Search notes..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    autoFocus
+                                />
+                                {searchQuery ? (
+                                    <button className="search-clear-btn" onClick={() => setSearchQuery('')}>✕</button>
+                                ) : null}
+                            </div>
+                        ) : null}
                         <div className="category-tabs">
                             <button
                                 className={'category-pill' + (filterCategory === 'all' ? ' active' : '')}
@@ -2523,8 +2593,12 @@
                     <div className="notes-area" style={resolvePageBackground(settings.dashboardBackground)}>
                         {loading ? null : visibleNotes.length === 0 ? (
                             <div className="empty-state">
-                                <div className="emoji">🗒️</div>
-                                <p>No notes here yet.<br/>Tap + to create one.</p>
+                                <div className="emoji">{searchQuery.trim() ? '🔍' : '🗒️'}</div>
+                                {searchQuery.trim() ? (
+                                    <p>No notes match "{searchQuery.trim()}".</p>
+                                ) : (
+                                    <p>No notes here yet.<br/>Tap + to create one.</p>
+                                )}
                             </div>
                         ) : (
                             <div className="notes-grid">
