@@ -938,6 +938,11 @@
             color: #f3f4f8;
         }
 
+        .dark-content .mileage-cell-input:focus {
+            background: rgba(0,0,0,0.35);
+            color: #f3f4f8;
+        }
+
         .dark-content .mileage-total-row td {
             border-top-color: rgba(255,255,255,0.3);
         }
@@ -1451,8 +1456,6 @@
                                 onClick={() => onChange(bg.value)}
                             ></button>
                         ))}
-                    </div>
-                    <div className="bg-swatch-row" style={{ marginTop: 8 }}>
                         {THEME_BACKGROUNDS.map((t) => (
                             <button
                                 key={t.id}
