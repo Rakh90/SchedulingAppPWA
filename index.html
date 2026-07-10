@@ -1440,16 +1440,14 @@
                 }
             });
 
-            const handleKeyDown = (e, rowIdx, colIdx) => {
-                if (e.key !== 'Enter') return;
-                e.preventDefault();
+            // Last column: move into the next row if one exists, otherwise add a
+            // fresh row and focus its first cell once it mounts.
+            const advanceFocus = (rowIdx, colIdx) => {
                 if (colIdx < MILEAGE_COLUMNS.length - 1) {
                     const next = cellRefs.current[rowIdx + '-' + (colIdx + 1)];
                     if (next) next.focus();
                     return;
                 }
-                // Last column: move into the next row if one exists, otherwise
-                // add a fresh row and focus its first cell once it mounts.
                 if (rowIdx < table.rows.length - 1) {
                     const next = cellRefs.current[(rowIdx + 1) + '-0'];
                     if (next) next.focus();
@@ -1457,6 +1455,29 @@
                     pendingFocusKey.current = (rowIdx + 1) + '-0';
                     onAddRow();
                 }
+            };
+
+            const handleKeyDown = (e, rowIdx, colIdx) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                advanceFocus(rowIdx, colIdx);
+            };
+
+            // Many Android on-screen keyboards never dispatch a real "Enter"
+            // keydown for a plain text input — instead they insert a line-break
+            // character directly, which only shows up here as an `input` event
+            // with inputType "insertLineBreak". Catch that path too, stripping
+            // the stray newline before it reaches saved state.
+            const handleChange = (e, row, rowIdx, colIdx) => {
+                const inputType = e.nativeEvent && e.nativeEvent.inputType;
+                const raw = e.target.value;
+                if (inputType === 'insertLineBreak' || raw.indexOf('\n') !== -1) {
+                    const cleaned = raw.replace(/\n/g, '');
+                    onUpdateCell(row.id, colIdx, cleaned);
+                    advanceFocus(rowIdx, colIdx);
+                    return;
+                }
+                onUpdateCell(row.id, colIdx, raw);
             };
 
             return (
@@ -1478,7 +1499,7 @@
                                                 inputMode={i === 3 ? 'decimal' : 'text'}
                                                 enterKeyHint={i === MILEAGE_COLUMNS.length - 1 ? 'done' : 'next'}
                                                 ref={(el) => { cellRefs.current[rowIdx + '-' + i] = el; }}
-                                                onChange={(e) => onUpdateCell(row.id, i, e.target.value)}
+                                                onChange={(e) => handleChange(e, row, rowIdx, i)}
                                                 onKeyDown={(e) => handleKeyDown(e, rowIdx, i)}
                                             />
                                         </td>
