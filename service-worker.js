@@ -1,10 +1,11 @@
-const CACHE_NAME = 'scheduling-app-v1';
+const CACHE_NAME = 'notepad-app-v1';
 const urlsToCache = [
   './',
-  './scheduling-app.html',
+  './index.html',
   './manifest.json',
-  './appiconschedule.png',
-  './appiconschedule2.png'
+  './icon-192.png',
+  './icon-512.png',
+  './icon-512-maskable.png'
 ];
 
 // Install event - cache files

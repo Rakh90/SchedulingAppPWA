@@ -2,919 +2,1477 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scheduling App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#667eea">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+    <title>Notepad</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
-        
+
+        html, body {
+            height: 100%;
+            overscroll-behavior-y: none;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: #f5f5f5;
-            padding: 20px;
+            background: #f1f2f5;
+            color: #202124;
         }
-        
-        .app-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            overflow: hidden;
+
+        button, input, textarea, select {
+            font-family: inherit;
         }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        
-        .header h1 {
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
-        
-        .nav-tabs {
-            display: flex;
-            background: #f8f9fa;
-            border-bottom: 2px solid #dee2e6;
-            overflow-x: auto;
-        }
-        
-        .nav-tab {
-            padding: 15px 25px;
-            background: none;
-            border: none;
+
+        button {
             cursor: pointer;
-            font-size: 16px;
-            color: #495057;
-            transition: all 0.3s;
-            white-space: nowrap;
         }
-        
-        .nav-tab:hover {
-            background: #e9ecef;
+
+        #root {
+            min-height: 100%;
         }
-        
-        .nav-tab.active {
-            background: white;
-            color: #667eea;
-            font-weight: 600;
-            border-bottom: 3px solid #667eea;
-        }
-        
-        .content {
-            padding: 30px;
-        }
-        
-        .section {
-            margin-bottom: 30px;
-        }
-        
-        .section-title {
-            font-size: 20px;
-            margin-bottom: 15px;
-            color: #333;
-            font-weight: 600;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #555;
-            font-weight: 500;
-        }
-        
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-        
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-        
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
-        }
-        
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .btn-danger:hover {
-            background: #c82333;
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-        
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-success:hover {
-            background: #218838;
-        }
-        
-        .list-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 15px;
-            background: #f8f9fa;
-            border-radius: 6px;
-            margin-bottom: 10px;
-        }
-        
-        .list-item:hover {
-            background: #e9ecef;
-        }
-        
-        .schedule-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            overflow-x: auto;
-            display: block;
-        }
-        
-        .schedule-table table {
-            width: 100%;
-            min-width: 800px;
-        }
-        
-        .schedule-table th,
-        .schedule-table td {
-            border: 1px solid #dee2e6;
-            padding: 12px;
-            text-align: center;
-        }
-        
-        .schedule-table th {
-            background: #667eea;
-            color: white;
-            font-weight: 600;
+
+        /* ---------- Header ---------- */
+        .app-header {
             position: sticky;
             top: 0;
-        }
-        
-        .schedule-table td {
-            background: white;
-            min-height: 60px;
-            position: relative;
-        }
-        
-        .schedule-table tr:hover td {
-            background: #f8f9fa;
-        }
-        
-        .employee-name {
-            font-weight: 600;
-            background: #f8f9fa;
-        }
-        
-        .shift-cell {
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .shift-cell:hover {
-            transform: scale(1.02);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .shift-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
+            z-index: 10;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            padding: 18px 16px 14px;
         }
-        
-        .color-picker {
+
+        .app-header h1 {
+            font-size: 22px;
+            font-weight: 700;
             display: flex;
-            gap: 10px;
-            margin-top: 10px;
+            align-items: center;
+            gap: 8px;
         }
-        
-        .color-option {
-            width: 40px;
-            height: 40px;
-            border-radius: 6px;
-            cursor: pointer;
-            border: 3px solid transparent;
-            transition: all 0.2s;
+
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
-        
-        .color-option:hover {
-            transform: scale(1.1);
-        }
-        
-        .color-option.selected {
-            border-color: #333;
-            box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
-        }
-        
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
+
+        .icon-btn {
+            background: rgba(255,255,255,0.18);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
         }
-        
-        .modal-content {
+
+        .icon-btn:active {
+            background: rgba(255,255,255,0.32);
+        }
+
+        /* ---------- Category tabs ---------- */
+        .category-tabs {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            margin-top: 14px;
+            padding-bottom: 2px;
+            scrollbar-width: none;
+        }
+
+        .category-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .category-pill {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 20px;
+            border: none;
+            background: rgba(255,255,255,0.16);
+            color: white;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .category-pill.active {
             background: white;
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
+            color: #4c3d94;
+            font-weight: 600;
+        }
+
+        .color-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            display: inline-block;
+            flex: 0 0 auto;
+        }
+
+        .category-pill.add-pill {
+            background: rgba(255,255,255,0.16);
+            font-size: 16px;
+            padding: 7px 12px;
+        }
+
+        /* ---------- Notes grid ---------- */
+        .notes-area {
+            padding: 16px;
+            padding-bottom: 96px;
+        }
+
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .note-card {
+            border-radius: 14px;
+            padding: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 110px;
+            border: 1px solid rgba(0,0,0,0.05);
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .note-card-thumb {
+            width: 100%;
+            height: 90px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 2px;
+        }
+
+        .note-card-title {
+            font-size: 15px;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        .note-card-body {
+            font-size: 13px;
+            color: rgba(32,33,36,0.75);
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 5;
+            -webkit-box-orient: vertical;
+        }
+
+        .note-card-list-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            font-size: 13px;
+            color: rgba(32,33,36,0.8);
+        }
+
+        .note-card-list-item .marker {
+            flex: 0 0 auto;
+            font-size: 12px;
+            margin-top: 1px;
+        }
+
+        .note-card-list-item.checked {
+            text-decoration: line-through;
+            opacity: 0.55;
+        }
+
+        .note-card-footer {
+            margin-top: auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        .note-card-photo-badge {
+            font-size: 11px;
+            color: rgba(32,33,36,0.55);
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #80838a;
+        }
+
+        .empty-state .emoji {
+            font-size: 46px;
+            margin-bottom: 12px;
+        }
+
+        /* ---------- FAB ---------- */
+        .fab {
+            position: fixed;
+            right: 20px;
+            bottom: 24px;
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            font-size: 28px;
+            box-shadow: 0 4px 12px rgba(102,126,234,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+
+        .fab:active {
+            transform: scale(0.94);
+        }
+
+        /* ---------- Sheets / Modals ---------- */
+        .sheet-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 40;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .sheet-backdrop.centered {
+            align-items: center;
+            padding: 20px;
+        }
+
+        .sheet {
+            background: white;
+            width: 100%;
+            max-width: 480px;
+            border-radius: 18px 18px 0 0;
+            padding: 20px;
+            max-height: 80vh;
             overflow-y: auto;
         }
-        
-        .modal-header {
-            font-size: 24px;
-            margin-bottom: 20px;
+
+        .sheet-backdrop.centered .sheet {
+            border-radius: 16px;
+        }
+
+        .sheet h2 {
+            font-size: 17px;
+            margin-bottom: 16px;
+        }
+
+        .type-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .type-option {
+            border: 1.5px solid #e2e4e9;
+            border-radius: 12px;
+            padding: 16px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            background: #fafafa;
+            font-size: 13px;
+            font-weight: 600;
             color: #333;
         }
-        
-        .modal-footer {
+
+        .type-option:active {
+            background: #efeffb;
+            border-color: #667eea;
+        }
+
+        .type-option .emoji {
+            font-size: 26px;
+        }
+
+        .category-manager-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f2;
+        }
+
+        .category-manager-row input[type="text"] {
+            flex: 1;
+            border: none;
+            font-size: 15px;
+            padding: 4px 0;
+            background: transparent;
+        }
+
+        .category-manager-row input[type="text"]:focus {
+            outline: none;
+            border-bottom: 1px solid #667eea;
+        }
+
+        .small-icon-btn {
+            border: none;
+            background: #f1f1f4;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .swatch-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+        }
+
+        .swatch.selected {
+            border-color: #333;
+            box-shadow: 0 0 0 2px white inset;
+        }
+
+        .add-category-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid #f0f0f2;
+        }
+
+        .add-category-form input[type="text"] {
+            border: 1px solid #e2e4e9;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+        }
+
+        .primary-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 11px 16px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .secondary-btn {
+            background: #f1f1f4;
+            color: #333;
+            border: none;
+            border-radius: 10px;
+            padding: 11px 16px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .danger-btn {
+            background: #fdecea;
+            color: #c5221f;
+            border: none;
+            border-radius: 10px;
+            padding: 11px 16px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .btn-row {
             display: flex;
             gap: 10px;
-            margin-top: 20px;
-            justify-content: flex-end;
+            margin-top: 6px;
         }
-        
-        .info-section {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
+
+        .btn-row > * {
+            flex: 1;
         }
-        
-        .info-section h3 {
-            margin-bottom: 10px;
-            color: #333;
+
+        /* ---------- Editor ---------- */
+        .editor-screen {
+            position: fixed;
+            inset: 0;
+            background: #ffffff;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
         }
-        
-        .info-section textarea {
+
+        .editor-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 10px;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            flex: 0 0 auto;
+        }
+
+        .editor-header-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .editor-body {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .editor-title-input {
             width: 100%;
-            min-height: 100px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-family: inherit;
+            border: none;
+            font-size: 21px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: transparent;
+        }
+
+        .editor-title-input:focus {
+            outline: none;
+        }
+
+        .editor-meta-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .category-select {
+            border: 1px solid rgba(0,0,0,0.12);
+            border-radius: 16px;
+            padding: 6px 12px;
+            font-size: 13px;
+            background: white;
+        }
+
+        .type-switch {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 18px;
+            overflow-x: auto;
+        }
+
+        .type-switch button {
+            flex: 0 0 auto;
+            border: 1px solid rgba(0,0,0,0.1);
+            background: white;
+            padding: 7px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .type-switch button.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .editor-textarea {
+            width: 100%;
+            min-height: 160px;
+            border: none;
             resize: vertical;
+            font-size: 15px;
+            line-height: 1.5;
+            background: transparent;
         }
-        
-        .swap-request {
-            padding: 15px;
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 6px;
-            margin-bottom: 10px;
+
+        .editor-textarea:focus {
+            outline: none;
         }
-        
-        .swap-request h4 {
-            margin-bottom: 8px;
-            color: #856404;
+
+        .list-items {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
-        
-        .swap-request p {
-            margin: 5px 0;
-            color: #856404;
+
+        .list-item-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0;
         }
-        
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+
+        .list-item-marker {
+            flex: 0 0 auto;
+            width: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
         }
-        
-        @media (max-width: 768px) {
-            .grid-2 {
-                grid-template-columns: 1fr;
-            }
-            
-            .schedule-table {
-                font-size: 12px;
-            }
+
+        .checkbox-marker {
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+            border: 2px solid #a3a9c2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: white;
+            flex: 0 0 auto;
+        }
+
+        .checkbox-marker.checked {
+            background: #667eea;
+            border-color: #667eea;
+        }
+
+        .list-item-input {
+            flex: 1;
+            border: none;
+            font-size: 15px;
+            background: transparent;
+            padding: 4px 0;
+        }
+
+        .list-item-input:focus {
+            outline: none;
+        }
+
+        .list-item-input.checked {
+            text-decoration: line-through;
+            color: #9a9a9a;
+        }
+
+        .list-item-move {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .list-item-move button {
+            border: none;
+            background: transparent;
+            color: #a3a9c2;
+            font-size: 11px;
+            line-height: 1;
+            padding: 2px 4px;
+        }
+
+        .list-item-remove {
+            border: none;
+            background: transparent;
+            color: #c2c5cf;
+            font-size: 16px;
+            flex: 0 0 auto;
+            padding: 4px;
+        }
+
+        .add-item-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .add-item-row button {
+            border: none;
+            background: transparent;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #8a8d99;
+            font-weight: 700;
+            margin: 20px 0 10px;
+        }
+
+        .photo-row {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .photo-thumb-wrap {
+            position: relative;
+            flex: 0 0 auto;
+        }
+
+        .photo-thumb {
+            width: 84px;
+            height: 84px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .photo-remove-btn {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #202124;
+            color: white;
+            border: 2px solid white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .add-photo-btn {
+            flex: 0 0 auto;
+            width: 84px;
+            height: 84px;
+            border-radius: 10px;
+            border: 1.5px dashed #c2c5cf;
+            background: transparent;
+            color: #8a8d99;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bg-swatch-row {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .bg-swatch {
+            flex: 0 0 auto;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 2px solid rgba(0,0,0,0.08);
+        }
+
+        .bg-swatch.selected {
+            border: 2px solid #333;
+            box-shadow: 0 0 0 2px white inset;
+        }
+
+        .photo-preview-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 60;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .photo-preview-backdrop img {
+            max-width: 92vw;
+            max-height: 82vh;
+            border-radius: 8px;
+        }
+
+        .photo-preview-close {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border: none;
+            font-size: 20px;
+        }
+
+        .loading-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: #8a8d99;
+            font-size: 14px;
         }
     </style>
-<link rel="manifest" href="manifest.json" type="application/manifest+json">
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+    <script type="text/babel" data-presets="react">
+        const { useState, useEffect, useRef, useCallback } = React;
 
-        const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        
-        const SHIFT_COLORS = [
-            { name: 'Blue', color: '#3498db' },
-            { name: 'Green', color: '#2ecc71' },
-            { name: 'Red', color: '#e74c3c' },
-            { name: 'Orange', color: '#f39c12' },
-            { name: 'Purple', color: '#9b59b6' },
-            { name: 'Teal', color: '#1abc9c' },
-            { name: 'Pink', color: '#e91e63' },
-            { name: 'Gray', color: '#95a5a6' }
+        const DB_NAME = 'notepad-db';
+        const DB_VERSION = 1;
+
+        function openDatabase() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, DB_VERSION);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('notes')) {
+                        db.createObjectStore('notes', { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains('categories')) {
+                        db.createObjectStore('categories', { keyPath: 'id' });
+                    }
+                };
+                req.onsuccess = (e) => resolve(e.target.result);
+                req.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        function idbGetAll(db, storeName) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(storeName, 'readonly');
+                const req = tx.objectStore(storeName).getAll();
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function idbPut(db, storeName, value) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(storeName, 'readwrite');
+                tx.objectStore(storeName).put(value);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        function idbDelete(db, storeName, id) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(storeName, 'readwrite');
+                tx.objectStore(storeName).delete(id);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        function makeId() {
+            return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+        }
+
+        function resizeImage(dataUrl, maxDim, quality) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    let { width, height } = img;
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round(height * (maxDim / width));
+                            width = maxDim;
+                        } else {
+                            width = Math.round(width * (maxDim / height));
+                            height = maxDim;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = () => resolve(dataUrl);
+                img.src = dataUrl;
+            });
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        const CATEGORY_COLORS = ['#667eea', '#e57373', '#f2a541', '#ffd54f', '#81c784', '#4dd0c9', '#4fc3f7', '#9575cd', '#f06292', '#a1887f'];
+
+        const NOTE_BACKGROUNDS = [
+            { id: 'default', value: '#ffffff' },
+            { id: 'red', value: '#f28b82' },
+            { id: 'orange', value: '#fbbc04' },
+            { id: 'yellow', value: '#fff475' },
+            { id: 'green', value: '#ccff90' },
+            { id: 'teal', value: '#a7ffeb' },
+            { id: 'blue', value: '#cbf0f8' },
+            { id: 'darkblue', value: '#aecbfa' },
+            { id: 'purple', value: '#d7aefb' },
+            { id: 'pink', value: '#fdcfe8' },
+            { id: 'brown', value: '#e6c9a8' },
+            { id: 'gray', value: '#e8eaed' },
         ];
 
-        function SchedulingApp() {
-            const [locations, setLocations] = useState([
-                { id: 1, name: 'Main Office', info: '' }
-            ]);
-            const [employees, setEmployees] = useState([
-                { id: 1, name: 'John Doe' },
-                { id: 2, name: 'Jane Smith' }
-            ]);
-            const [shiftTypes, setShiftTypes] = useState([
-                { id: 1, name: 'Morning', startTime: '09:00', endTime: '17:00', color: '#3498db' },
-                { id: 2, name: 'Evening', startTime: '17:00', endTime: '01:00', color: '#2ecc71' }
-            ]);
-            const [schedules, setSchedules] = useState({});
-            const [swapRequests, setSwapRequests] = useState([]);
-            
-            const [currentLocation, setCurrentLocation] = useState(null);
-            const [activeTab, setActiveTab] = useState('locations');
-            const [showModal, setShowModal] = useState(false);
-            const [modalType, setModalType] = useState('');
-            
-            const [newEmployee, setNewEmployee] = useState('');
-            const [newLocation, setNewLocation] = useState('');
-            const [newShift, setNewShift] = useState({ name: '', startTime: '', endTime: '', color: '#3498db' });
-            const [editingInfo, setEditingInfo] = useState('');
+        const TYPE_LABELS = {
+            text: { label: 'Text', emoji: '📝' },
+            checklist: { label: 'Checklist', emoji: '✅' },
+            numbered: { label: 'Numbered', emoji: '🔢' },
+            bulleted: { label: 'Bulleted', emoji: '•' },
+        };
 
-            useEffect(() => {
-                if (locations.length > 0 && !currentLocation) {
-                    setCurrentLocation(locations[0].id);
-                }
-            }, [locations]);
-
-            const addEmployee = () => {
-                if (newEmployee.trim()) {
-                    setEmployees([...employees, { id: Date.now(), name: newEmployee }]);
-                    setNewEmployee('');
-                }
+        function blankNote(type, categoryId) {
+            const now = Date.now();
+            return {
+                id: makeId(),
+                title: '',
+                categoryId: categoryId || null,
+                type: type,
+                textContent: '',
+                items: type === 'text' ? [] : [{ id: makeId(), text: '', checked: false }],
+                photos: [],
+                background: '#ffffff',
+                createdAt: now,
+                updatedAt: now,
             };
+        }
 
-            const removeEmployee = (id) => {
-                setEmployees(employees.filter(emp => emp.id !== id));
-            };
+        function noteMatchesCategory(note, filterCategory) {
+            if (filterCategory === 'all') return true;
+            if (filterCategory === 'uncategorized') return !note.categoryId;
+            return note.categoryId === filterCategory;
+        }
 
-            const addLocation = () => {
-                if (newLocation.trim()) {
-                    const newLoc = { id: Date.now(), name: newLocation, info: '' };
-                    setLocations([...locations, newLoc]);
-                    setNewLocation('');
-                }
-            };
-
-            const removeLocation = (id) => {
-                setLocations(locations.filter(loc => loc.id !== id));
-                if (currentLocation === id) {
-                    setCurrentLocation(locations[0]?.id || null);
-                }
-            };
-
-            const addShiftType = () => {
-                if (newShift.name.trim() && newShift.startTime && newShift.endTime) {
-                    setShiftTypes([...shiftTypes, { ...newShift, id: Date.now() }]);
-                    setNewShift({ name: '', startTime: '', endTime: '', color: '#3498db' });
-                    setShowModal(false);
-                }
-            };
-
-            const removeShiftType = (id) => {
-                setShiftTypes(shiftTypes.filter(shift => shift.id !== id));
-            };
-
-            const assignShift = (locationId, employeeId, day, shiftId) => {
-                const key = `${locationId}-${employeeId}-${day}`;
-                setSchedules({ ...schedules, [key]: shiftId });
-            };
-
-            const removeShift = (locationId, employeeId, day) => {
-                const key = `${locationId}-${employeeId}-${day}`;
-                const newSchedules = { ...schedules };
-                delete newSchedules[key];
-                setSchedules(newSchedules);
-            };
-
-            const getShift = (locationId, employeeId, day) => {
-                const key = `${locationId}-${employeeId}-${day}`;
-                const shiftId = schedules[key];
-                return shiftTypes.find(shift => shift.id === shiftId);
-            };
-
-            const submitShiftChange = (locationId, employeeId, day, newShiftId) => {
-                const shift = shiftTypes.find(s => s.id === newShiftId);
-                const employee = employees.find(e => e.id === employeeId);
-                const location = locations.find(l => l.id === locationId);
-                
-                setSwapRequests([...swapRequests, {
-                    id: Date.now(),
-                    type: 'change',
-                    locationId,
-                    locationName: location.name,
-                    employeeId,
-                    employeeName: employee.name,
-                    day,
-                    newShift: shift,
-                    status: 'pending',
-                    date: new Date().toLocaleDateString()
-                }]);
-                setShowModal(false);
-            };
-
-            const submitShiftSwap = (fromEmpId, toEmpId, day) => {
-                const fromEmp = employees.find(e => e.id === fromEmpId);
-                const toEmp = employees.find(e => e.id === toEmpId);
-                const location = locations.find(l => l.id === currentLocation);
-                
-                setSwapRequests([...swapRequests, {
-                    id: Date.now(),
-                    type: 'swap',
-                    locationId: currentLocation,
-                    locationName: location.name,
-                    fromEmployee: fromEmp.name,
-                    toEmployee: toEmp.name,
-                    day,
-                    status: 'pending',
-                    date: new Date().toLocaleDateString()
-                }]);
-                setShowModal(false);
-            };
-
-            const approveRequest = (requestId) => {
-                setSwapRequests(swapRequests.filter(req => req.id !== requestId));
-            };
-
-            const denyRequest = (requestId) => {
-                setSwapRequests(swapRequests.filter(req => req.id !== requestId));
-            };
-
-            const updateLocationInfo = (locationId) => {
-                const updatedLocations = locations.map(loc => 
-                    loc.id === locationId ? { ...loc, info: editingInfo } : loc
-                );
-                setLocations(updatedLocations);
-                setEditingInfo('');
-            };
-
-            const currentLocationData = locations.find(loc => loc.id === currentLocation);
+        function NoteCard({ note, category, onOpen }) {
+            const bodyLines = note.type === 'text'
+                ? null
+                : note.items.slice(0, 6);
 
             return (
-                <div className="app-container">
-                    <div className="header">
-                        <h1>📅 Scheduling App</h1>
-                        <p>Manage employees, shifts, and schedules across all locations</p>
+                <button className="note-card" style={{ background: note.background || '#ffffff' }} onClick={() => onOpen(note.id)}>
+                    {note.title ? <div className="note-card-title">{note.title}</div> : null}
+                    {note.photos && note.photos.length > 0 ? (
+                        <img className="note-card-thumb" src={note.photos[0].dataUrl} alt="" />
+                    ) : null}
+                    {note.type === 'text' ? (
+                        note.textContent ? <div className="note-card-body">{note.textContent}</div> : null
+                    ) : (
+                        <div className="note-card-body" style={{ display: 'block' }}>
+                            {bodyLines.filter(it => it.text).map((it, idx) => (
+                                <div key={it.id} className={'note-card-list-item' + (it.checked ? ' checked' : '')}>
+                                    <span className="marker">
+                                        {note.type === 'checklist' ? (it.checked ? '☑' : '☐') : note.type === 'numbered' ? (idx + 1 + '.') : '•'}
+                                    </span>
+                                    <span>{it.text}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="note-card-footer">
+                        {category ? (
+                            <span className="color-dot" style={{ background: category.color }}></span>
+                        ) : <span></span>}
+                        {note.photos && note.photos.length > 0 ? (
+                            <span className="note-card-photo-badge">📷 {note.photos.length}</span>
+                        ) : null}
                     </div>
+                </button>
+            );
+        }
 
-                    <div className="nav-tabs">
-                        <button 
-                            className={`nav-tab ${activeTab === 'locations' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('locations')}
-                        >
-                            Locations
-                        </button>
-                        <button 
-                            className={`nav-tab ${activeTab === 'employees' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('employees')}
-                        >
-                            Employees
-                        </button>
-                        <button 
-                            className={`nav-tab ${activeTab === 'shifts' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('shifts')}
-                        >
-                            Shift Types
-                        </button>
-                        {locations.map(location => (
-                            <button 
-                                key={location.id}
-                                className={`nav-tab ${activeTab === `schedule-${location.id}` ? 'active' : ''}`}
-                                onClick={() => {
-                                    setActiveTab(`schedule-${location.id}`);
-                                    setCurrentLocation(location.id);
-                                }}
-                            >
-                                {location.name}
-                            </button>
-                        ))}
-                        <button 
-                            className={`nav-tab ${activeTab === 'requests' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('requests')}
-                        >
-                            Shift Requests ({swapRequests.length})
-                        </button>
-                    </div>
-
-                    <div className="content">
-                        {activeTab === 'locations' && (
-                            <div className="section">
-                                <h2 className="section-title">Work Locations</h2>
-                                <div className="form-group">
-                                    <label>Add New Location</label>
-                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                        <input
-                                            type="text"
-                                            placeholder="Location name"
-                                            value={newLocation}
-                                            onChange={(e) => setNewLocation(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && addLocation()}
-                                        />
-                                        <button className="btn btn-primary" onClick={addLocation}>
-                                            Add Location
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div style={{ marginTop: '20px' }}>
-                                    {locations.map(location => (
-                                        <div key={location.id} className="list-item">
-                                            <span>{location.name}</span>
-                                            <button 
-                                                className="btn btn-danger"
-                                                onClick={() => removeLocation(location.id)}
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'employees' && (
-                            <div className="section">
-                                <h2 className="section-title">Employees</h2>
-                                <div className="form-group">
-                                    <label>Add New Employee</label>
-                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                        <input
-                                            type="text"
-                                            placeholder="Employee name"
-                                            value={newEmployee}
-                                            onChange={(e) => setNewEmployee(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && addEmployee()}
-                                        />
-                                        <button className="btn btn-primary" onClick={addEmployee}>
-                                            Add Employee
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div style={{ marginTop: '20px' }}>
-                                    {employees.map(employee => (
-                                        <div key={employee.id} className="list-item">
-                                            <span>{employee.name}</span>
-                                            <button 
-                                                className="btn btn-danger"
-                                                onClick={() => removeEmployee(employee.id)}
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'shifts' && (
-                            <div className="section">
-                                <h2 className="section-title">Shift Types</h2>
-                                <button 
-                                    className="btn btn-primary" 
-                                    onClick={() => {
-                                        setModalType('addShift');
-                                        setShowModal(true);
-                                    }}
-                                >
-                                    Add New Shift Type
+        function TypePickerSheet({ onPick, onClose }) {
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                        <h2>New note</h2>
+                        <div className="type-options">
+                            {Object.keys(TYPE_LABELS).map((type) => (
+                                <button key={type} className="type-option" onClick={() => onPick(type)}>
+                                    <span className="emoji">{TYPE_LABELS[type].emoji}</span>
+                                    {TYPE_LABELS[type].label}
                                 </button>
-                                
-                                <div style={{ marginTop: '20px' }}>
-                                    {shiftTypes.map(shift => (
-                                        <div key={shift.id} className="list-item">
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                                <div 
-                                                    style={{ 
-                                                        width: '30px', 
-                                                        height: '30px', 
-                                                        borderRadius: '4px',
-                                                        background: shift.color 
-                                                    }}
-                                                />
-                                                <div>
-                                                    <strong>{shift.name}</strong>
-                                                    <div style={{ fontSize: '12px', color: '#666' }}>
-                                                        {shift.startTime} - {shift.endTime}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <button 
-                                                className="btn btn-danger"
-                                                onClick={() => removeShiftType(shift.id)}
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab.startsWith('schedule-') && currentLocationData && (
-                            <div className="section">
-                                <h2 className="section-title">Schedule for {currentLocationData.name}</h2>
-                                
-                                <div className="schedule-table">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>Employee</th>
-                                                {DAYS_OF_WEEK.map(day => (
-                                                    <th key={day}>{day}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {employees.map(employee => (
-                                                <tr key={employee.id}>
-                                                    <td className="employee-name">{employee.name}</td>
-                                                    {DAYS_OF_WEEK.map(day => {
-                                                        const shift = getShift(currentLocation, employee.id, day);
-                                                        return (
-                                                            <td 
-                                                                key={day}
-                                                                className="shift-cell"
-                                                                onClick={() => {
-                                                                    setModalType('assignShift');
-                                                                    setShowModal(true);
-                                                                    setNewShift({ employeeId: employee.id, day, locationId: currentLocation });
-                                                                }}
-                                                            >
-                                                                {shift ? (
-                                                                    <div>
-                                                                        <div 
-                                                                            className="shift-badge"
-                                                                            style={{ background: shift.color }}
-                                                                        >
-                                                                            {shift.name}
-                                                                        </div>
-                                                                        <div style={{ fontSize: '10px', marginTop: '4px', color: '#666' }}>
-                                                                            {shift.startTime} - {shift.endTime}
-                                                                        </div>
-                                                                        <div style={{ marginTop: '8px', display: 'flex', gap: '5px', justifyContent: 'center' }}>
-                                                                            <button 
-                                                                                className="btn btn-secondary"
-                                                                                style={{ padding: '4px 8px', fontSize: '11px' }}
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    removeShift(currentLocation, employee.id, day);
-                                                                                }}
-                                                                            >
-                                                                                Remove
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <span style={{ color: '#ccc' }}>Click to assign</span>
-                                                                )}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div className="info-section">
-                                    <h3>Additional Information</h3>
-                                    <textarea
-                                        placeholder="Add notes, instructions, or additional information for this location..."
-                                        value={editingInfo || currentLocationData.info}
-                                        onChange={(e) => setEditingInfo(e.target.value)}
-                                    />
-                                    <button 
-                                        className="btn btn-primary"
-                                        style={{ marginTop: '10px' }}
-                                        onClick={() => updateLocationInfo(currentLocation)}
-                                    >
-                                        Save Information
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'requests' && (
-                            <div className="section">
-                                <h2 className="section-title">Shift Change & Swap Requests</h2>
-                                
-                                {swapRequests.length === 0 ? (
-                                    <p style={{ color: '#666', textAlign: 'center', padding: '40px' }}>
-                                        No pending requests
-                                    </p>
-                                ) : (
-                                    swapRequests.map(request => (
-                                        <div key={request.id} className="swap-request">
-                                            <h4>
-                                                {request.type === 'change' ? '🔄 Shift Change Request' : '🔀 Shift Swap Request'}
-                                            </h4>
-                                            <p><strong>Location:</strong> {request.locationName}</p>
-                                            <p><strong>Date:</strong> {request.day}</p>
-                                            {request.type === 'change' ? (
-                                                <>
-                                                    <p><strong>Employee:</strong> {request.employeeName}</p>
-                                                    <p><strong>Requested Shift:</strong> {request.newShift.name} ({request.newShift.startTime} - {request.newShift.endTime})</p>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <p><strong>Swap:</strong> {request.fromEmployee} ↔️ {request.toEmployee}</p>
-                                                </>
-                                            )}
-                                            <p><strong>Submitted:</strong> {request.date}</p>
-                                            <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
-                                                <button 
-                                                    className="btn btn-success"
-                                                    onClick={() => approveRequest(request.id)}
-                                                >
-                                                    Approve
-                                                </button>
-                                                <button 
-                                                    className="btn btn-danger"
-                                                    onClick={() => denyRequest(request.id)}
-                                                >
-                                                    Deny
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        )}
+                            ))}
+                        </div>
                     </div>
-
-                    {showModal && modalType === 'addShift' && (
-                        <div className="modal" onClick={() => setShowModal(false)}>
-                            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                                <h2 className="modal-header">Add New Shift Type</h2>
-                                
-                                <div className="form-group">
-                                    <label>Shift Name</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g., Morning, Evening, Night"
-                                        value={newShift.name}
-                                        onChange={(e) => setNewShift({ ...newShift, name: e.target.value })}
-                                    />
-                                </div>
-
-                                <div className="grid-2">
-                                    <div className="form-group">
-                                        <label>Start Time</label>
-                                        <input
-                                            type="time"
-                                            value={newShift.startTime}
-                                            onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label>End Time</label>
-                                        <input
-                                            type="time"
-                                            value={newShift.endTime}
-                                            onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="form-group">
-                                    <label>Shift Color</label>
-                                    <div className="color-picker">
-                                        {SHIFT_COLORS.map(colorOption => (
-                                            <div
-                                                key={colorOption.color}
-                                                className={`color-option ${newShift.color === colorOption.color ? 'selected' : ''}`}
-                                                style={{ background: colorOption.color }}
-                                                onClick={() => setNewShift({ ...newShift, color: colorOption.color })}
-                                                title={colorOption.name}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="modal-footer">
-                                    <button className="btn btn-secondary" onClick={() => setShowModal(false)}>
-                                        Cancel
-                                    </button>
-                                    <button className="btn btn-primary" onClick={addShiftType}>
-                                        Add Shift
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {showModal && modalType === 'assignShift' && (
-                        <div className="modal" onClick={() => setShowModal(false)}>
-                            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                                <h2 className="modal-header">Assign Shift</h2>
-                                
-                                <div className="form-group">
-                                    <label>Select Shift Type</label>
-                                    <select
-                                        value=""
-                                        onChange={(e) => {
-                                            const shiftId = parseInt(e.target.value);
-                                            assignShift(newShift.locationId, newShift.employeeId, newShift.day, shiftId);
-                                            setShowModal(false);
-                                        }}
-                                    >
-                                        <option value="">Choose a shift...</option>
-                                        {shiftTypes.map(shift => (
-                                            <option key={shift.id} value={shift.id}>
-                                                {shift.name} ({shift.startTime} - {shift.endTime})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="modal-footer">
-                                    <button className="btn btn-secondary" onClick={() => setShowModal(false)}>
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
         }
 
-        ReactDOM.render(<SchedulingApp />, document.getElementById('root'));
+        function CategoryManagerSheet({ categories, onAdd, onRename, onDelete, onClose }) {
+            const [newName, setNewName] = useState('');
+            const [newColor, setNewColor] = useState(CATEGORY_COLORS[0]);
+
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                        <h2>Categories</h2>
+                        {categories.length === 0 ? (
+                            <p style={{ fontSize: 13, color: '#8a8d99' }}>No categories yet. Add one below.</p>
+                        ) : null}
+                        {categories.map((cat) => (
+                            <div className="category-manager-row" key={cat.id}>
+                                <span className="color-dot" style={{ background: cat.color, width: 12, height: 12 }}></span>
+                                <input
+                                    type="text"
+                                    value={cat.name}
+                                    onChange={(e) => onRename(cat.id, e.target.value)}
+                                />
+                                <button className="small-icon-btn" onClick={() => onDelete(cat.id)}>✕</button>
+                            </div>
+                        ))}
+                        <div className="add-category-form">
+                            <input
+                                type="text"
+                                placeholder="New category name"
+                                value={newName}
+                                onChange={(e) => setNewName(e.target.value)}
+                            />
+                            <div className="swatch-row">
+                                {CATEGORY_COLORS.map((c) => (
+                                    <button
+                                        key={c}
+                                        className={'swatch' + (newColor === c ? ' selected' : '')}
+                                        style={{ background: c }}
+                                        onClick={() => setNewColor(c)}
+                                    ></button>
+                                ))}
+                            </div>
+                            <button
+                                className="primary-btn"
+                                onClick={() => {
+                                    if (!newName.trim()) return;
+                                    onAdd(newName.trim(), newColor);
+                                    setNewName('');
+                                }}
+                            >
+                                Add category
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function ConfirmSheet({ title, message, confirmLabel, onConfirm, onCancel }) {
+            return (
+                <div className="sheet-backdrop centered" onClick={onCancel}>
+                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                        <h2>{title}</h2>
+                        <p style={{ fontSize: 14, color: '#555' }}>{message}</p>
+                        <div className="btn-row">
+                            <button className="secondary-btn" onClick={onCancel}>Cancel</button>
+                            <button className="danger-btn" onClick={onConfirm}>{confirmLabel}</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function NoteEditor({ note, categories, onBack, onSave, onDelete }) {
+            const [draft, setDraft] = useState(note);
+            const [confirmDelete, setConfirmDelete] = useState(false);
+            const [previewPhoto, setPreviewPhoto] = useState(null);
+            const [uploading, setUploading] = useState(false);
+            const fileInputRef = useRef(null);
+            const saveTimer = useRef(null);
+            const itemInputRefs = useRef({});
+            const pendingFocusId = useRef(null);
+
+            useEffect(() => {
+                setDraft(note);
+            }, [note.id]);
+
+            useEffect(() => {
+                if (saveTimer.current) clearTimeout(saveTimer.current);
+                saveTimer.current = setTimeout(() => {
+                    onSave({ ...draft, updatedAt: Date.now() });
+                }, 350);
+                return () => clearTimeout(saveTimer.current);
+            }, [draft]);
+
+            useEffect(() => {
+                if (pendingFocusId.current && itemInputRefs.current[pendingFocusId.current]) {
+                    itemInputRefs.current[pendingFocusId.current].focus();
+                    pendingFocusId.current = null;
+                }
+            });
+
+            const updateField = (field, value) => {
+                setDraft((d) => ({ ...d, [field]: value }));
+            };
+
+            const changeType = (type) => {
+                setDraft((d) => {
+                    if (d.type === type) return d;
+                    if (type === 'text') {
+                        const text = d.items.filter(it => it.text).map(it => it.text).join('\n');
+                        return { ...d, type, textContent: d.textContent || text, items: [] };
+                    }
+                    if (d.type === 'text') {
+                        const lines = (d.textContent || '').split('\n').filter(l => l.trim().length > 0);
+                        const items = lines.length > 0
+                            ? lines.map(l => ({ id: makeId(), text: l, checked: false }))
+                            : [{ id: makeId(), text: '', checked: false }];
+                        return { ...d, type, items };
+                    }
+                    return { ...d, type };
+                });
+            };
+
+            const updateItem = (id, text) => {
+                setDraft((d) => ({
+                    ...d,
+                    items: d.items.map(it => it.id === id ? { ...it, text } : it),
+                }));
+            };
+
+            const toggleItem = (id) => {
+                setDraft((d) => ({
+                    ...d,
+                    items: d.items.map(it => it.id === id ? { ...it, checked: !it.checked } : it),
+                }));
+            };
+
+            const removeItem = (id) => {
+                setDraft((d) => ({
+                    ...d,
+                    items: d.items.filter(it => it.id !== id),
+                }));
+            };
+
+            const addItem = () => {
+                const newId = makeId();
+                pendingFocusId.current = newId;
+                setDraft((d) => ({
+                    ...d,
+                    items: [...d.items, { id: newId, text: '', checked: false }],
+                }));
+            };
+
+            const moveItem = (index, dir) => {
+                setDraft((d) => {
+                    const items = [...d.items];
+                    const newIndex = index + dir;
+                    if (newIndex < 0 || newIndex >= items.length) return d;
+                    [items[index], items[newIndex]] = [items[newIndex], items[index]];
+                    return { ...d, items };
+                });
+            };
+
+            const handleItemKeyDown = (e, id, index) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addItem();
+                } else if (e.key === 'Backspace' && e.target.value === '' && draft.items.length > 1) {
+                    e.preventDefault();
+                    removeItem(id);
+                }
+            };
+
+            const handleAddPhotos = async (e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length === 0) return;
+                setUploading(true);
+                try {
+                    const newPhotos = [];
+                    for (const file of files) {
+                        const raw = await readFileAsDataUrl(file);
+                        const resized = await resizeImage(raw, 1280, 0.82);
+                        newPhotos.push({ id: makeId(), dataUrl: resized });
+                    }
+                    setDraft((d) => ({ ...d, photos: [...d.photos, ...newPhotos] }));
+                } finally {
+                    setUploading(false);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                }
+            };
+
+            const removePhoto = (id) => {
+                setDraft((d) => ({ ...d, photos: d.photos.filter(p => p.id !== id) }));
+            };
+
+            const handleBack = () => {
+                onSave({ ...draft, updatedAt: Date.now() });
+                onBack();
+            };
+
+            return (
+                <div className="editor-screen" style={{ background: draft.background || '#ffffff' }}>
+                    <div className="editor-header">
+                        <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.06)', color: '#333' }} onClick={handleBack}>←</button>
+                        <div className="editor-header-actions">
+                            <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.06)', color: '#c5221f' }} onClick={() => setConfirmDelete(true)}>🗑</button>
+                        </div>
+                    </div>
+                    <div className="editor-body">
+                        <input
+                            className="editor-title-input"
+                            placeholder="Title"
+                            value={draft.title}
+                            onChange={(e) => updateField('title', e.target.value)}
+                        />
+
+                        <div className="editor-meta-row">
+                            <select
+                                className="category-select"
+                                value={draft.categoryId || ''}
+                                onChange={(e) => updateField('categoryId', e.target.value || null)}
+                            >
+                                <option value="">Uncategorized</option>
+                                {categories.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="type-switch">
+                            {Object.keys(TYPE_LABELS).map((type) => (
+                                <button
+                                    key={type}
+                                    className={draft.type === type ? 'active' : ''}
+                                    onClick={() => changeType(type)}
+                                >
+                                    {TYPE_LABELS[type].emoji} {TYPE_LABELS[type].label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {draft.type === 'text' ? (
+                            <textarea
+                                className="editor-textarea"
+                                placeholder="Write something..."
+                                value={draft.textContent}
+                                onChange={(e) => updateField('textContent', e.target.value)}
+                            />
+                        ) : (
+                            <div className="list-items">
+                                {draft.items.map((item, index) => (
+                                    <div className="list-item-row" key={item.id}>
+                                        {draft.type === 'checklist' ? (
+                                            <button
+                                                className={'checkbox-marker' + (item.checked ? ' checked' : '')}
+                                                onClick={() => toggleItem(item.id)}
+                                            >
+                                                {item.checked ? '✓' : ''}
+                                            </button>
+                                        ) : (
+                                            <span className="list-item-marker">
+                                                {draft.type === 'numbered' ? (index + 1 + '.') : '•'}
+                                            </span>
+                                        )}
+                                        <input
+                                            className={'list-item-input' + (draft.type === 'checklist' && item.checked ? ' checked' : '')}
+                                            value={item.text}
+                                            placeholder="List item"
+                                            ref={(el) => { itemInputRefs.current[item.id] = el; }}
+                                            onChange={(e) => updateItem(item.id, e.target.value)}
+                                            onKeyDown={(e) => handleItemKeyDown(e, item.id, index)}
+                                        />
+                                        <div className="list-item-move">
+                                            <button onClick={() => moveItem(index, -1)} disabled={index === 0}>▲</button>
+                                            <button onClick={() => moveItem(index, 1)} disabled={index === draft.items.length - 1}>▼</button>
+                                        </div>
+                                        <button className="list-item-remove" onClick={() => removeItem(item.id)}>✕</button>
+                                    </div>
+                                ))}
+                                <div className="add-item-row">
+                                    <button onClick={addItem}>+ Add item</button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="section-label">Photos</div>
+                        <div className="photo-row">
+                            {draft.photos.map((photo) => (
+                                <div className="photo-thumb-wrap" key={photo.id}>
+                                    <img
+                                        className="photo-thumb"
+                                        src={photo.dataUrl}
+                                        alt=""
+                                        onClick={() => setPreviewPhoto(photo.dataUrl)}
+                                    />
+                                    <button className="photo-remove-btn" onClick={() => removePhoto(photo.id)}>✕</button>
+                                </div>
+                            ))}
+                            <button className="add-photo-btn" onClick={() => fileInputRef.current && fileInputRef.current.click()} disabled={uploading}>
+                                {uploading ? '…' : '+'}
+                            </button>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                capture="environment"
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                                onChange={handleAddPhotos}
+                            />
+                        </div>
+
+                        <div className="section-label">Background</div>
+                        <div className="bg-swatch-row">
+                            {NOTE_BACKGROUNDS.map((bg) => (
+                                <button
+                                    key={bg.id}
+                                    className={'bg-swatch' + (draft.background === bg.value ? ' selected' : '')}
+                                    style={{ background: bg.value }}
+                                    onClick={() => updateField('background', bg.value)}
+                                ></button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {previewPhoto ? (
+                        <div className="photo-preview-backdrop" onClick={() => setPreviewPhoto(null)}>
+                            <button className="photo-preview-close" onClick={() => setPreviewPhoto(null)}>✕</button>
+                            <img src={previewPhoto} alt="" />
+                        </div>
+                    ) : null}
+
+                    {confirmDelete ? (
+                        <ConfirmSheet
+                            title="Delete note?"
+                            message="This note will be permanently deleted."
+                            confirmLabel="Delete"
+                            onCancel={() => setConfirmDelete(false)}
+                            onConfirm={() => {
+                                onDelete(draft.id);
+                                onBack();
+                            }}
+                        />
+                    ) : null}
+                </div>
+            );
+        }
+
+        function App() {
+            const [db, setDb] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [categories, setCategories] = useState([]);
+            const [notes, setNotes] = useState([]);
+            const [filterCategory, setFilterCategory] = useState('all');
+            const [activeNoteId, setActiveNoteId] = useState(null);
+            const [showTypePicker, setShowTypePicker] = useState(false);
+            const [showCategoryManager, setShowCategoryManager] = useState(false);
+            const [deleteCategoryId, setDeleteCategoryId] = useState(null);
+
+            useEffect(() => {
+                openDatabase().then(async (database) => {
+                    setDb(database);
+                    const [cats, nts] = await Promise.all([
+                        idbGetAll(database, 'categories'),
+                        idbGetAll(database, 'notes'),
+                    ]);
+                    setCategories(cats.sort((a, b) => a.name.localeCompare(b.name)));
+                    setNotes(nts.sort((a, b) => b.updatedAt - a.updatedAt));
+                    setLoading(false);
+                });
+            }, []);
+
+            const persistNote = useCallback((updatedNote) => {
+                setNotes((prev) => {
+                    const exists = prev.some(n => n.id === updatedNote.id);
+                    const next = exists
+                        ? prev.map(n => n.id === updatedNote.id ? updatedNote : n)
+                        : [updatedNote, ...prev];
+                    return next.sort((a, b) => b.updatedAt - a.updatedAt);
+                });
+                if (db) idbPut(db, 'notes', updatedNote);
+            }, [db]);
+
+            const deleteNote = useCallback((id) => {
+                setNotes((prev) => prev.filter(n => n.id !== id));
+                if (db) idbDelete(db, 'notes', id);
+            }, [db]);
+
+            const createNote = (type) => {
+                const categoryId = filterCategory !== 'all' && filterCategory !== 'uncategorized' ? filterCategory : null;
+                const note = blankNote(type, categoryId);
+                setNotes((prev) => [note, ...prev]);
+                if (db) idbPut(db, 'notes', note);
+                setShowTypePicker(false);
+                setActiveNoteId(note.id);
+            };
+
+            const addCategory = (name, color) => {
+                const cat = { id: makeId(), name, color };
+                setCategories((prev) => [...prev, cat].sort((a, b) => a.name.localeCompare(b.name)));
+                if (db) idbPut(db, 'categories', cat);
+            };
+
+            const renameCategory = (id, name) => {
+                setCategories((prev) => prev.map(c => c.id === id ? { ...c, name } : c));
+                const cat = categories.find(c => c.id === id);
+                if (db && cat) idbPut(db, 'categories', { ...cat, name });
+            };
+
+            const deleteCategory = (id) => {
+                setCategories((prev) => prev.filter(c => c.id !== id));
+                if (db) idbDelete(db, 'categories', id);
+                const affected = notes.filter(n => n.categoryId === id);
+                affected.forEach((n) => {
+                    const updated = { ...n, categoryId: null };
+                    if (db) idbPut(db, 'notes', updated);
+                });
+                if (affected.length > 0) {
+                    setNotes((prev) => prev.map(n => n.categoryId === id ? { ...n, categoryId: null } : n));
+                }
+                if (filterCategory === id) setFilterCategory('all');
+                setDeleteCategoryId(null);
+            };
+
+            if (loading) {
+                return <div className="loading-screen">Loading notes…</div>;
+            }
+
+            const activeNote = activeNoteId ? notes.find(n => n.id === activeNoteId) : null;
+
+            if (activeNote) {
+                return (
+                    <NoteEditor
+                        note={activeNote}
+                        categories={categories}
+                        onBack={() => setActiveNoteId(null)}
+                        onSave={persistNote}
+                        onDelete={deleteNote}
+                    />
+                );
+            }
+
+            const visibleNotes = notes.filter(n => noteMatchesCategory(n, filterCategory));
+            const categoryById = Object.fromEntries(categories.map(c => [c.id, c]));
+
+            return (
+                <div>
+                    <div className="app-header">
+                        <div className="header-row">
+                            <h1>📓 Notepad</h1>
+                            <button className="icon-btn" onClick={() => setShowCategoryManager(true)}>⚙</button>
+                        </div>
+                        <div className="category-tabs">
+                            <button
+                                className={'category-pill' + (filterCategory === 'all' ? ' active' : '')}
+                                onClick={() => setFilterCategory('all')}
+                            >
+                                All
+                            </button>
+                            <button
+                                className={'category-pill' + (filterCategory === 'uncategorized' ? ' active' : '')}
+                                onClick={() => setFilterCategory('uncategorized')}
+                            >
+                                Uncategorized
+                            </button>
+                            {categories.map((cat) => (
+                                <button
+                                    key={cat.id}
+                                    className={'category-pill' + (filterCategory === cat.id ? ' active' : '')}
+                                    onClick={() => setFilterCategory(cat.id)}
+                                >
+                                    <span className="color-dot" style={{ background: cat.color }}></span>
+                                    {cat.name}
+                                </button>
+                            ))}
+                            <button className="category-pill add-pill" onClick={() => setShowCategoryManager(true)}>+</button>
+                        </div>
+                    </div>
+
+                    <div className="notes-area">
+                        {visibleNotes.length === 0 ? (
+                            <div className="empty-state">
+                                <div className="emoji">🗒️</div>
+                                <p>No notes here yet.<br/>Tap + to create one.</p>
+                            </div>
+                        ) : (
+                            <div className="notes-grid">
+                                {visibleNotes.map((note) => (
+                                    <NoteCard
+                                        key={note.id}
+                                        note={note}
+                                        category={note.categoryId ? categoryById[note.categoryId] : null}
+                                        onOpen={setActiveNoteId}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <button className="fab" onClick={() => setShowTypePicker(true)}>+</button>
+
+                    {showTypePicker ? (
+                        <TypePickerSheet onPick={createNote} onClose={() => setShowTypePicker(false)} />
+                    ) : null}
+
+                    {showCategoryManager ? (
+                        <CategoryManagerSheet
+                            categories={categories}
+                            onAdd={addCategory}
+                            onRename={renameCategory}
+                            onDelete={(id) => setDeleteCategoryId(id)}
+                            onClose={() => setShowCategoryManager(false)}
+                        />
+                    ) : null}
+
+                    {deleteCategoryId ? (
+                        <ConfirmSheet
+                            title="Delete category?"
+                            message="Notes in this category will become uncategorized."
+                            confirmLabel="Delete"
+                            onCancel={() => setDeleteCategoryId(null)}
+                            onConfirm={() => deleteCategory(deleteCategoryId)}
+                        />
+                    ) : null}
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
+
     <script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js");
-  }
-</script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js').catch((err) => {
+                    console.error('Service worker registration failed:', err);
+                });
+            });
+        }
+    </script>
 </body>
 </html>
