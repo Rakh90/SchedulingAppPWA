@@ -609,7 +609,18 @@
         /* ---------- Editor ---------- */
         .editor-screen {
             position: fixed;
-            inset: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            /* height (not bottom:0/inset) so the box's true size comes from
+               the dynamic viewport unit — iOS Safari's fixed-position sizing
+               via top+bottom in standalone PWA mode has a known bug where it
+               under-measures by roughly the home-indicator safe-area height,
+               leaving a sliver of the plain <body> background visible at the
+               very bottom. dvh is defined to always match the actual current
+               visual viewport, sidestepping that miscalculation. */
+            height: 100vh;
+            height: 100dvh;
             background: #ffffff;
             z-index: 50;
             display: flex;
@@ -1405,7 +1416,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v34';
+        const APP_VERSION = 'v35';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
