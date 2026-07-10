@@ -495,23 +495,43 @@
             padding: 4px 0;
         }
 
-        .block-type-btn {
+        .line-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .line-toolbar-btn {
             flex: 0 0 auto;
-            width: 22px;
-            height: 26px;
-            border: none;
-            background: transparent;
-            color: #b3b6c2;
-            font-size: 13px;
-            border-radius: 5px;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            border: 1px solid rgba(0,0,0,0.1);
+            background: #fafafa;
+            color: #333;
+            font-size: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        .block-type-btn:active {
-            background: #eef0fb;
-            color: #667eea;
+        .line-toolbar-btn.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .line-toolbar-btn:disabled {
+            opacity: 0.4;
+        }
+
+        .line-toolbar-divider {
+            width: 1px;
+            height: 20px;
+            background: rgba(0,0,0,0.12);
+            margin: 0 2px;
+            flex: 0 0 auto;
         }
 
         .list-item-marker {
@@ -600,34 +620,6 @@
             display: flex;
             align-items: center;
             gap: 8px;
-        }
-
-        .format-toolbar {
-            position: sticky;
-            bottom: 0;
-            display: flex;
-            gap: 8px;
-            padding: 10px;
-            background: rgba(255,255,255,0.92);
-            border-top: 1px solid rgba(0,0,0,0.08);
-            flex: 0 0 auto;
-        }
-
-        .format-toolbar button {
-            flex: 0 0 auto;
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            border: 1px solid rgba(0,0,0,0.1);
-            background: #fafafa;
-            font-size: 15px;
-        }
-
-        .format-toolbar button.done-btn {
-            flex: 1;
-            width: auto;
-            font-weight: 600;
-            color: #667eea;
         }
 
         .section-label {
@@ -969,9 +961,6 @@
             return { background: bg || '#f1f2f5' };
         }
 
-        const BLOCK_TYPE_CYCLE = ['text', 'bulleted', 'numbered', 'checklist'];
-        const BLOCK_TYPE_GLYPH = { text: '¶', bulleted: '•', numbered: '#', checklist: '☑' };
-
         function blankNote(categoryId) {
             const now = Date.now();
             return {
@@ -1048,7 +1037,7 @@
             return (
                 <div
                     className={'note-card' + (isDragging ? ' dragging' : '')}
-                    style={resolveCardBackground(note.background)}
+                    style={{ ...resolveCardBackground(note.background), touchAction: dragEnabled ? 'none' : 'auto' }}
                     data-note-id={note.id}
                     onPointerDown={dragEnabled ? (e) => onCardPointerDown(e, note.id) : undefined}
                     onPointerMove={dragEnabled ? onCardPointerMove : undefined}
@@ -1196,22 +1185,51 @@
             );
         }
 
-        function FormatToolbar({ onDone }) {
+        const LINE_TYPE_ICONS = [
+            { type: 'text', icon: 'T' },
+            { type: 'bulleted', icon: '•' },
+            { type: 'numbered', icon: '#' },
+            { type: 'checklist', icon: '☐' },
+        ];
+
+        // Always-visible row next to the category dropdown that acts on whichever
+        // line currently has editing focus. Every button uses onMouseDown +
+        // preventDefault so tapping it never blurs (and thus never loses) the
+        // active line — the same trick that keeps a text selection alive for
+        // execCommand.
+        function LineToolbar({ hasActiveLine, activeType, onFormat, onSetType }) {
             const runCmd = (cmd) => (e) => {
                 e.preventDefault();
+                if (!hasActiveLine) return;
                 document.execCommand(cmd);
             };
+            const runType = (type) => (e) => {
+                e.preventDefault();
+                if (!hasActiveLine) return;
+                onSetType(type);
+            };
             return (
-                <div className="format-toolbar">
-                    <button onMouseDown={runCmd('bold')}><b>B</b></button>
-                    <button onMouseDown={runCmd('italic')}><i>I</i></button>
-                    <button onMouseDown={runCmd('underline')}><u>U</u></button>
-                    <button className="done-btn" onMouseDown={(e) => e.preventDefault()} onClick={onDone}>Done</button>
+                <div className="line-toolbar">
+                    <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runCmd('bold')} title="Bold"><b>B</b></button>
+                    <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runCmd('italic')} title="Italic"><i>I</i></button>
+                    <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runCmd('underline')} title="Underline"><u>U</u></button>
+                    <span className="line-toolbar-divider"></span>
+                    {LINE_TYPE_ICONS.map(({ type, icon }) => (
+                        <button
+                            key={type}
+                            className={'line-toolbar-btn' + (activeType === type ? ' active' : '')}
+                            disabled={!hasActiveLine}
+                            onMouseDown={runType(type)}
+                            title={type}
+                        >
+                            {icon}
+                        </button>
+                    ))}
                 </div>
             );
         }
 
-        function BlockLine({ block, isEditing, listNumber, onStartEdit, onExitEdit, onCommit, onEnter, onBackspaceEmpty, onToggleChecked, onCycleType, onRemove }) {
+        function BlockLine({ block, isEditing, listNumber, onStartEdit, onExitEdit, onCommit, onEnter, onBackspaceEmpty, onToggleChecked, onRemove }) {
             const editableRef = useRef(null);
 
             // Re-seed the contentEditable's DOM content every time this block enters
@@ -1271,14 +1289,6 @@
 
             return (
                 <div className="block-row">
-                    <button
-                        className="block-type-btn"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => onCycleType(block.id)}
-                        title="Change line type"
-                    >
-                        {BLOCK_TYPE_GLYPH[block.type]}
-                    </button>
                     {marker}
                     {isEditing ? (
                         <div
@@ -1326,14 +1336,12 @@
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: clean } : b) }));
             };
 
-            const cycleType = (blockId) => {
+            const setBlockType = (blockId, type) => {
                 setDraft((d) => ({
                     ...d,
-                    blocks: d.blocks.map((b) => {
-                        if (b.id !== blockId) return b;
-                        const next = BLOCK_TYPE_CYCLE[(BLOCK_TYPE_CYCLE.indexOf(b.type) + 1) % BLOCK_TYPE_CYCLE.length];
-                        return { ...b, type: next, checked: next === 'checklist' ? !!b.checked : false };
-                    }),
+                    blocks: d.blocks.map((b) => b.id === blockId
+                        ? { ...b, type, checked: type === 'checklist' ? !!b.checked : false }
+                        : b),
                 }));
             };
 
@@ -1385,11 +1393,6 @@
                 return draft;
             };
 
-            const handleFormatDone = () => {
-                setDraft(getFlushedDraft());
-                setEditingBlockId(null);
-            };
-
             const handleAddPhotos = async (e) => {
                 const files = Array.from(e.target.files || []);
                 if (files.length === 0) return;
@@ -1419,6 +1422,7 @@
             };
 
             const listNumbers = computeListNumbers(draft.blocks);
+            const activeBlock = editingBlockId ? draft.blocks.find(b => b.id === editingBlockId) : null;
 
             return (
                 <div className="editor-screen" style={resolveCardBackground(draft.background)}>
@@ -1448,6 +1452,11 @@
                                     <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
                             </select>
+                            <LineToolbar
+                                hasActiveLine={!!editingBlockId}
+                                activeType={activeBlock ? activeBlock.type : null}
+                                onSetType={(type) => setBlockType(editingBlockId, type)}
+                            />
                         </div>
 
                         <div className="list-items">
@@ -1463,7 +1472,6 @@
                                     onEnter={handleEnter}
                                     onBackspaceEmpty={handleBackspaceEmpty}
                                     onToggleChecked={toggleChecked}
-                                    onCycleType={cycleType}
                                     onRemove={removeBlock}
                                 />
                             ))}
@@ -1498,8 +1506,6 @@
                         <div className="section-label">Background</div>
                         <BackgroundPicker value={draft.background} onChange={(v) => updateField('background', v)} />
                     </div>
-
-                    {editingBlockId ? <FormatToolbar onDone={handleFormatDone} /> : null}
 
                     {previewPhoto ? (
                         <div className="photo-preview-backdrop" onClick={() => setPreviewPhoto(null)}>
@@ -1698,6 +1704,26 @@
                 if (db) idbPut(db, 'settings', { id: 'app', dashboardBackground: bg });
             };
 
+            // Splices the dragged note to targetId's position and immediately
+            // reassigns sequential `order` values to the whole visible set. The
+            // render always re-sorts notes by `order`, so reordering array
+            // *position* alone (without touching `order`) gets silently undone by
+            // the very next render — this keeps the sort key itself live during
+            // the drag, not just at drop.
+            const reorderNotes = (prev, draggedId, targetId) => {
+                const active = prev.filter(n => !n.deletedAt).sort((a, b) => (b.order || 0) - (a.order || 0));
+                const trashed = prev.filter(n => n.deletedAt);
+                const dragIdx = active.findIndex(n => n.id === draggedId);
+                const targetIdx = active.findIndex(n => n.id === targetId);
+                if (dragIdx === -1 || targetIdx === -1) return prev;
+                const reordered = [...active];
+                const [moved] = reordered.splice(dragIdx, 1);
+                reordered.splice(targetIdx, 0, moved);
+                const base = Date.now();
+                const renumbered = reordered.map((n, idx) => ({ ...n, order: base - idx }));
+                return [...renumbered, ...trashed];
+            };
+
             const handleCardPointerDown = (e, noteId) => {
                 if (filterCategory !== 'all') return;
                 e.currentTarget.setPointerCapture(e.pointerId);
@@ -1706,7 +1732,7 @@
                     dragRef.current.dragging = true;
                     setDraggingId(noteId);
                     if (navigator.vibrate) navigator.vibrate(12);
-                }, 350);
+                }, 450);
             };
 
             const handleCardPointerMove = (e) => {
@@ -1714,7 +1740,7 @@
                 if (!dragRef.current.dragging) {
                     const dx = Math.abs(e.clientX - dragRef.current.startX);
                     const dy = Math.abs(e.clientY - dragRef.current.startY);
-                    if (dx > 10 || dy > 10) {
+                    if (dx > 14 || dy > 14) {
                         clearTimeout(dragRef.current.timer);
                         dragRef.current.noteId = null;
                     }
@@ -1725,17 +1751,7 @@
                 const cardEl = el && el.closest('[data-note-id]');
                 const targetId = cardEl && cardEl.getAttribute('data-note-id');
                 if (targetId && targetId !== dragRef.current.noteId) {
-                    setNotes((prev) => {
-                        const active = prev.filter(n => !n.deletedAt);
-                        const trashed = prev.filter(n => n.deletedAt);
-                        const dragIdx = active.findIndex(n => n.id === dragRef.current.noteId);
-                        const targetIdx = active.findIndex(n => n.id === targetId);
-                        if (dragIdx === -1 || targetIdx === -1) return prev;
-                        const reordered = [...active];
-                        const [moved] = reordered.splice(dragIdx, 1);
-                        reordered.splice(targetIdx, 0, moved);
-                        return [...reordered, ...trashed];
-                    });
+                    setNotes((prev) => reorderNotes(prev, dragRef.current.noteId, targetId));
                 }
             };
 
@@ -1744,7 +1760,7 @@
                 if (dragRef.current.dragging) {
                     justDraggedRef.current = true;
                     setNotes((prev) => {
-                        const active = prev.filter(n => !n.deletedAt);
+                        const active = prev.filter(n => !n.deletedAt).sort((a, b) => (b.order || 0) - (a.order || 0));
                         const trashed = prev.filter(n => n.deletedAt);
                         const base = Date.now();
                         const reOrdered = active.map((n, idx) => {
