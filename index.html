@@ -218,7 +218,7 @@
 
         .note-card-body {
             font-size: 13px;
-            color: rgba(32,33,36,0.75);
+            color: rgba(20,21,24,0.94);
             word-break: break-word;
             overflow: hidden;
             max-height: 130px;
@@ -229,7 +229,8 @@
             align-items: flex-start;
             gap: 6px;
             font-size: 13px;
-            color: rgba(32,33,36,0.8);
+            color: rgba(20,21,24,0.94);
+            font-weight: 500;
         }
 
         .note-card-list-item a {
@@ -246,7 +247,7 @@
 
         .note-card-list-item.checked {
             text-decoration: line-through;
-            opacity: 0.55;
+            opacity: 0.65;
         }
 
         .note-card-footer {
@@ -259,7 +260,8 @@
 
         .note-card-photo-badge {
             font-size: 11px;
-            color: rgba(32,33,36,0.55);
+            color: rgba(20,21,24,0.75);
+            font-weight: 600;
             display: flex;
             align-items: center;
             gap: 3px;
@@ -458,7 +460,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 12px 10px;
-            border-bottom: 1px solid rgba(0,0,0,0.06);
+            border-bottom: 1px solid rgba(0,0,0,0.14);
             flex: 0 0 auto;
             background: rgba(255,255,255,0.6);
         }
@@ -586,7 +588,7 @@
             height: 20px;
             margin-top: 3px;
             border-radius: 5px;
-            border: 2px solid #a3a9c2;
+            border: 2px solid #6b7280;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -609,15 +611,17 @@
             outline: none;
             word-break: break-word;
             padding: 3px 0;
+            color: #17181a;
+            font-weight: 500;
         }
 
         .block-placeholder {
-            color: #b3b6c2;
+            color: #8a8f9c;
         }
 
         .block-display.checked {
             text-decoration: line-through;
-            color: #9a9a9a;
+            color: #767676;
         }
 
         .block-editable b, .block-display b,
@@ -652,7 +656,7 @@
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            color: #8a8d99;
+            color: #5f6470;
             font-weight: 700;
             margin: 20px 0 10px;
         }
@@ -697,9 +701,9 @@
             width: 84px;
             height: 84px;
             border-radius: 10px;
-            border: 1.5px dashed #c2c5cf;
+            border: 1.5px dashed #8a90a0;
             background: transparent;
-            color: #8a8d99;
+            color: #5f6470;
             font-size: 22px;
             display: flex;
             flex-direction: column;
@@ -740,16 +744,16 @@
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.03em;
-            color: #8a8d99;
+            color: #5f6470;
             padding: 8px 10px;
-            border-bottom: 1px solid rgba(0,0,0,0.08);
+            border-bottom: 1px solid rgba(0,0,0,0.14);
             background: #fafafa;
             white-space: nowrap;
         }
 
         .mileage-table td {
             padding: 2px 6px;
-            border-bottom: 1px solid rgba(0,0,0,0.06);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
         }
 
         .mileage-cell-input {
@@ -772,7 +776,7 @@
             width: 34px;
             height: 34px;
             border-radius: 50%;
-            border: 2px solid rgba(0,0,0,0.08);
+            border: 2px solid rgba(0,0,0,0.18);
             background-size: cover;
         }
 
@@ -847,6 +851,62 @@
             height: 100vh;
             color: #8a8d99;
             font-size: 14px;
+        }
+
+        /* Light-text variant for the small set of dark theme backgrounds
+           (see THEME_BACKGROUNDS' `dark` flag) — dark text loses contrast on
+           these, so everything that reads dark elsewhere flips to light here. */
+        .dark-content .note-card-title,
+        .dark-content .note-card-body,
+        .dark-content .note-card-list-item,
+        .dark-content .block-editable,
+        .dark-content .block-display,
+        .dark-content .editor-title-input,
+        .dark-content .section-label,
+        .dark-content .mileage-table th {
+            color: #f3f4f8;
+        }
+
+        .dark-content .note-card-photo-badge {
+            color: rgba(243,244,248,0.85);
+        }
+
+        .dark-content .note-card-list-item a,
+        .dark-content .block-display a {
+            color: #b9c6ff;
+        }
+
+        .dark-content .block-display.checked {
+            color: #c7c9d4;
+        }
+
+        .dark-content .block-placeholder {
+            color: #c7c9d4;
+        }
+
+        .dark-content .editor-title-input::placeholder {
+            color: #c7c9d4;
+        }
+
+        .dark-content .checkbox-marker {
+            border-color: #d5d8e0;
+        }
+
+        .dark-content .add-photo-btn {
+            border-color: rgba(255,255,255,0.5);
+            color: #f3f4f8;
+        }
+
+        .dark-content .mileage-table th {
+            background: rgba(255,255,255,0.08);
+        }
+
+        .dark-content .mileage-table-wrap {
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        .dark-content .mileage-cell-input {
+            color: #f3f4f8;
         }
     </style>
 </head>
@@ -1122,13 +1182,23 @@
             { id: 'gray', value: '#e8eaed' },
         ];
 
+        // `dark: true` themes get light text/borders instead of the default dark
+        // ones — their card-level gradients are dark/medium enough that dark text
+        // loses contrast. The palette is fixed and small enough to just flag each
+        // one by hand rather than computing contrast at runtime.
         const THEME_BACKGROUNDS = [
-            { id: 'aurora', label: 'Aurora', pageCss: 'linear-gradient(135deg, #4f5fd1 0%, #7b4fc9 50%, #4fb8c9 100%)', cardCss: 'linear-gradient(135deg, rgba(102,126,234,0.35), rgba(118,75,162,0.35))' },
-            { id: 'neon', label: 'Neon Grid', pageCss: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0ea5e9 100%)', cardCss: 'linear-gradient(135deg, rgba(15,23,42,0.45), rgba(14,165,233,0.35))' },
-            { id: 'frost', label: 'Frost', pageCss: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 50%, #f0fdfa 100%)', cardCss: 'linear-gradient(135deg, rgba(255,255,255,0.45), rgba(191,219,254,0.35))' },
-            { id: 'cyber', label: 'Cyber', pageCss: 'linear-gradient(135deg, #1e1b4b 0%, #7e22ce 50%, #ec4899 100%)', cardCss: 'linear-gradient(135deg, rgba(236,72,153,0.35), rgba(59,130,246,0.35))' },
-            { id: 'holo', label: 'Holo', pageCss: 'linear-gradient(135deg, #fbcfe8 0%, #ddd6fe 50%, #a7f3d0 100%)', cardCss: 'linear-gradient(135deg, rgba(253,207,232,0.4), rgba(167,255,235,0.4))' },
+            { id: 'aurora', label: 'Aurora', pageCss: 'linear-gradient(135deg, #4f5fd1 0%, #7b4fc9 50%, #4fb8c9 100%)', cardCss: 'linear-gradient(135deg, rgba(102,126,234,0.35), rgba(118,75,162,0.35))', dark: false },
+            { id: 'neon', label: 'Neon Grid', pageCss: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0ea5e9 100%)', cardCss: 'linear-gradient(135deg, rgba(15,23,42,0.45), rgba(14,165,233,0.35))', dark: true },
+            { id: 'frost', label: 'Frost', pageCss: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 50%, #f0fdfa 100%)', cardCss: 'linear-gradient(135deg, rgba(255,255,255,0.45), rgba(191,219,254,0.35))', dark: false },
+            { id: 'cyber', label: 'Cyber', pageCss: 'linear-gradient(135deg, #1e1b4b 0%, #7e22ce 50%, #ec4899 100%)', cardCss: 'linear-gradient(135deg, rgba(236,72,153,0.35), rgba(59,130,246,0.35))', dark: true },
+            { id: 'holo', label: 'Holo', pageCss: 'linear-gradient(135deg, #fbcfe8 0%, #ddd6fe 50%, #a7f3d0 100%)', cardCss: 'linear-gradient(135deg, rgba(253,207,232,0.4), rgba(167,255,235,0.4))', dark: false },
         ];
+
+        function isThemeDark(bg) {
+            if (!bg || bg.indexOf('theme:') !== 0) return false;
+            const theme = THEME_BACKGROUNDS.find(t => 'theme:' + t.id === bg);
+            return !!(theme && theme.dark);
+        }
 
         function resolveCardBackground(bg) {
             if (bg && bg.indexOf('theme:') === 0) {
@@ -1223,7 +1293,7 @@
 
             return (
                 <div
-                    className={'note-card' + (isDragging ? ' dragging' : '')}
+                    className={'note-card' + (isDragging ? ' dragging' : '') + (isThemeDark(note.background) ? ' dark-content' : '')}
                     style={{ ...resolveCardBackground(note.background), touchAction: dragEnabled ? 'none' : 'auto' }}
                     data-note-id={note.id}
                     onPointerDown={dragEnabled ? (e) => onCardPointerDown(e, note.id) : undefined}
@@ -1718,11 +1788,11 @@
                 : { b: false, i: false, u: false };
 
             return (
-                <div className="editor-screen" style={resolveCardBackground(draft.background)}>
+                <div className={'editor-screen' + (isThemeDark(draft.background) ? ' dark-content' : '')} style={resolveCardBackground(draft.background)}>
                     <div className="editor-header">
-                        <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.06)', color: '#333' }} onClick={handleBack}>←</button>
+                        <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.16)', color: '#1a1a1a' }} onClick={handleBack}>←</button>
                         <div className="editor-header-actions">
-                            <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.06)', color: '#c5221f' }} onClick={() => setConfirmTrash(true)}>🗑</button>
+                            <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.16)', color: '#c5221f' }} onClick={() => setConfirmTrash(true)}>🗑</button>
                         </div>
                     </div>
                     <div className="editor-body">
@@ -1772,6 +1842,10 @@
                             ))}
                         </div>
 
+                        <div className="section-label">Mileage Table</div>
+                        {draft.table ? <MileageTable table={draft.table} onUpdateCell={updateMileageCell} /> : null}
+                        <button className="secondary-btn" style={{ marginTop: 10 }} onClick={addMileageRow}>+ Add Mileage Row</button>
+
                         <div className="section-label">Photos</div>
                         <div className="photo-row">
                             {draft.photos.map((photo) => (
@@ -1811,10 +1885,6 @@
                             />
                         </div>
 
-                        <div className="section-label">Mileage Table</div>
-                        {draft.table ? <MileageTable table={draft.table} onUpdateCell={updateMileageCell} /> : null}
-                        <button className="secondary-btn" style={{ marginTop: 10 }} onClick={addMileageRow}>+ Add Mileage Row</button>
-
                         <div className="section-label">Background</div>
                         <BackgroundPicker value={draft.background} onChange={(v) => updateField('background', v)} />
                     </div>
@@ -1846,11 +1916,11 @@
             return (
                 <div className="editor-screen">
                     <div className="editor-header">
-                        <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.06)', color: '#333' }} onClick={onBack}>←</button>
+                        <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.16)', color: '#1a1a1a' }} onClick={onBack}>←</button>
                         <div className="editor-header-title">Trash</div>
                         <button
                             className="icon-btn"
-                            style={{ background: 'rgba(0,0,0,0.06)', color: '#c5221f' }}
+                            style={{ background: 'rgba(0,0,0,0.16)', color: '#c5221f' }}
                             onClick={() => setConfirmEmptyOpen(true)}
                             disabled={notes.length === 0}
                         >
