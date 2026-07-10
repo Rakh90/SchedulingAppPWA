@@ -232,6 +232,11 @@
             color: rgba(32,33,36,0.8);
         }
 
+        .note-card-list-item a {
+            color: #4c5bd4;
+            text-decoration: underline;
+        }
+
         .note-card-list-item .marker {
             flex: 0 0 auto;
             font-size: 12px;
@@ -687,10 +692,20 @@
             border: 1.5px dashed #c2c5cf;
             background: transparent;
             color: #8a8d99;
-            font-size: 24px;
+            font-size: 22px;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 4px;
+        }
+
+        .add-photo-btn:disabled {
+            opacity: 0.5;
+        }
+
+        .add-photo-label {
+            font-size: 11px;
         }
 
         .bg-swatch-row {
@@ -973,12 +988,45 @@
             return container.innerHTML;
         }
 
+        // A zero-width space so a freshly-wrapped empty tag (e.g. <b></b> from
+        // pressing Bold before typing anything) has real text content for the
+        // browser to anchor a cursor inside. Without it, collapsing a Range into
+        // an empty element is ambiguous and browsers commonly place the next
+        // typed character as a sibling *before* the tag instead of inside it —
+        // which is exactly why "press Bold, then type" wasn't working. Stripped
+        // back out whenever a line's content is committed.
+        const ZWSP = '\u200B';
+
+        function stripZeroWidthSpace(html) {
+            return (html || '').split(ZWSP).join('');
+        }
+
         function toggleWholeLineFormat(html, tag) {
             const upper = tag.toUpperCase();
             if (hasWholeLineTag(html, tag)) {
                 return removeTagLayer(html, upper);
             }
-            return '<' + tag + '>' + (html || '') + '</' + tag + '>';
+            const inner = html && html.length > 0 ? html : ZWSP;
+            return '<' + tag + '>' + inner + '</' + tag + '>';
+        }
+
+        // Places the cursor at the end of the *innermost* element, not just the
+        // end of `el`'s own child list. Plain `selectNodeContents(el)` puts the
+        // cursor right after a newly-wrapped empty tag like <b></b> rather than
+        // inside it, so typing right after pressing Bold on an empty line landed
+        // outside the tag and came out unformatted. Walking down to the deepest
+        // element first (even when it's empty) fixes that.
+        function placeCursorAtDeepestEnd(el) {
+            let node = el;
+            while (node.lastChild && node.lastChild.nodeType === Node.ELEMENT_NODE) {
+                node = node.lastChild;
+            }
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
         }
 
         const CATEGORY_COLORS = ['#667eea', '#e57373', '#f2a541', '#ffd54f', '#81c784', '#4dd0c9', '#4fc3f7', '#9575cd', '#f06292', '#a1887f'];
@@ -1104,7 +1152,7 @@
                     onPointerMove={dragEnabled ? onCardPointerMove : undefined}
                     onPointerUp={dragEnabled ? onCardPointerUp : undefined}
                     onPointerCancel={dragEnabled ? onCardPointerUp : undefined}
-                    onClick={() => onOpen(note.id)}
+                    onClick={(e) => { if (e.target.tagName === 'A') return; onOpen(note.id); }}
                 >
                     <button
                         className="note-card-trash-btn"
@@ -1127,7 +1175,7 @@
                                         <span className="marker">
                                             {b.type === 'checklist' ? (b.checked ? '☑' : '☐') : b.type === 'numbered' ? (numbers[idx] + '.') : b.type === 'bulleted' ? '•' : ''}
                                         </span>
-                                        <span>{stripHtml(b.html).slice(0, 80)}</span>
+                                        <span dangerouslySetInnerHTML={{ __html: linkify(b.html) }}></span>
                                     </div>
                                 );
                             })}
@@ -1309,12 +1357,7 @@
                     const el = editableRef.current;
                     el.innerHTML = block.html;
                     el.focus();
-                    const range = document.createRange();
-                    range.selectNodeContents(el);
-                    range.collapse(false);
-                    const sel = window.getSelection();
-                    sel.removeAllRanges();
-                    sel.addRange(range);
+                    placeCursorAtDeepestEnd(el);
                 }
             }, [isEditing]);
 
@@ -1373,7 +1416,7 @@
                         <div
                             className={'block-display' + (block.type === 'checklist' && block.checked ? ' checked' : '')}
                             onClick={(e) => { if (e.target.tagName === 'A') return; onStartEdit(); }}
-                            dangerouslySetInnerHTML={{ __html: block.html ? linkify(block.html) : '<span class="block-placeholder">List item</span>' }}
+                            dangerouslySetInnerHTML={{ __html: stripHtml(block.html).trim() ? linkify(block.html) : '<span class="block-placeholder">List item</span>' }}
                         />
                     )}
                 </div>
@@ -1386,7 +1429,8 @@
             const [confirmTrash, setConfirmTrash] = useState(false);
             const [previewPhoto, setPreviewPhoto] = useState(null);
             const [uploading, setUploading] = useState(false);
-            const fileInputRef = useRef(null);
+            const cameraInputRef = useRef(null);
+            const galleryInputRef = useRef(null);
             const saveTimer = useRef(null);
 
             useEffect(() => {
@@ -1400,7 +1444,7 @@
             const updateField = (field, value) => setDraft((d) => ({ ...d, [field]: value }));
 
             const commitBlockHtml = (blockId, rawHtml) => {
-                const clean = sanitizeInlineHtml(rawHtml);
+                const clean = stripZeroWidthSpace(sanitizeInlineHtml(rawHtml));
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: clean } : b) }));
             };
 
@@ -1424,12 +1468,7 @@
                 const newHtml = sanitizeInlineHtml(toggleWholeLineFormat(el.innerHTML, tag));
                 el.innerHTML = newHtml;
                 el.focus();
-                const range = document.createRange();
-                range.selectNodeContents(el);
-                range.collapse(false);
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
+                placeCursorAtDeepestEnd(el);
                 const blockId = editingBlockId;
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: newHtml } : b) }));
             };
@@ -1465,7 +1504,7 @@
                 if (el && el.classList && el.classList.contains('block-editable')) {
                     const blockId = el.getAttribute('data-block-id');
                     if (blockId) {
-                        const clean = sanitizeInlineHtml(el.innerHTML);
+                        const clean = stripZeroWidthSpace(sanitizeInlineHtml(el.innerHTML));
                         return { ...draft, blocks: draft.blocks.map(b => b.id === blockId ? { ...b, html: clean } : b) };
                     }
                 }
@@ -1486,7 +1525,8 @@
                     setDraft((d) => ({ ...d, photos: [...d.photos, ...newPhotos] }));
                 } finally {
                     setUploading(false);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
+                    if (cameraInputRef.current) cameraInputRef.current.value = '';
+                    if (galleryInputRef.current) galleryInputRef.current.value = '';
                 }
             };
 
@@ -1573,14 +1613,27 @@
                                     <button className="photo-remove-btn" onClick={() => removePhoto(photo.id)}>✕</button>
                                 </div>
                             ))}
-                            <button className="add-photo-btn" onClick={() => fileInputRef.current && fileInputRef.current.click()} disabled={uploading}>
-                                {uploading ? '…' : '+'}
+                            <button className="add-photo-btn" onClick={() => cameraInputRef.current && cameraInputRef.current.click()} disabled={uploading}>
+                                <span>📷</span>
+                                <span className="add-photo-label">Camera</span>
+                            </button>
+                            <button className="add-photo-btn" onClick={() => galleryInputRef.current && galleryInputRef.current.click()} disabled={uploading}>
+                                <span>🖼️</span>
+                                <span className="add-photo-label">Gallery</span>
                             </button>
                             <input
                                 type="file"
                                 accept="image/*"
+                                capture="environment"
+                                ref={cameraInputRef}
+                                style={{ display: 'none' }}
+                                onChange={handleAddPhotos}
+                            />
+                            <input
+                                type="file"
+                                accept="image/*"
                                 multiple
-                                ref={fileInputRef}
+                                ref={galleryInputRef}
                                 style={{ display: 'none' }}
                                 onChange={handleAddPhotos}
                             />
