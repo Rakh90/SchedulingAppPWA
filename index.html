@@ -1405,7 +1405,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v32';
+        const APP_VERSION = 'v33';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2654,6 +2654,21 @@
                 const meta = document.querySelector('meta[name="theme-color"]');
                 if (meta) meta.setAttribute('content', resolveStatusBarColor(settings.dashboardBackground));
             }, [settings.dashboardBackground]);
+
+            // Safety net for iOS Safari's sub-pixel rendering gap at the
+            // bottom edge of position:fixed full-screen panels (NoteEditor /
+            // TrashScreen), which lets the plain <body> background show
+            // through as a thin gray strip below the home indicator. Keeping
+            // <body> itself painted with whatever background is currently
+            // active makes any such gap imperceptible instead of chasing the
+            // exact geometry bug.
+            useEffect(() => {
+                const activeNote = activeNoteId ? notes.find(n => n.id === activeNoteId) : null;
+                const bg = activeNote ? activeNote.background : settings.dashboardBackground;
+                const resolved = resolvePageBackground(bg);
+                document.body.style.backgroundImage = resolved.backgroundImage || 'none';
+                document.body.style.backgroundColor = resolved.background || '';
+            }, [activeNoteId, notes, settings.dashboardBackground]);
 
             const persistNote = useCallback((updatedNote) => {
                 setNotes((prev) => {
