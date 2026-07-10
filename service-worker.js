@@ -1,4 +1,4 @@
-const CACHE_NAME = 'notepad-app-v13';
+const CACHE_NAME = 'notepad-app-v14';
 const urlsToCache = [
   './',
   './index.html',
@@ -10,6 +10,11 @@ const urlsToCache = [
 
 // Install event - cache files
 self.addEventListener('install', (event) => {
+  // Without this, a newly-installed worker sits "waiting" until every open
+  // tab/PWA instance of the old one fully closes — which on Android often
+  // means it never takes over at all, since backgrounding an app doesn't
+  // reliably kill its process. skipWaiting activates it immediately instead.
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -19,19 +24,23 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and take control of open pages now
+// (clients.claim) instead of waiting for their next navigation.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    Promise.all([
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              console.log('Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      }),
+      self.clients.claim(),
+    ])
   );
 });
 
