@@ -1828,13 +1828,16 @@
             );
         }
 
-        function CategoryPickerSheet({ categories, selectedIds, onToggle, onClose }) {
+        function CategoryPickerSheet({ categories, selectedIds, onToggle, onClose, onCreateCategory }) {
+            const [newName, setNewName] = useState('');
+            const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
+
             return (
                 <div className="sheet-backdrop" onClick={onClose}>
                     <div className="sheet" onClick={(e) => e.stopPropagation()}>
                         <h2>Categories</h2>
                         {categories.length === 0 ? (
-                            <p style={{ fontSize: 13, color: '#8a8d99' }}>No categories yet. Add one from the dashboard's Categories settings.</p>
+                            <p style={{ fontSize: 13, color: '#8a8d99' }}>No categories yet. Add one below.</p>
                         ) : (
                             categories.map((cat) => {
                                 const selected = selectedIds.includes(cat.id);
@@ -1851,6 +1854,36 @@
                                 );
                             })
                         )}
+                        <div className="add-category-form">
+                            <input
+                                type="text"
+                                placeholder="New category name"
+                                value={newName}
+                                onChange={(e) => setNewName(e.target.value)}
+                            />
+                            <div className="swatch-row">
+                                {CATEGORY_COLORS.map((c) => (
+                                    <button
+                                        key={c}
+                                        className={'swatch' + (newColor === c ? ' selected' : '')}
+                                        style={{ background: c }}
+                                        onClick={() => setNewColor(c)}
+                                    ></button>
+                                ))}
+                            </div>
+                            <button
+                                className="primary-btn"
+                                onClick={() => {
+                                    if (!newName.trim()) return;
+                                    onCreateCategory(newName.trim(), newColor);
+                                    setNewName('');
+                                    const nextIdx = (CATEGORY_COLORS.indexOf(newColor) + 1) % CATEGORY_COLORS.length;
+                                    setNewColor(CATEGORY_COLORS[nextIdx]);
+                                }}
+                            >
+                                Add category
+                            </button>
+                        </div>
                     </div>
                 </div>
             );
@@ -2026,7 +2059,7 @@
             );
         }
 
-        function NoteEditor({ note, categories, onBack, onSave, onTrash }) {
+        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory }) {
             const [draft, setDraft] = useState(note);
             const [editingBlockId, setEditingBlockId] = useState(null);
             const [confirmTrash, setConfirmTrash] = useState(false);
@@ -2058,6 +2091,11 @@
                     const next = current.includes(id) ? current.filter(c => c !== id) : [...current, id];
                     return { ...d, categoryIds: next };
                 });
+            };
+
+            const createAndSelectCategory = (name, color) => {
+                const id = onAddCategory(name, color);
+                setDraft((d) => ({ ...d, categoryIds: [...(d.categoryIds || []), id] }));
             };
 
             const commitBlockHtml = (blockId, rawHtml) => {
@@ -2426,6 +2464,7 @@
                             selectedIds={draft.categoryIds || []}
                             onToggle={toggleDraftCategory}
                             onClose={() => setShowCategoryPicker(false)}
+                            onCreateCategory={createAndSelectCategory}
                         />
                     ) : null}
                 </div>
@@ -2508,6 +2547,7 @@
             const [draggingCategoryId, setDraggingCategoryId] = useState(null);
             const [showSearch, setShowSearch] = useState(false);
             const [searchQuery, setSearchQuery] = useState('');
+            const [showPinnedOnly, setShowPinnedOnly] = useState(false);
             const [trashToast, setTrashToast] = useState(null);
 
             const dragRef = useRef({ pointerId: null, noteId: null, timer: null, dragging: false, startX: 0, startY: 0 });
@@ -2618,12 +2658,14 @@
             };
 
             const addCategory = (name, color) => {
+                const id = makeId();
                 setCategories((prev) => {
                     const nextOrder = prev.length ? Math.max(...prev.map(c => c.order || 0)) + 1 : 0;
-                    const cat = { id: makeId(), name, color, order: nextOrder };
+                    const cat = { id, name, color, order: nextOrder };
                     if (db) idbPut(db, 'categories', cat);
                     return [...prev, cat];
                 });
+                return id;
             };
 
             // Splices the dragged category to targetId's position and
@@ -2808,12 +2850,13 @@
                         onBack={() => setActiveNoteId(null)}
                         onSave={persistNote}
                         onTrash={trashNote}
+                        onAddCategory={addCategory}
                     />
                 );
             }
 
             const visibleNotes = notes
-                .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory) && noteMatchesSearch(n, searchQuery))
+                .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory) && noteMatchesSearch(n, searchQuery) && (!showPinnedOnly || n.pinned))
                 .sort(noteSortCompare);
             const categoryById = Object.fromEntries(categories.map(c => [c.id, c]));
 
@@ -2831,6 +2874,7 @@
                             <h1>📓 Notepad</h1>
                             <div className="header-actions">
                                 <button className={'icon-btn' + (showSearch ? ' active' : '')} onClick={toggleSearch} title="Search">🔍</button>
+                                <button className={'icon-btn' + (showPinnedOnly ? ' active' : '')} onClick={() => setShowPinnedOnly((v) => !v)} title="Show pinned only">📌</button>
                                 <button className="icon-btn" onClick={() => setShowDashboardBg(true)} title="Dashboard background">🎨</button>
                                 <button className="icon-btn" onClick={() => setView('trash')} title="Trash">🗑</button>
                                 <button className="icon-btn" onClick={() => setShowCategoryManager(true)} title="Categories">⚙</button>
@@ -2881,9 +2925,11 @@
                     <div className="notes-area" style={resolvePageBackground(settings.dashboardBackground)}>
                         {loading ? null : visibleNotes.length === 0 ? (
                             <div className="empty-state">
-                                <div className="emoji">{searchQuery.trim() ? '🔍' : '🗒️'}</div>
+                                <div className="emoji">{searchQuery.trim() ? '🔍' : showPinnedOnly ? '📌' : '🗒️'}</div>
                                 {searchQuery.trim() ? (
                                     <p>No notes match "{searchQuery.trim()}".</p>
+                                ) : showPinnedOnly ? (
+                                    <p>No pinned notes yet.<br/>Tap 📌 on a note to pin it.</p>
                                 ) : (
                                     <p>No notes here yet.<br/>Tap + to create one.</p>
                                 )}
