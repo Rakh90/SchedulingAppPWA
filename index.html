@@ -425,6 +425,10 @@
             font-weight: 600;
         }
 
+        .secondary-btn:disabled {
+            opacity: 0.45;
+        }
+
         .danger-btn {
             background: #fdecea;
             color: #c5221f;
@@ -914,7 +918,7 @@
     <div id="root"></div>
 
     <script type="text/babel" data-presets="react">
-        const { useState, useEffect, useRef, useCallback } = React;
+        const { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } = React;
 
         const DB_NAME = 'notepad-db';
         const DB_VERSION = 2;
@@ -1167,19 +1171,10 @@
 
         const CATEGORY_COLORS = ['#667eea', '#e57373', '#f2a541', '#ffd54f', '#81c784', '#4dd0c9', '#4fc3f7', '#9575cd', '#f06292', '#a1887f'];
 
+        // Just the neutral reset option now — the flat color swatches were
+        // dropped in favor of the theme gradients below.
         const NOTE_BACKGROUNDS = [
             { id: 'default', value: '#ffffff' },
-            { id: 'red', value: '#f28b82' },
-            { id: 'orange', value: '#fbbc04' },
-            { id: 'yellow', value: '#fff475' },
-            { id: 'green', value: '#ccff90' },
-            { id: 'teal', value: '#a7ffeb' },
-            { id: 'blue', value: '#cbf0f8' },
-            { id: 'darkblue', value: '#aecbfa' },
-            { id: 'purple', value: '#d7aefb' },
-            { id: 'pink', value: '#fdcfe8' },
-            { id: 'brown', value: '#e6c9a8' },
-            { id: 'gray', value: '#e8eaed' },
         ];
 
         // `dark: true` themes get light text/borders instead of the default dark
@@ -1192,6 +1187,10 @@
             { id: 'frost', label: 'Frost', pageCss: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 50%, #f0fdfa 100%)', cardCss: 'linear-gradient(135deg, rgba(255,255,255,0.45), rgba(191,219,254,0.35))', dark: false },
             { id: 'cyber', label: 'Cyber', pageCss: 'linear-gradient(135deg, #1e1b4b 0%, #7e22ce 50%, #ec4899 100%)', cardCss: 'linear-gradient(135deg, rgba(236,72,153,0.35), rgba(59,130,246,0.35))', dark: true },
             { id: 'holo', label: 'Holo', pageCss: 'linear-gradient(135deg, #fbcfe8 0%, #ddd6fe 50%, #a7f3d0 100%)', cardCss: 'linear-gradient(135deg, rgba(253,207,232,0.4), rgba(167,255,235,0.4))', dark: false },
+            { id: 'matrix', label: 'Matrix', pageCss: 'linear-gradient(135deg, #06130a 0%, #0d3b1f 55%, #00e676 100%)', cardCss: 'linear-gradient(135deg, rgba(3,12,6,0.92), rgba(5,66,30,0.85))', dark: true },
+            { id: 'synthwave', label: 'Synthwave', pageCss: 'linear-gradient(135deg, #2b0b3f 0%, #a2246b 55%, #f6a821 100%)', cardCss: 'linear-gradient(135deg, rgba(28,7,41,0.92), rgba(97,23,70,0.85))', dark: true },
+            { id: 'plasma', label: 'Plasma', pageCss: 'linear-gradient(135deg, #3a0ca3 0%, #8e2de2 50%, #ff0080 100%)', cardCss: 'linear-gradient(135deg, rgba(36,7,102,0.92), rgba(114,36,181,0.85))', dark: true },
+            { id: 'quantum', label: 'Quantum', pageCss: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)', cardCss: 'linear-gradient(135deg, rgba(8,18,22,0.92), rgba(24,47,56,0.85))', dark: true },
         ];
 
         function isThemeDark(bg) {
@@ -1429,9 +1428,10 @@
             );
         }
 
-        function MileageTable({ table, onUpdateCell, onAddRow }) {
+        const MileageTable = forwardRef(function MileageTable({ table, onUpdateCell, onAddRow, onActiveDateCellChange }, ref) {
             const cellRefs = useRef({});
             const pendingFocusKey = useRef(null);
+            const activeCellRef = useRef(null);
 
             useEffect(() => {
                 if (pendingFocusKey.current && cellRefs.current[pendingFocusKey.current]) {
@@ -1439,6 +1439,19 @@
                     pendingFocusKey.current = null;
                 }
             });
+
+            useImperativeHandle(ref, () => ({
+                fillActiveDateCellWithToday: () => {
+                    const active = activeCellRef.current;
+                    if (!active || active.colIdx !== 0) return;
+                    const row = table.rows[active.rowIdx];
+                    if (!row) return;
+                    const todayStr = new Date().toLocaleDateString();
+                    onUpdateCell(row.id, 0, todayStr);
+                    const next = cellRefs.current[active.rowIdx + '-1'];
+                    if (next) next.focus();
+                },
+            }));
 
             // Last column: move into the next row if one exists, otherwise add a
             // fresh row and focus its first cell once it mounts.
@@ -1480,6 +1493,16 @@
                 onUpdateCell(row.id, colIdx, raw);
             };
 
+            const handleFocus = (rowIdx, colIdx) => {
+                activeCellRef.current = { rowIdx, colIdx };
+                onActiveDateCellChange(colIdx === 0);
+            };
+
+            const handleBlur = () => {
+                activeCellRef.current = null;
+                onActiveDateCellChange(false);
+            };
+
             return (
                 <div className="mileage-table-wrap">
                     <table className="mileage-table">
@@ -1501,6 +1524,8 @@
                                                 ref={(el) => { cellRefs.current[rowIdx + '-' + i] = el; }}
                                                 onChange={(e) => handleChange(e, row, rowIdx, i)}
                                                 onKeyDown={(e) => handleKeyDown(e, rowIdx, i)}
+                                                onFocus={() => handleFocus(rowIdx, i)}
+                                                onBlur={handleBlur}
                                             />
                                         </td>
                                     ))}
@@ -1510,7 +1535,7 @@
                     </table>
                 </div>
             );
-        }
+        });
 
         function DashboardBackgroundSheet({ value, onChange, onClose }) {
             return (
@@ -1674,8 +1699,10 @@
             const [confirmTrash, setConfirmTrash] = useState(false);
             const [previewPhoto, setPreviewPhoto] = useState(null);
             const [uploading, setUploading] = useState(false);
+            const [dateCellActive, setDateCellActive] = useState(false);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
+            const mileageTableRef = useRef(null);
             const saveTimer = useRef(null);
 
             useEffect(() => {
@@ -1896,8 +1923,26 @@
                         </div>
 
                         <div className="section-label">Mileage Table</div>
-                        {draft.table ? <MileageTable table={draft.table} onUpdateCell={updateMileageCell} onAddRow={addMileageRow} /> : null}
-                        <button className="secondary-btn" style={{ marginTop: 10 }} onClick={addMileageRow}>+ Add Mileage Row</button>
+                        {draft.table ? (
+                            <MileageTable
+                                ref={mileageTableRef}
+                                table={draft.table}
+                                onUpdateCell={updateMileageCell}
+                                onAddRow={addMileageRow}
+                                onActiveDateCellChange={setDateCellActive}
+                            />
+                        ) : null}
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                            <button className="secondary-btn" onClick={addMileageRow}>+ Add Mileage Row</button>
+                            <button
+                                className="secondary-btn"
+                                disabled={!dateCellActive}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => mileageTableRef.current && mileageTableRef.current.fillActiveDateCellWithToday()}
+                            >
+                                📅 Today
+                            </button>
+                        </div>
 
                         <div className="section-label">Photos</div>
                         <div className="photo-row">
