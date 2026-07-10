@@ -375,6 +375,33 @@
             transform: scale(0.94);
         }
 
+        .undo-toast {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%);
+            background: #202124;
+            color: white;
+            padding: 12px 14px 12px 18px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 14px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            z-index: 30;
+            max-width: calc(100vw - 40px);
+        }
+
+        .undo-toast button {
+            background: none;
+            border: none;
+            color: #8ab4f8;
+            font-weight: 700;
+            font-size: 14px;
+            flex: 0 0 auto;
+        }
+
         /* ---------- Sheets / Modals ---------- */
         .sheet-backdrop {
             position: fixed;
@@ -1936,10 +1963,12 @@
             const [uploading, setUploading] = useState(false);
             const [dateCellActive, setDateCellActive] = useState(false);
             const [confirmRemoveRow, setConfirmRemoveRow] = useState(false);
+            const [removedRowToast, setRemovedRowToast] = useState(null);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
             const mileageTableRef = useRef(null);
             const saveTimer = useRef(null);
+            const removedRowToastTimer = useRef(null);
 
             useEffect(() => {
                 if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -2079,7 +2108,20 @@
             const removeLastMileageRow = () => {
                 setDraft((d) => {
                     if (!d.table || d.table.rows.length === 0) return d;
+                    const removed = d.table.rows[d.table.rows.length - 1];
+                    if (removedRowToastTimer.current) clearTimeout(removedRowToastTimer.current);
+                    setRemovedRowToast(removed);
+                    removedRowToastTimer.current = setTimeout(() => setRemovedRowToast(null), 5000);
                     return { ...d, table: { ...d.table, rows: d.table.rows.slice(0, -1) } };
+                });
+            };
+
+            const undoRemoveRow = () => {
+                if (removedRowToastTimer.current) clearTimeout(removedRowToastTimer.current);
+                setRemovedRowToast(null);
+                setDraft((d) => {
+                    if (!removedRowToast || !d.table) return d;
+                    return { ...d, table: { ...d.table, rows: [...d.table.rows, removedRowToast] } };
                 });
             };
 
@@ -2224,6 +2266,13 @@
                             />
                         ) : null}
 
+                        {removedRowToast ? (
+                            <div className="undo-toast">
+                                <span>Row removed</span>
+                                <button onClick={undoRemoveRow}>Undo</button>
+                            </div>
+                        ) : null}
+
                         <div className="section-label">Photos</div>
                         <div className="photo-row">
                             {draft.photos.map((photo) => (
@@ -2363,10 +2412,12 @@
             const [draggingCategoryId, setDraggingCategoryId] = useState(null);
             const [showSearch, setShowSearch] = useState(false);
             const [searchQuery, setSearchQuery] = useState('');
+            const [trashToast, setTrashToast] = useState(null);
 
             const dragRef = useRef({ pointerId: null, noteId: null, timer: null, dragging: false, startX: 0, startY: 0 });
             const justDraggedRef = useRef(false);
             const categoryDragRef = useRef({ pointerId: null, categoryId: null });
+            const trashToastTimer = useRef(null);
 
             useEffect(() => {
                 openDatabase().then(async (database) => {
@@ -2413,6 +2464,20 @@
                 setNotes((prev) => prev.map((n) => {
                     if (n.id !== id) return n;
                     const updated = { ...n, deletedAt: Date.now(), updatedAt: Date.now() };
+                    if (db) idbPut(db, 'notes', updated);
+                    return updated;
+                }));
+                if (trashToastTimer.current) clearTimeout(trashToastTimer.current);
+                setTrashToast(id);
+                trashToastTimer.current = setTimeout(() => setTrashToast(null), 5000);
+            }, [db]);
+
+            const undoTrashNote = useCallback((id) => {
+                if (trashToastTimer.current) clearTimeout(trashToastTimer.current);
+                setTrashToast(null);
+                setNotes((prev) => prev.map((n) => {
+                    if (n.id !== id) return n;
+                    const updated = { ...n, deletedAt: null };
                     if (db) idbPut(db, 'notes', updated);
                     return updated;
                 }));
@@ -2747,6 +2812,13 @@
                     </div>
 
                     <button className="fab" onClick={createNote}>+</button>
+
+                    {trashToast ? (
+                        <div className="undo-toast">
+                            <span>Note moved to trash</span>
+                            <button onClick={() => undoTrashNote(trashToast)}>Undo</button>
+                        </div>
+                    ) : null}
 
                     {showCategoryManager ? (
                         <CategoryManagerSheet
