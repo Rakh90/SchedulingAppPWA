@@ -543,6 +543,14 @@
             justify-content: center;
         }
 
+        .line-toolbar-btn-all {
+            width: auto;
+            padding: 0 8px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
         .line-toolbar-btn.active {
             background: #667eea;
             border-color: #667eea;
@@ -713,6 +721,50 @@
             gap: 10px;
             overflow-x: auto;
             padding-bottom: 4px;
+        }
+
+        .mileage-table-wrap {
+            overflow-x: auto;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+
+        .mileage-table {
+            border-collapse: collapse;
+            min-width: 560px;
+            width: 100%;
+        }
+
+        .mileage-table th {
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #8a8d99;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            background: #fafafa;
+            white-space: nowrap;
+        }
+
+        .mileage-table td {
+            padding: 2px 6px;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+        }
+
+        .mileage-cell-input {
+            width: 100%;
+            min-width: 110px;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            padding: 8px 4px;
+        }
+
+        .mileage-cell-input:focus {
+            outline: none;
+            background: #f1f2fb;
+            border-radius: 6px;
         }
 
         .bg-swatch {
@@ -988,6 +1040,30 @@
             return container.innerHTML;
         }
 
+        // Returns the B/I/U/EM/STRONG wrapper tags around a whole line's content,
+        // outermost first — used to carry formatting into a new line on Enter, the
+        // same way line *type* already carries over.
+        function getWholeLineTagChain(html) {
+            const container = document.createElement('div');
+            container.innerHTML = html || '';
+            const chain = [];
+            let node = container;
+            while (node.childNodes.length === 1 && node.firstChild.nodeType === Node.ELEMENT_NODE) {
+                const tag = node.firstChild.tagName;
+                if (tag === 'B' || tag === 'I' || tag === 'U') chain.push(tag);
+                node = node.firstChild;
+            }
+            return chain;
+        }
+
+        function wrapInTagChain(innerHtml, chain) {
+            let html = innerHtml;
+            for (let i = chain.length - 1; i >= 0; i--) {
+                html = '<' + chain[i].toLowerCase() + '>' + html + '</' + chain[i].toLowerCase() + '>';
+            }
+            return html;
+        }
+
         // A zero-width space so a freshly-wrapped empty tag (e.g. <b></b> from
         // pressing Bold before typing anything) has real text content for the
         // browser to anchor a cursor inside. Without it, collapsing a Range into
@@ -1078,6 +1154,7 @@
                 categoryId: categoryId || null,
                 blocks: [{ id: makeId(), type: 'text', html: '' }],
                 photos: [],
+                table: null,
                 background: '#ffffff',
                 order: now,
                 deletedAt: null,
@@ -1113,6 +1190,7 @@
                 categoryId: raw.categoryId || null,
                 blocks,
                 photos: raw.photos || [],
+                table: raw.table || null,
                 background: raw.background || '#ffffff',
                 order: raw.updatedAt || raw.createdAt || Date.now(),
                 deletedAt: null,
@@ -1185,9 +1263,14 @@
                         {category ? (
                             <span className="color-dot" style={{ background: category.color }}></span>
                         ) : <span></span>}
-                        {note.photos && note.photos.length > 0 ? (
-                            <span className="note-card-photo-badge">📷 {note.photos.length}</span>
-                        ) : null}
+                        <span style={{ display: 'flex', gap: 8 }}>
+                            {note.table && note.table.rows.length > 0 ? (
+                                <span className="note-card-photo-badge">📊 {note.table.rows.length}</span>
+                            ) : null}
+                            {note.photos && note.photos.length > 0 ? (
+                                <span className="note-card-photo-badge">📷 {note.photos.length}</span>
+                            ) : null}
+                        </span>
                     </div>
                 </div>
             );
@@ -1276,6 +1359,36 @@
             );
         }
 
+        function MileageTable({ table, onUpdateCell }) {
+            return (
+                <div className="mileage-table-wrap">
+                    <table className="mileage-table">
+                        <thead>
+                            <tr>
+                                {MILEAGE_COLUMNS.map((col) => <th key={col}>{col}</th>)}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {table.rows.map((row) => (
+                                <tr key={row.id}>
+                                    {row.cells.map((cell, i) => (
+                                        <td key={i}>
+                                            <input
+                                                className="mileage-cell-input"
+                                                value={cell}
+                                                inputMode={i === 3 ? 'decimal' : 'text'}
+                                                onChange={(e) => onUpdateCell(row.id, i, e.target.value)}
+                                            />
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        }
+
         function DashboardBackgroundSheet({ value, onChange, onClose }) {
             return (
                 <div className="sheet-backdrop" onClick={onClose}>
@@ -1309,27 +1422,36 @@
             { type: 'checklist', icon: '☐' },
         ];
 
+        const MILEAGE_COLUMNS = ['Date', 'Start Point', 'End Point', 'Miles'];
+
         // Always-visible row next to the category dropdown that acts on whichever
         // line currently has editing focus. Every button uses onMouseDown +
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, activeType, activeFormats, onFormat, onSetType }) {
+        function LineToolbar({ hasActiveLine, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType }) {
             const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
                 onFormat(tag);
+            };
+            const runToggleAll = (e) => {
+                e.preventDefault();
+                if (!hasActiveLine) return;
+                onToggleAllFormats();
             };
             const runType = (type) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
                 onSetType(type);
             };
+            const allActive = activeFormats.b && activeFormats.i && activeFormats.u;
             return (
                 <div className="line-toolbar">
                     <button className={'line-toolbar-btn' + (activeFormats.b ? ' active' : '')} disabled={!hasActiveLine} onMouseDown={runFormat('b')} title="Bold"><b>B</b></button>
                     <button className={'line-toolbar-btn' + (activeFormats.i ? ' active' : '')} disabled={!hasActiveLine} onMouseDown={runFormat('i')} title="Italic"><i>I</i></button>
                     <button className={'line-toolbar-btn' + (activeFormats.u ? ' active' : '')} disabled={!hasActiveLine} onMouseDown={runFormat('u')} title="Underline"><u>U</u></button>
+                    <button className={'line-toolbar-btn line-toolbar-btn-all' + (allActive ? ' active' : '')} disabled={!hasActiveLine} onMouseDown={runToggleAll} title="Toggle all formats">BIU</button>
                     <span className="line-toolbar-divider"></span>
                     {LINE_TYPE_ICONS.map(({ type, icon }) => (
                         <button
@@ -1473,6 +1595,28 @@
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: newHtml } : b) }));
             };
 
+            // Master toggle: if all three are already on, turn all three off;
+            // otherwise turn on whichever of the three aren't already active.
+            const toggleAllFormats = () => {
+                if (!editingBlockId) return;
+                const el = document.querySelector('.block-editable');
+                if (!el) return;
+                const allActive = ['b', 'i', 'u'].every((tag) => hasWholeLineTag(el.innerHTML, tag));
+                let html = el.innerHTML;
+                ['b', 'i', 'u'].forEach((tag) => {
+                    const has = hasWholeLineTag(html, tag);
+                    if (allActive === has) {
+                        html = toggleWholeLineFormat(html, tag);
+                    }
+                });
+                const newHtml = sanitizeInlineHtml(html);
+                el.innerHTML = newHtml;
+                el.focus();
+                placeCursorAtDeepestEnd(el);
+                const blockId = editingBlockId;
+                setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: newHtml } : b) }));
+            };
+
             const toggleChecked = (blockId) => {
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, checked: !b.checked } : b) }));
             };
@@ -1483,7 +1627,9 @@
                     const idx = d.blocks.findIndex(b => b.id === blockId);
                     const current = d.blocks[idx];
                     const blocks = [...d.blocks];
-                    blocks.splice(idx + 1, 0, { id: newId, type: current.type, html: '', checked: false });
+                    const chain = getWholeLineTagChain(current.html);
+                    const newHtml = chain.length > 0 ? wrapInTagChain(ZWSP, chain) : '';
+                    blocks.splice(idx + 1, 0, { id: newId, type: current.type, html: newHtml, checked: false });
                     return { ...d, blocks };
                 });
                 setEditingBlockId(newId);
@@ -1534,6 +1680,31 @@
                 setDraft((d) => ({ ...d, photos: d.photos.filter(p => p.id !== id) }));
             };
 
+            // Also creates the table (with these fixed mileage columns) on its
+            // first press if one doesn't exist yet on this note.
+            const addMileageRow = () => {
+                setDraft((d) => {
+                    const table = d.table || { columns: MILEAGE_COLUMNS, rows: [] };
+                    const newRow = { id: makeId(), cells: ['', '', '', ''] };
+                    return { ...d, table: { ...table, rows: [...table.rows, newRow] } };
+                });
+            };
+
+            const updateMileageCell = (rowId, cellIndex, value) => {
+                setDraft((d) => {
+                    if (!d.table) return d;
+                    return {
+                        ...d,
+                        table: {
+                            ...d.table,
+                            rows: d.table.rows.map(r => r.id === rowId
+                                ? { ...r, cells: r.cells.map((c, i) => i === cellIndex ? value : c) }
+                                : r),
+                        },
+                    };
+                });
+            };
+
             const handleBack = () => {
                 const finalDraft = getFlushedDraft();
                 onSave({ ...finalDraft, updatedAt: Date.now() });
@@ -1579,6 +1750,7 @@
                                 activeType={activeBlock ? activeBlock.type : null}
                                 activeFormats={activeFormats}
                                 onFormat={toggleLineFormat}
+                                onToggleAllFormats={toggleAllFormats}
                                 onSetType={(type) => setBlockType(editingBlockId, type)}
                             />
                         </div>
@@ -1638,6 +1810,10 @@
                                 onChange={handleAddPhotos}
                             />
                         </div>
+
+                        <div className="section-label">Mileage Table</div>
+                        {draft.table ? <MileageTable table={draft.table} onUpdateCell={updateMileageCell} /> : null}
+                        <button className="secondary-btn" style={{ marginTop: 10 }} onClick={addMileageRow}>+ Add Mileage Row</button>
 
                         <div className="section-label">Background</div>
                         <BackgroundPicker value={draft.background} onChange={(v) => updateField('background', v)} />
