@@ -1411,17 +1411,38 @@
         // loses contrast. The palette is fixed and small enough to just flag each
         // one by hand rather than computing contrast at runtime.
         const THEME_BACKGROUNDS = [
-            { id: 'aurora', label: 'Aurora', pageCss: 'linear-gradient(135deg, #4f5fd1 0%, #7b4fc9 50%, #4fb8c9 100%)', cardCss: 'linear-gradient(135deg, rgba(102,126,234,0.35), rgba(118,75,162,0.35))', dark: false },
-            { id: 'neon', label: 'Neon Grid', pageCss: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0ea5e9 100%)', cardCss: 'linear-gradient(135deg, rgba(15,23,42,0.45), rgba(14,165,233,0.35))', dark: true },
-            { id: 'frost', label: 'Frost', pageCss: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 50%, #f0fdfa 100%)', cardCss: 'linear-gradient(135deg, rgba(255,255,255,0.45), rgba(191,219,254,0.35))', dark: false },
-            { id: 'cyber', label: 'Cyber', pageCss: 'linear-gradient(135deg, #1e1b4b 0%, #7e22ce 50%, #ec4899 100%)', cardCss: 'linear-gradient(135deg, rgba(236,72,153,0.35), rgba(59,130,246,0.35))', dark: true },
-            { id: 'holo', label: 'Holo', pageCss: 'linear-gradient(135deg, #fbcfe8 0%, #ddd6fe 50%, #a7f3d0 100%)', cardCss: 'linear-gradient(135deg, rgba(253,207,232,0.4), rgba(167,255,235,0.4))', dark: false },
-            { id: 'matrix', label: 'Matrix', pageCss: 'linear-gradient(135deg, #06130a 0%, #0d3b1f 55%, #00e676 100%)', cardCss: 'linear-gradient(135deg, rgba(3,12,6,0.92), rgba(5,66,30,0.85))', dark: true },
-            { id: 'synthwave', label: 'Synthwave', pageCss: 'linear-gradient(135deg, #2b0b3f 0%, #a2246b 55%, #f6a821 100%)', cardCss: 'linear-gradient(135deg, rgba(28,7,41,0.92), rgba(97,23,70,0.85))', dark: true },
-            { id: 'plasma', label: 'Plasma', pageCss: 'linear-gradient(135deg, #3a0ca3 0%, #8e2de2 50%, #ff0080 100%)', cardCss: 'linear-gradient(135deg, rgba(36,7,102,0.92), rgba(114,36,181,0.85))', dark: true },
-            { id: 'quantum', label: 'Quantum', pageCss: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)', cardCss: 'linear-gradient(135deg, rgba(8,18,22,0.92), rgba(24,47,56,0.85))', dark: true },
-            { id: 'obsidian', label: 'Obsidian', pageCss: 'linear-gradient(135deg, #000000 0%, #0a0a0d 55%, #16161f 100%)', cardCss: 'linear-gradient(135deg, rgba(0,0,0,0.92), rgba(22,22,31,0.85))', dark: true },
+            { id: 'aurora', label: 'Aurora', pageCss: 'linear-gradient(135deg, #4f5fd1 0%, #7b4fc9 50%, #4fb8c9 100%)', cardCss: 'linear-gradient(135deg, rgba(102,126,234,0.35), rgba(118,75,162,0.35))', dark: false, accent: '#4f5fd1' },
+            { id: 'neon', label: 'Neon Grid', pageCss: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0ea5e9 100%)', cardCss: 'linear-gradient(135deg, rgba(15,23,42,0.45), rgba(14,165,233,0.35))', dark: true, accent: '#0f172a' },
+            { id: 'frost', label: 'Frost', pageCss: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 50%, #f0fdfa 100%)', cardCss: 'linear-gradient(135deg, rgba(255,255,255,0.45), rgba(191,219,254,0.35))', dark: false, accent: '#dbeafe' },
+            { id: 'cyber', label: 'Cyber', pageCss: 'linear-gradient(135deg, #1e1b4b 0%, #7e22ce 50%, #ec4899 100%)', cardCss: 'linear-gradient(135deg, rgba(236,72,153,0.35), rgba(59,130,246,0.35))', dark: true, accent: '#1e1b4b' },
+            { id: 'holo', label: 'Holo', pageCss: 'linear-gradient(135deg, #fbcfe8 0%, #ddd6fe 50%, #a7f3d0 100%)', cardCss: 'linear-gradient(135deg, rgba(253,207,232,0.4), rgba(167,255,235,0.4))', dark: false, accent: '#fbcfe8' },
+            { id: 'matrix', label: 'Matrix', pageCss: 'linear-gradient(135deg, #06130a 0%, #0d3b1f 55%, #00e676 100%)', cardCss: 'linear-gradient(135deg, rgba(3,12,6,0.92), rgba(5,66,30,0.85))', dark: true, accent: '#06130a' },
+            { id: 'synthwave', label: 'Synthwave', pageCss: 'linear-gradient(135deg, #2b0b3f 0%, #a2246b 55%, #f6a821 100%)', cardCss: 'linear-gradient(135deg, rgba(28,7,41,0.92), rgba(97,23,70,0.85))', dark: true, accent: '#2b0b3f' },
+            { id: 'plasma', label: 'Plasma', pageCss: 'linear-gradient(135deg, #3a0ca3 0%, #8e2de2 50%, #ff0080 100%)', cardCss: 'linear-gradient(135deg, rgba(36,7,102,0.92), rgba(114,36,181,0.85))', dark: true, accent: '#3a0ca3' },
+            { id: 'quantum', label: 'Quantum', pageCss: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)', cardCss: 'linear-gradient(135deg, rgba(8,18,22,0.92), rgba(24,47,56,0.85))', dark: true, accent: '#0f2027' },
+            { id: 'obsidian', label: 'Obsidian', pageCss: 'linear-gradient(135deg, #000000 0%, #0a0a0d 55%, #16161f 100%)', cardCss: 'linear-gradient(135deg, rgba(0,0,0,0.92), rgba(22,22,31,0.85))', dark: true, accent: '#000000' },
         ];
+
+        const DEFAULT_THEME_COLOR = '#667eea';
+
+        // Matches the header's own dark(0.32)-over-gradient overlay so the
+        // browser/OS status bar tint lines up with what the header actually
+        // renders, not just the theme's raw accent color.
+        function darkenHex(hex, amount) {
+            const n = parseInt(hex.slice(1), 16);
+            const r = Math.round(((n >> 16) & 255) * (1 - amount));
+            const g = Math.round(((n >> 8) & 255) * (1 - amount));
+            const b = Math.round((n & 255) * (1 - amount));
+            return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+        }
+
+        function resolveStatusBarColor(bg) {
+            if (bg && bg.indexOf('theme:') === 0) {
+                const theme = THEME_BACKGROUNDS.find(t => 'theme:' + t.id === bg) || THEME_BACKGROUNDS[0];
+                return darkenHex(theme.accent, 0.32);
+            }
+            return DEFAULT_THEME_COLOR;
+        }
 
         function isThemeDark(bg) {
             if (!bg || bg.indexOf('theme:') !== 0) return false;
@@ -2605,6 +2626,11 @@
                     setLoading(false);
                 });
             }, []);
+
+            useEffect(() => {
+                const meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) meta.setAttribute('content', resolveStatusBarColor(settings.dashboardBackground));
+            }, [settings.dashboardBackground]);
 
             const persistNote = useCallback((updatedNote) => {
                 setNotes((prev) => {
