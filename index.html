@@ -176,6 +176,12 @@
             flex: 0 0 auto;
         }
 
+        .note-card-category-dots {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
         .category-pill.add-pill {
             background: rgba(255,255,255,0.16);
             font-size: 16px;
@@ -445,6 +451,35 @@
             padding: 10px 0;
             border-bottom: 1px solid #f0f0f2;
             background: #fff;
+        }
+
+        .category-picker-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 12px 8px;
+            border: none;
+            border-bottom: 1px solid #f0f0f2;
+            background: #fff;
+            font-size: 15px;
+            text-align: left;
+            border-radius: 8px;
+        }
+
+        .category-picker-row.selected {
+            background: #eef0fb;
+        }
+
+        .category-picker-name {
+            flex: 1;
+        }
+
+        .category-picker-check {
+            color: #667eea;
+            font-weight: 700;
+            width: 16px;
+            text-align: center;
         }
 
         .category-manager-row.dragging {
@@ -1402,12 +1437,12 @@
             return { background: bg || '#f1f2f5' };
         }
 
-        function blankNote(categoryId) {
+        function blankNote(categoryIds) {
             const now = Date.now();
             return {
                 id: makeId(),
                 title: '',
-                categoryId: categoryId || null,
+                categoryIds: categoryIds || [],
                 blocks: [{ id: makeId(), type: 'text', html: '' }],
                 photos: [],
                 table: null,
@@ -1428,6 +1463,7 @@
                     deletedAt: raw.deletedAt || null,
                     order: raw.order != null ? raw.order : (raw.updatedAt || raw.createdAt || Date.now()),
                     pinned: raw.pinned || false,
+                    categoryIds: raw.categoryIds || (raw.categoryId ? [raw.categoryId] : []),
                     ...raw,
                 };
             }
@@ -1445,7 +1481,7 @@
             return {
                 id: raw.id,
                 title: raw.title || '',
-                categoryId: raw.categoryId || null,
+                categoryIds: raw.categoryIds || (raw.categoryId ? [raw.categoryId] : []),
                 blocks,
                 photos: raw.photos || [],
                 table: raw.table || null,
@@ -1472,8 +1508,8 @@
 
         function noteMatchesCategory(note, filterCategory) {
             if (filterCategory === 'all') return true;
-            if (filterCategory === 'uncategorized') return !note.categoryId;
-            return note.categoryId === filterCategory;
+            if (filterCategory === 'uncategorized') return !note.categoryIds || note.categoryIds.length === 0;
+            return !!(note.categoryIds && note.categoryIds.includes(filterCategory));
         }
 
         function noteMatchesSearch(note, query) {
@@ -1491,7 +1527,7 @@
             return (b.order || 0) - (a.order || 0);
         }
 
-        function NoteCard({ note, category, onOpen, onTrash, onTogglePin, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp }) {
+        function NoteCard({ note, noteCategories, onOpen, onTrash, onTogglePin, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp }) {
             const numbers = computeListNumbers(note.blocks);
             const previewBlocks = note.blocks.filter(b => b.html && stripHtml(b.html).trim()).slice(0, 4);
 
@@ -1542,8 +1578,12 @@
                         </div>
                     ) : null}
                     <div className="note-card-footer">
-                        {category ? (
-                            <span className="color-dot" style={{ background: category.color }}></span>
+                        {noteCategories && noteCategories.length > 0 ? (
+                            <span className="note-card-category-dots">
+                                {noteCategories.map((cat) => (
+                                    <span key={cat.id} className="color-dot" style={{ background: cat.color }} title={cat.name}></span>
+                                ))}
+                            </span>
                         ) : <span></span>}
                         <span style={{ display: 'flex', gap: 8 }}>
                             {note.table && note.table.rows.length > 0 ? (
@@ -1560,7 +1600,7 @@
 
         function CategoryManagerSheet({ categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp }) {
             const [newName, setNewName] = useState('');
-            const [newColor, setNewColor] = useState(CATEGORY_COLORS[0]);
+            const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
 
             return (
                 <div className="sheet-backdrop" onClick={onClose}>
@@ -1618,6 +1658,8 @@
                                     if (!newName.trim()) return;
                                     onAdd(newName.trim(), newColor);
                                     setNewName('');
+                                    const nextIdx = (CATEGORY_COLORS.indexOf(newColor) + 1) % CATEGORY_COLORS.length;
+                                    setNewColor(CATEGORY_COLORS[nextIdx]);
                                 }}
                             >
                                 Add category
@@ -1781,6 +1823,34 @@
                     <div className="sheet" onClick={(e) => e.stopPropagation()}>
                         <h2>Dashboard background</h2>
                         <BackgroundPicker value={value || '#f1f2f5'} onChange={onChange} />
+                    </div>
+                </div>
+            );
+        }
+
+        function CategoryPickerSheet({ categories, selectedIds, onToggle, onClose }) {
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                        <h2>Categories</h2>
+                        {categories.length === 0 ? (
+                            <p style={{ fontSize: 13, color: '#8a8d99' }}>No categories yet. Add one from the dashboard's Categories settings.</p>
+                        ) : (
+                            categories.map((cat) => {
+                                const selected = selectedIds.includes(cat.id);
+                                return (
+                                    <button
+                                        key={cat.id}
+                                        className={'category-picker-row' + (selected ? ' selected' : '')}
+                                        onClick={() => onToggle(cat.id)}
+                                    >
+                                        <span className="color-dot" style={{ background: cat.color, width: 12, height: 12 }}></span>
+                                        <span className="category-picker-name">{cat.name}</span>
+                                        <span className="category-picker-check">{selected ? '✓' : ''}</span>
+                                    </button>
+                                );
+                            })
+                        )}
                     </div>
                 </div>
             );
@@ -1965,6 +2035,7 @@
             const [dateCellActive, setDateCellActive] = useState(false);
             const [confirmRemoveRow, setConfirmRemoveRow] = useState(false);
             const [removedRowToast, setRemovedRowToast] = useState(null);
+            const [showCategoryPicker, setShowCategoryPicker] = useState(false);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
             const mileageTableRef = useRef(null);
@@ -1980,6 +2051,14 @@
             }, [draft]);
 
             const updateField = (field, value) => setDraft((d) => ({ ...d, [field]: value }));
+
+            const toggleDraftCategory = (id) => {
+                setDraft((d) => {
+                    const current = d.categoryIds || [];
+                    const next = current.includes(id) ? current.filter(c => c !== id) : [...current, id];
+                    return { ...d, categoryIds: next };
+                });
+            };
 
             const commitBlockHtml = (blockId, rawHtml) => {
                 const clean = stripZeroWidthSpace(sanitizeInlineHtml(rawHtml));
@@ -2179,16 +2258,23 @@
                         />
 
                         <div className="editor-meta-row">
-                            <select
+                            <button
+                                type="button"
                                 className="category-select"
-                                value={draft.categoryId || ''}
-                                onChange={(e) => updateField('categoryId', e.target.value || null)}
+                                onClick={() => setShowCategoryPicker(true)}
                             >
-                                <option value="">Uncategorized</option>
-                                {categories.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
+                                {draft.categoryIds && draft.categoryIds.length > 0 ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                        {draft.categoryIds.map((id) => {
+                                            const cat = categories.find(c => c.id === id);
+                                            return cat ? <span key={id} className="color-dot" style={{ background: cat.color }}></span> : null;
+                                        })}
+                                        {draft.categoryIds.length === 1
+                                            ? (categories.find(c => c.id === draft.categoryIds[0]) || {}).name
+                                            : draft.categoryIds.length + ' categories'}
+                                    </span>
+                                ) : 'Uncategorized'}
+                            </button>
                             <LineToolbar
                                 hasActiveLine={!!editingBlockId}
                                 activeType={activeBlock ? activeBlock.type : null}
@@ -2331,6 +2417,15 @@
                             confirmLabel="Move to Trash"
                             onCancel={() => setConfirmTrash(false)}
                             onConfirm={() => { onTrash(draft.id); onBack(); }}
+                        />
+                    ) : null}
+
+                    {showCategoryPicker ? (
+                        <CategoryPickerSheet
+                            categories={categories}
+                            selectedIds={draft.categoryIds || []}
+                            onToggle={toggleDraftCategory}
+                            onClose={() => setShowCategoryPicker(false)}
                         />
                     ) : null}
                 </div>
@@ -2516,7 +2611,7 @@
 
             const createNote = () => {
                 const categoryId = filterCategory !== 'all' && filterCategory !== 'uncategorized' ? filterCategory : null;
-                const note = blankNote(categoryId);
+                const note = blankNote(categoryId ? [categoryId] : []);
                 setNotes((prev) => [note, ...prev]);
                 if (db) idbPut(db, 'notes', note);
                 setActiveNoteId(note.id);
@@ -2591,13 +2686,15 @@
             const deleteCategory = (id) => {
                 setCategories((prev) => prev.filter(c => c.id !== id));
                 if (db) idbDelete(db, 'categories', id);
-                const affected = notes.filter(n => n.categoryId === id);
+                const affected = notes.filter(n => n.categoryIds && n.categoryIds.includes(id));
                 affected.forEach((n) => {
-                    const updated = { ...n, categoryId: null };
+                    const updated = { ...n, categoryIds: n.categoryIds.filter(cid => cid !== id) };
                     if (db) idbPut(db, 'notes', updated);
                 });
                 if (affected.length > 0) {
-                    setNotes((prev) => prev.map(n => n.categoryId === id ? { ...n, categoryId: null } : n));
+                    setNotes((prev) => prev.map(n => (n.categoryIds && n.categoryIds.includes(id))
+                        ? { ...n, categoryIds: n.categoryIds.filter(cid => cid !== id) }
+                        : n));
                 }
                 if (filterCategory === id) setFilterCategory('all');
                 setDeleteCategoryId(null);
@@ -2797,7 +2894,7 @@
                                     <NoteCard
                                         key={note.id}
                                         note={note}
-                                        category={note.categoryId ? categoryById[note.categoryId] : null}
+                                        noteCategories={(note.categoryIds || []).map(id => categoryById[id]).filter(Boolean)}
                                         onOpen={handleCardOpen}
                                         onTrash={trashNote}
                                         onTogglePin={togglePin}
