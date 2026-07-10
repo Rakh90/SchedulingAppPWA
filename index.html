@@ -68,6 +68,11 @@
             justify-content: space-between;
         }
 
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
         .icon-btn {
             background: rgba(255,255,255,0.18);
             border: none;
@@ -79,10 +84,15 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            flex: 0 0 auto;
         }
 
         .icon-btn:active {
             background: rgba(255,255,255,0.32);
+        }
+
+        .icon-btn:disabled {
+            opacity: 0.4;
         }
 
         /* ---------- Category tabs ---------- */
@@ -137,6 +147,7 @@
         .notes-area {
             padding: 16px;
             padding-bottom: 96px;
+            min-height: calc(100% - 96px);
         }
 
         .notes-grid {
@@ -157,6 +168,16 @@
             text-align: left;
             position: relative;
             overflow: hidden;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+
+        .note-card.dragging {
+            opacity: 0.9;
+            transform: scale(1.04);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.28);
+            z-index: 5;
         }
 
         .note-card-thumb {
@@ -176,12 +197,9 @@
         .note-card-body {
             font-size: 13px;
             color: rgba(32,33,36,0.75);
-            white-space: pre-wrap;
             word-break: break-word;
             overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 5;
-            -webkit-box-orient: vertical;
+            max-height: 130px;
         }
 
         .note-card-list-item {
@@ -196,6 +214,7 @@
             flex: 0 0 auto;
             font-size: 12px;
             margin-top: 1px;
+            min-width: 10px;
         }
 
         .note-card-list-item.checked {
@@ -286,35 +305,6 @@
         .sheet h2 {
             font-size: 17px;
             margin-bottom: 16px;
-        }
-
-        .type-options {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-
-        .type-option {
-            border: 1.5px solid #e2e4e9;
-            border-radius: 12px;
-            padding: 16px 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            background: #fafafa;
-            font-size: 13px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .type-option:active {
-            background: #efeffb;
-            border-color: #667eea;
-        }
-
-        .type-option .emoji {
-            font-size: 26px;
         }
 
         .category-manager-row {
@@ -443,6 +433,13 @@
             padding: 12px 10px;
             border-bottom: 1px solid rgba(0,0,0,0.06);
             flex: 0 0 auto;
+            background: rgba(255,255,255,0.6);
+        }
+
+        .editor-header-title {
+            font-weight: 700;
+            font-size: 16px;
+            color: #202124;
         }
 
         .editor-header-actions {
@@ -485,60 +482,42 @@
             background: white;
         }
 
-        .type-switch {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 18px;
-            overflow-x: auto;
-        }
-
-        .type-switch button {
-            flex: 0 0 auto;
-            border: 1px solid rgba(0,0,0,0.1);
-            background: white;
-            padding: 7px 12px;
-            border-radius: 16px;
-            font-size: 12px;
-            font-weight: 600;
-            color: #555;
-        }
-
-        .type-switch button.active {
-            background: #667eea;
-            border-color: #667eea;
-            color: white;
-        }
-
-        .editor-textarea {
-            width: 100%;
-            min-height: 160px;
-            border: none;
-            resize: vertical;
-            font-size: 15px;
-            line-height: 1.5;
-            background: transparent;
-        }
-
-        .editor-textarea:focus {
-            outline: none;
-        }
-
         .list-items {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 0;
         }
 
-        .list-item-row {
+        .block-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            padding: 4px 0;
+        }
+
+        .block-type-btn {
+            flex: 0 0 auto;
+            width: 22px;
+            height: 26px;
+            border: none;
+            background: transparent;
+            color: #b3b6c2;
+            font-size: 13px;
+            border-radius: 5px;
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 0;
+            justify-content: center;
+        }
+
+        .block-type-btn:active {
+            background: #eef0fb;
+            color: #667eea;
         }
 
         .list-item-marker {
             flex: 0 0 auto;
-            width: 24px;
+            width: 20px;
+            height: 26px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -550,6 +529,7 @@
         .checkbox-marker {
             width: 20px;
             height: 20px;
+            margin-top: 3px;
             border-radius: 5px;
             border: 2px solid #a3a9c2;
             display: flex;
@@ -558,6 +538,7 @@
             font-size: 12px;
             color: white;
             flex: 0 0 auto;
+            background: transparent;
         }
 
         .checkbox-marker.checked {
@@ -565,36 +546,31 @@
             border-color: #667eea;
         }
 
-        .list-item-input {
+        .block-editable, .block-display {
             flex: 1;
-            border: none;
+            min-height: 26px;
             font-size: 15px;
-            background: transparent;
-            padding: 4px 0;
-        }
-
-        .list-item-input:focus {
+            line-height: 1.5;
             outline: none;
+            word-break: break-word;
+            padding: 3px 0;
         }
 
-        .list-item-input.checked {
+        .block-placeholder {
+            color: #b3b6c2;
+        }
+
+        .block-display.checked {
             text-decoration: line-through;
             color: #9a9a9a;
         }
 
-        .list-item-move {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .list-item-move button {
-            border: none;
-            background: transparent;
-            color: #a3a9c2;
-            font-size: 11px;
-            line-height: 1;
-            padding: 2px 4px;
-        }
+        .block-editable b, .block-display b,
+        .block-editable strong, .block-display strong { font-weight: 700; }
+        .block-editable i, .block-display i,
+        .block-editable em, .block-display em { font-style: italic; }
+        .block-editable u, .block-display u { text-decoration: underline; }
+        .block-display a { color: #667eea; text-decoration: underline; }
 
         .list-item-remove {
             border: none;
@@ -624,6 +600,34 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+
+        .format-toolbar {
+            position: sticky;
+            bottom: 0;
+            display: flex;
+            gap: 8px;
+            padding: 10px;
+            background: rgba(255,255,255,0.92);
+            border-top: 1px solid rgba(0,0,0,0.08);
+            flex: 0 0 auto;
+        }
+
+        .format-toolbar button {
+            flex: 0 0 auto;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: 1px solid rgba(0,0,0,0.1);
+            background: #fafafa;
+            font-size: 15px;
+        }
+
+        .format-toolbar button.done-btn {
+            flex: 1;
+            width: auto;
+            font-weight: 600;
+            color: #667eea;
         }
 
         .section-label {
@@ -697,6 +701,7 @@
             height: 34px;
             border-radius: 50%;
             border: 2px solid rgba(0,0,0,0.08);
+            background-size: cover;
         }
 
         .bg-swatch.selected {
@@ -733,6 +738,36 @@
             font-size: 20px;
         }
 
+        .trash-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            gap: 10px;
+        }
+
+        .trash-row-title {
+            font-weight: 600;
+            font-size: 14px;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #333;
+        }
+
+        .trash-row-actions {
+            display: flex;
+            gap: 6px;
+            flex: 0 0 auto;
+        }
+
+        .trash-row-actions button {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
         .loading-screen {
             display: flex;
             align-items: center;
@@ -750,7 +785,7 @@
         const { useState, useEffect, useRef, useCallback } = React;
 
         const DB_NAME = 'notepad-db';
-        const DB_VERSION = 1;
+        const DB_VERSION = 2;
 
         function openDatabase() {
             return new Promise((resolve, reject) => {
@@ -762,6 +797,9 @@
                     }
                     if (!db.objectStoreNames.contains('categories')) {
                         db.createObjectStore('categories', { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains('settings')) {
+                        db.createObjectStore('settings', { keyPath: 'id' });
                     }
                 };
                 req.onsuccess = (e) => resolve(e.target.result);
@@ -835,6 +873,61 @@
             });
         }
 
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str == null ? '' : str;
+            return div.innerHTML;
+        }
+
+        function stripHtml(html) {
+            const div = document.createElement('div');
+            div.innerHTML = html || '';
+            return div.textContent || '';
+        }
+
+        // Only a small allow-list of inline formatting tags survives; everything
+        // else (script/style/img/on* handlers from pasted rich content) is unwrapped
+        // to plain text rather than dropped, so paste never silently loses words.
+        function sanitizeInlineHtml(rawHtml) {
+            const allowed = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR']);
+            const container = document.createElement('div');
+            container.innerHTML = rawHtml || '';
+            const clean = (node) => {
+                Array.from(node.childNodes).forEach((child) => {
+                    if (child.nodeType === Node.TEXT_NODE) return;
+                    if (child.nodeType === Node.ELEMENT_NODE) {
+                        if (!allowed.has(child.tagName)) {
+                            const text = document.createTextNode(child.textContent);
+                            child.replaceWith(text);
+                            return;
+                        }
+                        Array.from(child.attributes).forEach((attr) => child.removeAttribute(attr.name));
+                        clean(child);
+                    } else {
+                        child.remove();
+                    }
+                });
+            };
+            clean(container);
+            return container.innerHTML;
+        }
+
+        const URL_REGEX = /(https?:\/\/[^\s<]+)/g;
+
+        function linkify(html) {
+            if (!html) return html;
+            return html.replace(URL_REGEX, (url) => {
+                let trimmed = url;
+                let trailing = '';
+                while (/[).,!?;:]$/.test(trimmed)) {
+                    trailing = trimmed.slice(-1) + trailing;
+                    trimmed = trimmed.slice(0, -1);
+                }
+                if (!trimmed) return url;
+                return '<a href="' + trimmed + '" target="_blank" rel="noopener noreferrer">' + trimmed + '</a>' + trailing;
+            });
+        }
+
         const CATEGORY_COLORS = ['#667eea', '#e57373', '#f2a541', '#ffd54f', '#81c784', '#4dd0c9', '#4fc3f7', '#9575cd', '#f06292', '#a1887f'];
 
         const NOTE_BACKGROUNDS = [
@@ -852,27 +945,94 @@
             { id: 'gray', value: '#e8eaed' },
         ];
 
-        const TYPE_LABELS = {
-            text: { label: 'Text', emoji: '📝' },
-            checklist: { label: 'Checklist', emoji: '✅' },
-            numbered: { label: 'Numbered', emoji: '🔢' },
-            bulleted: { label: 'Bulleted', emoji: '•' },
-        };
+        const THEME_BACKGROUNDS = [
+            { id: 'aurora', label: 'Aurora', pageCss: 'linear-gradient(135deg, #4f5fd1 0%, #7b4fc9 50%, #4fb8c9 100%)', cardCss: 'linear-gradient(135deg, rgba(102,126,234,0.35), rgba(118,75,162,0.35))' },
+            { id: 'neon', label: 'Neon Grid', pageCss: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0ea5e9 100%)', cardCss: 'linear-gradient(135deg, rgba(15,23,42,0.45), rgba(14,165,233,0.35))' },
+            { id: 'frost', label: 'Frost', pageCss: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 50%, #f0fdfa 100%)', cardCss: 'linear-gradient(135deg, rgba(255,255,255,0.45), rgba(191,219,254,0.35))' },
+            { id: 'cyber', label: 'Cyber', pageCss: 'linear-gradient(135deg, #1e1b4b 0%, #7e22ce 50%, #ec4899 100%)', cardCss: 'linear-gradient(135deg, rgba(236,72,153,0.35), rgba(59,130,246,0.35))' },
+            { id: 'holo', label: 'Holo', pageCss: 'linear-gradient(135deg, #fbcfe8 0%, #ddd6fe 50%, #a7f3d0 100%)', cardCss: 'linear-gradient(135deg, rgba(253,207,232,0.4), rgba(167,255,235,0.4))' },
+        ];
 
-        function blankNote(type, categoryId) {
+        function resolveCardBackground(bg) {
+            if (bg && bg.indexOf('theme:') === 0) {
+                const theme = THEME_BACKGROUNDS.find(t => 'theme:' + t.id === bg) || THEME_BACKGROUNDS[0];
+                return { backgroundImage: theme.cardCss, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' };
+            }
+            return { background: bg || '#ffffff' };
+        }
+
+        function resolvePageBackground(bg) {
+            if (bg && bg.indexOf('theme:') === 0) {
+                const theme = THEME_BACKGROUNDS.find(t => 'theme:' + t.id === bg) || THEME_BACKGROUNDS[0];
+                return { backgroundImage: theme.pageCss };
+            }
+            return { background: bg || '#f1f2f5' };
+        }
+
+        const BLOCK_TYPE_CYCLE = ['text', 'bulleted', 'numbered', 'checklist'];
+        const BLOCK_TYPE_GLYPH = { text: '¶', bulleted: '•', numbered: '#', checklist: '☑' };
+
+        function blankNote(categoryId) {
             const now = Date.now();
             return {
                 id: makeId(),
                 title: '',
                 categoryId: categoryId || null,
-                type: type,
-                textContent: '',
-                items: type === 'text' ? [] : [{ id: makeId(), text: '', checked: false }],
+                blocks: [{ id: makeId(), type: 'text', html: '' }],
                 photos: [],
                 background: '#ffffff',
+                order: now,
+                deletedAt: null,
                 createdAt: now,
                 updatedAt: now,
             };
+        }
+
+        // Legacy notes (single type + items/textContent, no blocks) get folded into
+        // the block model on load so notes created before this update aren't lost.
+        function migrateNote(raw) {
+            if (raw.blocks) {
+                return {
+                    deletedAt: raw.deletedAt || null,
+                    order: raw.order != null ? raw.order : (raw.updatedAt || raw.createdAt || Date.now()),
+                    ...raw,
+                };
+            }
+            let blocks;
+            if (raw.type === 'text' || !raw.type) {
+                const lines = (raw.textContent || '').split('\n');
+                blocks = lines.map(line => ({ id: makeId(), type: 'text', html: escapeHtml(line) }));
+                if (blocks.length === 0) blocks = [{ id: makeId(), type: 'text', html: '' }];
+            } else {
+                const items = raw.items || [];
+                blocks = items.length > 0
+                    ? items.map(it => ({ id: it.id || makeId(), type: raw.type, html: escapeHtml(it.text || ''), checked: !!it.checked }))
+                    : [{ id: makeId(), type: raw.type, html: '' }];
+            }
+            return {
+                id: raw.id,
+                title: raw.title || '',
+                categoryId: raw.categoryId || null,
+                blocks,
+                photos: raw.photos || [],
+                background: raw.background || '#ffffff',
+                order: raw.updatedAt || raw.createdAt || Date.now(),
+                deletedAt: null,
+                createdAt: raw.createdAt || Date.now(),
+                updatedAt: raw.updatedAt || Date.now(),
+            };
+        }
+
+        function computeListNumbers(blocks) {
+            let n = 0;
+            return blocks.map((b) => {
+                if (b.type === 'numbered') {
+                    n += 1;
+                    return n;
+                }
+                n = 0;
+                return null;
+            });
         }
 
         function noteMatchesCategory(note, filterCategory) {
@@ -881,31 +1041,40 @@
             return note.categoryId === filterCategory;
         }
 
-        function NoteCard({ note, category, onOpen }) {
-            const bodyLines = note.type === 'text'
-                ? null
-                : note.items.slice(0, 6);
+        function NoteCard({ note, category, onOpen, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp }) {
+            const numbers = computeListNumbers(note.blocks);
+            const previewBlocks = note.blocks.filter(b => b.html && stripHtml(b.html).trim()).slice(0, 6);
 
             return (
-                <button className="note-card" style={{ background: note.background || '#ffffff' }} onClick={() => onOpen(note.id)}>
+                <div
+                    className={'note-card' + (isDragging ? ' dragging' : '')}
+                    style={resolveCardBackground(note.background)}
+                    data-note-id={note.id}
+                    onPointerDown={dragEnabled ? (e) => onCardPointerDown(e, note.id) : undefined}
+                    onPointerMove={dragEnabled ? onCardPointerMove : undefined}
+                    onPointerUp={dragEnabled ? onCardPointerUp : undefined}
+                    onPointerCancel={dragEnabled ? onCardPointerUp : undefined}
+                    onClick={() => onOpen(note.id)}
+                >
                     {note.title ? <div className="note-card-title">{note.title}</div> : null}
                     {note.photos && note.photos.length > 0 ? (
                         <img className="note-card-thumb" src={note.photos[0].dataUrl} alt="" />
                     ) : null}
-                    {note.type === 'text' ? (
-                        note.textContent ? <div className="note-card-body">{note.textContent}</div> : null
-                    ) : (
-                        <div className="note-card-body" style={{ display: 'block' }}>
-                            {bodyLines.filter(it => it.text).map((it, idx) => (
-                                <div key={it.id} className={'note-card-list-item' + (it.checked ? ' checked' : '')}>
-                                    <span className="marker">
-                                        {note.type === 'checklist' ? (it.checked ? '☑' : '☐') : note.type === 'numbered' ? (idx + 1 + '.') : '•'}
-                                    </span>
-                                    <span>{it.text}</span>
-                                </div>
-                            ))}
+                    {previewBlocks.length > 0 ? (
+                        <div className="note-card-body">
+                            {previewBlocks.map((b) => {
+                                const idx = note.blocks.indexOf(b);
+                                return (
+                                    <div key={b.id} className={'note-card-list-item' + (b.type === 'checklist' && b.checked ? ' checked' : '')}>
+                                        <span className="marker">
+                                            {b.type === 'checklist' ? (b.checked ? '☑' : '☐') : b.type === 'numbered' ? (numbers[idx] + '.') : b.type === 'bulleted' ? '•' : ''}
+                                        </span>
+                                        <span>{stripHtml(b.html).slice(0, 80)}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
-                    )}
+                    ) : null}
                     <div className="note-card-footer">
                         {category ? (
                             <span className="color-dot" style={{ background: category.color }}></span>
@@ -913,24 +1082,6 @@
                         {note.photos && note.photos.length > 0 ? (
                             <span className="note-card-photo-badge">📷 {note.photos.length}</span>
                         ) : null}
-                    </div>
-                </button>
-            );
-        }
-
-        function TypePickerSheet({ onPick, onClose }) {
-            return (
-                <div className="sheet-backdrop" onClick={onClose}>
-                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
-                        <h2>New note</h2>
-                        <div className="type-options">
-                            {Object.keys(TYPE_LABELS).map((type) => (
-                                <button key={type} className="type-option" onClick={() => onPick(type)}>
-                                    <span className="emoji">{TYPE_LABELS[type].emoji}</span>
-                                    {TYPE_LABELS[type].label}
-                                </button>
-                            ))}
-                        </div>
                     </div>
                 </div>
             );
@@ -991,6 +1142,45 @@
             );
         }
 
+        function BackgroundPicker({ value, onChange }) {
+            return (
+                <div>
+                    <div className="bg-swatch-row">
+                        {NOTE_BACKGROUNDS.map((bg) => (
+                            <button
+                                key={bg.id}
+                                className={'bg-swatch' + (value === bg.value ? ' selected' : '')}
+                                style={{ background: bg.value }}
+                                onClick={() => onChange(bg.value)}
+                            ></button>
+                        ))}
+                    </div>
+                    <div className="bg-swatch-row" style={{ marginTop: 8 }}>
+                        {THEME_BACKGROUNDS.map((t) => (
+                            <button
+                                key={t.id}
+                                className={'bg-swatch' + (value === ('theme:' + t.id) ? ' selected' : '')}
+                                style={{ backgroundImage: t.pageCss }}
+                                title={t.label}
+                                onClick={() => onChange('theme:' + t.id)}
+                            ></button>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function DashboardBackgroundSheet({ value, onChange, onClose }) {
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                        <h2>Dashboard background</h2>
+                        <BackgroundPicker value={value || '#f1f2f5'} onChange={onChange} />
+                    </div>
+                </div>
+            );
+        }
+
         function ConfirmSheet({ title, message, confirmLabel, onConfirm, onCancel }) {
             return (
                 <div className="sheet-backdrop centered" onClick={onCancel}>
@@ -1006,19 +1196,120 @@
             );
         }
 
-        function NoteEditor({ note, categories, onBack, onSave, onDelete }) {
+        function FormatToolbar({ onDone }) {
+            const runCmd = (cmd) => (e) => {
+                e.preventDefault();
+                document.execCommand(cmd);
+            };
+            return (
+                <div className="format-toolbar">
+                    <button onMouseDown={runCmd('bold')}><b>B</b></button>
+                    <button onMouseDown={runCmd('italic')}><i>I</i></button>
+                    <button onMouseDown={runCmd('underline')}><u>U</u></button>
+                    <button className="done-btn" onMouseDown={(e) => e.preventDefault()} onClick={onDone}>Done</button>
+                </div>
+            );
+        }
+
+        function BlockLine({ block, isEditing, listNumber, onStartEdit, onExitEdit, onCommit, onEnter, onBackspaceEmpty, onToggleChecked, onCycleType, onRemove }) {
+            const editableRef = useRef(null);
+
+            // Re-seed the contentEditable's DOM content every time this block enters
+            // edit mode (not just on first mount) — otherwise re-opening a line for a
+            // second edit would wipe it back to whatever it held the very first time.
+            useEffect(() => {
+                if (isEditing && editableRef.current) {
+                    const el = editableRef.current;
+                    el.innerHTML = block.html;
+                    el.focus();
+                    const range = document.createRange();
+                    range.selectNodeContents(el);
+                    range.collapse(false);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                }
+            }, [isEditing]);
+
+            const handleBlur = (e) => {
+                onCommit(block.id, e.currentTarget.innerHTML);
+                // Only clear edit state if it's still pointing at this block — Enter
+                // may have already moved it to a newly created block by the time this
+                // (async, focus-shift-triggered) blur fires.
+                onExitEdit(block.id);
+            };
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    onCommit(block.id, e.currentTarget.innerHTML);
+                    onEnter(block.id);
+                } else if (e.key === 'Backspace') {
+                    const empty = e.currentTarget.innerText.trim() === '';
+                    if (empty) {
+                        e.preventDefault();
+                        onBackspaceEmpty(block.id);
+                    }
+                }
+            };
+
+            const marker = block.type === 'checklist' ? (
+                <button
+                    className={'checkbox-marker' + (block.checked ? ' checked' : '')}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => onToggleChecked(block.id)}
+                >
+                    {block.checked ? '✓' : ''}
+                </button>
+            ) : block.type === 'numbered' ? (
+                <span className="list-item-marker">{listNumber}.</span>
+            ) : block.type === 'bulleted' ? (
+                <span className="list-item-marker">•</span>
+            ) : (
+                <span className="list-item-marker"></span>
+            );
+
+            return (
+                <div className="block-row">
+                    <button
+                        className="block-type-btn"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => onCycleType(block.id)}
+                        title="Change line type"
+                    >
+                        {BLOCK_TYPE_GLYPH[block.type]}
+                    </button>
+                    {marker}
+                    {isEditing ? (
+                        <div
+                            ref={editableRef}
+                            className="block-editable"
+                            data-block-id={block.id}
+                            contentEditable
+                            suppressContentEditableWarning
+                            onBlur={handleBlur}
+                            onKeyDown={handleKeyDown}
+                        />
+                    ) : (
+                        <div
+                            className={'block-display' + (block.type === 'checklist' && block.checked ? ' checked' : '')}
+                            onClick={(e) => { if (e.target.tagName === 'A') return; onStartEdit(); }}
+                            dangerouslySetInnerHTML={{ __html: block.html ? linkify(block.html) : '<span class="block-placeholder">List item</span>' }}
+                        />
+                    )}
+                    <button className="list-item-remove" onMouseDown={(e) => e.preventDefault()} onClick={() => onRemove(block.id)}>✕</button>
+                </div>
+            );
+        }
+
+        function NoteEditor({ note, categories, onBack, onSave, onTrash }) {
             const [draft, setDraft] = useState(note);
-            const [confirmDelete, setConfirmDelete] = useState(false);
+            const [editingBlockId, setEditingBlockId] = useState(null);
+            const [confirmTrash, setConfirmTrash] = useState(false);
             const [previewPhoto, setPreviewPhoto] = useState(null);
             const [uploading, setUploading] = useState(false);
             const fileInputRef = useRef(null);
             const saveTimer = useRef(null);
-            const itemInputRefs = useRef({});
-            const pendingFocusId = useRef(null);
-
-            useEffect(() => {
-                setDraft(note);
-            }, [note.id]);
 
             useEffect(() => {
                 if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -1028,83 +1319,75 @@
                 return () => clearTimeout(saveTimer.current);
             }, [draft]);
 
-            useEffect(() => {
-                if (pendingFocusId.current && itemInputRefs.current[pendingFocusId.current]) {
-                    itemInputRefs.current[pendingFocusId.current].focus();
-                    pendingFocusId.current = null;
-                }
-            });
+            const updateField = (field, value) => setDraft((d) => ({ ...d, [field]: value }));
 
-            const updateField = (field, value) => {
-                setDraft((d) => ({ ...d, [field]: value }));
+            const commitBlockHtml = (blockId, rawHtml) => {
+                const clean = sanitizeInlineHtml(rawHtml);
+                setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: clean } : b) }));
             };
 
-            const changeType = (type) => {
-                setDraft((d) => {
-                    if (d.type === type) return d;
-                    if (type === 'text') {
-                        const text = d.items.filter(it => it.text).map(it => it.text).join('\n');
-                        return { ...d, type, textContent: d.textContent || text, items: [] };
-                    }
-                    if (d.type === 'text') {
-                        const lines = (d.textContent || '').split('\n').filter(l => l.trim().length > 0);
-                        const items = lines.length > 0
-                            ? lines.map(l => ({ id: makeId(), text: l, checked: false }))
-                            : [{ id: makeId(), text: '', checked: false }];
-                        return { ...d, type, items };
-                    }
-                    return { ...d, type };
-                });
-            };
-
-            const updateItem = (id, text) => {
+            const cycleType = (blockId) => {
                 setDraft((d) => ({
                     ...d,
-                    items: d.items.map(it => it.id === id ? { ...it, text } : it),
+                    blocks: d.blocks.map((b) => {
+                        if (b.id !== blockId) return b;
+                        const next = BLOCK_TYPE_CYCLE[(BLOCK_TYPE_CYCLE.indexOf(b.type) + 1) % BLOCK_TYPE_CYCLE.length];
+                        return { ...b, type: next, checked: next === 'checklist' ? !!b.checked : false };
+                    }),
                 }));
             };
 
-            const toggleItem = (id) => {
-                setDraft((d) => ({
-                    ...d,
-                    items: d.items.map(it => it.id === id ? { ...it, checked: !it.checked } : it),
-                }));
+            const toggleChecked = (blockId) => {
+                setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, checked: !b.checked } : b) }));
             };
 
-            const removeItem = (id) => {
-                setDraft((d) => ({
-                    ...d,
-                    items: d.items.filter(it => it.id !== id),
-                }));
-            };
-
-            const addItem = () => {
+            const handleEnter = (blockId) => {
                 const newId = makeId();
-                pendingFocusId.current = newId;
-                setDraft((d) => ({
-                    ...d,
-                    items: [...d.items, { id: newId, text: '', checked: false }],
-                }));
-            };
-
-            const moveItem = (index, dir) => {
                 setDraft((d) => {
-                    const items = [...d.items];
-                    const newIndex = index + dir;
-                    if (newIndex < 0 || newIndex >= items.length) return d;
-                    [items[index], items[newIndex]] = [items[newIndex], items[index]];
-                    return { ...d, items };
+                    const idx = d.blocks.findIndex(b => b.id === blockId);
+                    const current = d.blocks[idx];
+                    const blocks = [...d.blocks];
+                    blocks.splice(idx + 1, 0, { id: newId, type: current.type, html: '', checked: false });
+                    return { ...d, blocks };
                 });
+                setEditingBlockId(newId);
             };
 
-            const handleItemKeyDown = (e, id, index) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addItem();
-                } else if (e.key === 'Backspace' && e.target.value === '' && draft.items.length > 1) {
-                    e.preventDefault();
-                    removeItem(id);
+            const handleBackspaceEmpty = (blockId) => {
+                if (draft.blocks.length <= 1) return;
+                const idx = draft.blocks.findIndex(b => b.id === blockId);
+                const nextFocusId = draft.blocks[idx - 1] ? draft.blocks[idx - 1].id : (draft.blocks[idx + 1] ? draft.blocks[idx + 1].id : null);
+                setDraft((d) => ({ ...d, blocks: d.blocks.filter(b => b.id !== blockId) }));
+                setEditingBlockId(nextFocusId);
+            };
+
+            const removeBlock = (blockId) => {
+                setDraft((d) => {
+                    if (d.blocks.length <= 1) {
+                        return { ...d, blocks: [{ id: makeId(), type: 'text', html: '' }] };
+                    }
+                    return { ...d, blocks: d.blocks.filter(b => b.id !== blockId) };
+                });
+                if (editingBlockId === blockId) setEditingBlockId(null);
+            };
+
+            // Reads the live DOM of the block currently being edited so we don't
+            // rely on a stale React state snapshot when leaving edit mode.
+            const getFlushedDraft = () => {
+                const el = document.activeElement;
+                if (el && el.classList && el.classList.contains('block-editable')) {
+                    const blockId = el.getAttribute('data-block-id');
+                    if (blockId) {
+                        const clean = sanitizeInlineHtml(el.innerHTML);
+                        return { ...draft, blocks: draft.blocks.map(b => b.id === blockId ? { ...b, html: clean } : b) };
+                    }
                 }
+                return draft;
+            };
+
+            const handleFormatDone = () => {
+                setDraft(getFlushedDraft());
+                setEditingBlockId(null);
             };
 
             const handleAddPhotos = async (e) => {
@@ -1130,16 +1413,19 @@
             };
 
             const handleBack = () => {
-                onSave({ ...draft, updatedAt: Date.now() });
+                const finalDraft = getFlushedDraft();
+                onSave({ ...finalDraft, updatedAt: Date.now() });
                 onBack();
             };
 
+            const listNumbers = computeListNumbers(draft.blocks);
+
             return (
-                <div className="editor-screen" style={{ background: draft.background || '#ffffff' }}>
+                <div className="editor-screen" style={resolveCardBackground(draft.background)}>
                     <div className="editor-header">
                         <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.06)', color: '#333' }} onClick={handleBack}>←</button>
                         <div className="editor-header-actions">
-                            <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.06)', color: '#c5221f' }} onClick={() => setConfirmDelete(true)}>🗑</button>
+                            <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.06)', color: '#c5221f' }} onClick={() => setConfirmTrash(true)}>🗑</button>
                         </div>
                     </div>
                     <div className="editor-body">
@@ -1148,6 +1434,7 @@
                             placeholder="Title"
                             value={draft.title}
                             onChange={(e) => updateField('title', e.target.value)}
+                            autoFocus={note.title === ''}
                         />
 
                         <div className="editor-meta-row">
@@ -1163,61 +1450,24 @@
                             </select>
                         </div>
 
-                        <div className="type-switch">
-                            {Object.keys(TYPE_LABELS).map((type) => (
-                                <button
-                                    key={type}
-                                    className={draft.type === type ? 'active' : ''}
-                                    onClick={() => changeType(type)}
-                                >
-                                    {TYPE_LABELS[type].emoji} {TYPE_LABELS[type].label}
-                                </button>
+                        <div className="list-items">
+                            {draft.blocks.map((block, idx) => (
+                                <BlockLine
+                                    key={block.id}
+                                    block={block}
+                                    isEditing={editingBlockId === block.id}
+                                    listNumber={listNumbers[idx]}
+                                    onStartEdit={() => setEditingBlockId(block.id)}
+                                    onExitEdit={(id) => setEditingBlockId((current) => current === id ? null : current)}
+                                    onCommit={commitBlockHtml}
+                                    onEnter={handleEnter}
+                                    onBackspaceEmpty={handleBackspaceEmpty}
+                                    onToggleChecked={toggleChecked}
+                                    onCycleType={cycleType}
+                                    onRemove={removeBlock}
+                                />
                             ))}
                         </div>
-
-                        {draft.type === 'text' ? (
-                            <textarea
-                                className="editor-textarea"
-                                placeholder="Write something..."
-                                value={draft.textContent}
-                                onChange={(e) => updateField('textContent', e.target.value)}
-                            />
-                        ) : (
-                            <div className="list-items">
-                                {draft.items.map((item, index) => (
-                                    <div className="list-item-row" key={item.id}>
-                                        {draft.type === 'checklist' ? (
-                                            <button
-                                                className={'checkbox-marker' + (item.checked ? ' checked' : '')}
-                                                onClick={() => toggleItem(item.id)}
-                                            >
-                                                {item.checked ? '✓' : ''}
-                                            </button>
-                                        ) : (
-                                            <span className="list-item-marker">
-                                                {draft.type === 'numbered' ? (index + 1 + '.') : '•'}
-                                            </span>
-                                        )}
-                                        <input
-                                            className={'list-item-input' + (draft.type === 'checklist' && item.checked ? ' checked' : '')}
-                                            value={item.text}
-                                            placeholder="List item"
-                                            ref={(el) => { itemInputRefs.current[item.id] = el; }}
-                                            onChange={(e) => updateItem(item.id, e.target.value)}
-                                            onKeyDown={(e) => handleItemKeyDown(e, item.id, index)}
-                                        />
-                                        <div className="list-item-move">
-                                            <button onClick={() => moveItem(index, -1)} disabled={index === 0}>▲</button>
-                                            <button onClick={() => moveItem(index, 1)} disabled={index === draft.items.length - 1}>▼</button>
-                                        </div>
-                                        <button className="list-item-remove" onClick={() => removeItem(item.id)}>✕</button>
-                                    </div>
-                                ))}
-                                <div className="add-item-row">
-                                    <button onClick={addItem}>+ Add item</button>
-                                </div>
-                            </div>
-                        )}
 
                         <div className="section-label">Photos</div>
                         <div className="photo-row">
@@ -1239,7 +1489,6 @@
                                 type="file"
                                 accept="image/*"
                                 multiple
-                                capture="environment"
                                 ref={fileInputRef}
                                 style={{ display: 'none' }}
                                 onChange={handleAddPhotos}
@@ -1247,17 +1496,10 @@
                         </div>
 
                         <div className="section-label">Background</div>
-                        <div className="bg-swatch-row">
-                            {NOTE_BACKGROUNDS.map((bg) => (
-                                <button
-                                    key={bg.id}
-                                    className={'bg-swatch' + (draft.background === bg.value ? ' selected' : '')}
-                                    style={{ background: bg.value }}
-                                    onClick={() => updateField('background', bg.value)}
-                                ></button>
-                            ))}
-                        </div>
+                        <BackgroundPicker value={draft.background} onChange={(v) => updateField('background', v)} />
                     </div>
+
+                    {editingBlockId ? <FormatToolbar onDone={handleFormatDone} /> : null}
 
                     {previewPhoto ? (
                         <div className="photo-preview-backdrop" onClick={() => setPreviewPhoto(null)}>
@@ -1266,16 +1508,73 @@
                         </div>
                     ) : null}
 
-                    {confirmDelete ? (
+                    {confirmTrash ? (
                         <ConfirmSheet
-                            title="Delete note?"
-                            message="This note will be permanently deleted."
+                            title="Move to trash?"
+                            message="You can restore this note from the Trash later."
+                            confirmLabel="Move to Trash"
+                            onCancel={() => setConfirmTrash(false)}
+                            onConfirm={() => { onTrash(draft.id); onBack(); }}
+                        />
+                    ) : null}
+                </div>
+            );
+        }
+
+        function TrashScreen({ notes, onBack, onRestore, onDeleteForever, onEmptyTrash }) {
+            const [confirmEmptyOpen, setConfirmEmptyOpen] = useState(false);
+            const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+            return (
+                <div className="editor-screen">
+                    <div className="editor-header">
+                        <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.06)', color: '#333' }} onClick={onBack}>←</button>
+                        <div className="editor-header-title">Trash</div>
+                        <button
+                            className="icon-btn"
+                            style={{ background: 'rgba(0,0,0,0.06)', color: '#c5221f' }}
+                            onClick={() => setConfirmEmptyOpen(true)}
+                            disabled={notes.length === 0}
+                        >
+                            🗑
+                        </button>
+                    </div>
+                    <div className="editor-body" style={{ padding: 0 }}>
+                        {notes.length === 0 ? (
+                            <div className="empty-state">
+                                <div className="emoji">🗑️</div>
+                                <p>Trash is empty.</p>
+                            </div>
+                        ) : (
+                            notes.map((note) => (
+                                <div className="trash-row" key={note.id}>
+                                    <div className="trash-row-title">{note.title || 'Untitled note'}</div>
+                                    <div className="trash-row-actions">
+                                        <button className="secondary-btn" onClick={() => onRestore(note.id)}>Restore</button>
+                                        <button className="danger-btn" onClick={() => setConfirmDeleteId(note.id)}>Delete</button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {confirmEmptyOpen ? (
+                        <ConfirmSheet
+                            title="Empty trash?"
+                            message="All notes in the trash will be permanently deleted."
+                            confirmLabel="Empty Trash"
+                            onCancel={() => setConfirmEmptyOpen(false)}
+                            onConfirm={() => { onEmptyTrash(); setConfirmEmptyOpen(false); }}
+                        />
+                    ) : null}
+
+                    {confirmDeleteId ? (
+                        <ConfirmSheet
+                            title="Delete forever?"
+                            message="This note will be permanently deleted and cannot be recovered."
                             confirmLabel="Delete"
-                            onCancel={() => setConfirmDelete(false)}
-                            onConfirm={() => {
-                                onDelete(draft.id);
-                                onBack();
-                            }}
+                            onCancel={() => setConfirmDeleteId(null)}
+                            onConfirm={() => { onDeleteForever(confirmDeleteId); setConfirmDeleteId(null); }}
                         />
                     ) : null}
                 </div>
@@ -1287,21 +1586,34 @@
             const [loading, setLoading] = useState(true);
             const [categories, setCategories] = useState([]);
             const [notes, setNotes] = useState([]);
+            const [settings, setSettings] = useState({ id: 'app', dashboardBackground: null });
             const [filterCategory, setFilterCategory] = useState('all');
             const [activeNoteId, setActiveNoteId] = useState(null);
-            const [showTypePicker, setShowTypePicker] = useState(false);
+            const [view, setView] = useState('home');
             const [showCategoryManager, setShowCategoryManager] = useState(false);
+            const [showDashboardBg, setShowDashboardBg] = useState(false);
             const [deleteCategoryId, setDeleteCategoryId] = useState(null);
+            const [draggingId, setDraggingId] = useState(null);
+
+            const dragRef = useRef({ pointerId: null, noteId: null, timer: null, dragging: false, startX: 0, startY: 0 });
+            const justDraggedRef = useRef(false);
 
             useEffect(() => {
                 openDatabase().then(async (database) => {
                     setDb(database);
-                    const [cats, nts] = await Promise.all([
+                    const [cats, rawNotes, settingsRows] = await Promise.all([
                         idbGetAll(database, 'categories'),
                         idbGetAll(database, 'notes'),
+                        idbGetAll(database, 'settings'),
                     ]);
+                    const migrated = rawNotes.map((raw) => {
+                        const m = migrateNote(raw);
+                        if (!raw.blocks) idbPut(database, 'notes', m);
+                        return m;
+                    });
                     setCategories(cats.sort((a, b) => a.name.localeCompare(b.name)));
-                    setNotes(nts.sort((a, b) => b.updatedAt - a.updatedAt));
+                    setNotes(migrated);
+                    setSettings(settingsRows[0] || { id: 'app', dashboardBackground: null });
                     setLoading(false);
                 });
             }, []);
@@ -1309,25 +1621,48 @@
             const persistNote = useCallback((updatedNote) => {
                 setNotes((prev) => {
                     const exists = prev.some(n => n.id === updatedNote.id);
-                    const next = exists
+                    return exists
                         ? prev.map(n => n.id === updatedNote.id ? updatedNote : n)
                         : [updatedNote, ...prev];
-                    return next.sort((a, b) => b.updatedAt - a.updatedAt);
                 });
                 if (db) idbPut(db, 'notes', updatedNote);
             }, [db]);
 
-            const deleteNote = useCallback((id) => {
+            const trashNote = useCallback((id) => {
+                setNotes((prev) => prev.map((n) => {
+                    if (n.id !== id) return n;
+                    const updated = { ...n, deletedAt: Date.now(), updatedAt: Date.now() };
+                    if (db) idbPut(db, 'notes', updated);
+                    return updated;
+                }));
+            }, [db]);
+
+            const restoreNote = useCallback((id) => {
+                setNotes((prev) => prev.map((n) => {
+                    if (n.id !== id) return n;
+                    const updated = { ...n, deletedAt: null };
+                    if (db) idbPut(db, 'notes', updated);
+                    return updated;
+                }));
+            }, [db]);
+
+            const deleteForever = useCallback((id) => {
                 setNotes((prev) => prev.filter(n => n.id !== id));
                 if (db) idbDelete(db, 'notes', id);
             }, [db]);
 
-            const createNote = (type) => {
+            const emptyTrash = useCallback(() => {
+                setNotes((prev) => {
+                    prev.filter(n => n.deletedAt).forEach((n) => { if (db) idbDelete(db, 'notes', n.id); });
+                    return prev.filter(n => !n.deletedAt);
+                });
+            }, [db]);
+
+            const createNote = () => {
                 const categoryId = filterCategory !== 'all' && filterCategory !== 'uncategorized' ? filterCategory : null;
-                const note = blankNote(type, categoryId);
+                const note = blankNote(categoryId);
                 setNotes((prev) => [note, ...prev]);
                 if (db) idbPut(db, 'notes', note);
-                setShowTypePicker(false);
                 setActiveNoteId(note.id);
             };
 
@@ -1358,8 +1693,95 @@
                 setDeleteCategoryId(null);
             };
 
+            const updateDashboardBackground = (bg) => {
+                setSettings((s) => ({ ...s, dashboardBackground: bg }));
+                if (db) idbPut(db, 'settings', { id: 'app', dashboardBackground: bg });
+            };
+
+            const handleCardPointerDown = (e, noteId) => {
+                if (filterCategory !== 'all') return;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                dragRef.current = { pointerId: e.pointerId, noteId, timer: null, dragging: false, startX: e.clientX, startY: e.clientY };
+                dragRef.current.timer = setTimeout(() => {
+                    dragRef.current.dragging = true;
+                    setDraggingId(noteId);
+                    if (navigator.vibrate) navigator.vibrate(12);
+                }, 350);
+            };
+
+            const handleCardPointerMove = (e) => {
+                if (dragRef.current.pointerId !== e.pointerId || !dragRef.current.noteId) return;
+                if (!dragRef.current.dragging) {
+                    const dx = Math.abs(e.clientX - dragRef.current.startX);
+                    const dy = Math.abs(e.clientY - dragRef.current.startY);
+                    if (dx > 10 || dy > 10) {
+                        clearTimeout(dragRef.current.timer);
+                        dragRef.current.noteId = null;
+                    }
+                    return;
+                }
+                e.preventDefault();
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                const cardEl = el && el.closest('[data-note-id]');
+                const targetId = cardEl && cardEl.getAttribute('data-note-id');
+                if (targetId && targetId !== dragRef.current.noteId) {
+                    setNotes((prev) => {
+                        const active = prev.filter(n => !n.deletedAt);
+                        const trashed = prev.filter(n => n.deletedAt);
+                        const dragIdx = active.findIndex(n => n.id === dragRef.current.noteId);
+                        const targetIdx = active.findIndex(n => n.id === targetId);
+                        if (dragIdx === -1 || targetIdx === -1) return prev;
+                        const reordered = [...active];
+                        const [moved] = reordered.splice(dragIdx, 1);
+                        reordered.splice(targetIdx, 0, moved);
+                        return [...reordered, ...trashed];
+                    });
+                }
+            };
+
+            const handleCardPointerUp = () => {
+                clearTimeout(dragRef.current.timer);
+                if (dragRef.current.dragging) {
+                    justDraggedRef.current = true;
+                    setNotes((prev) => {
+                        const active = prev.filter(n => !n.deletedAt);
+                        const trashed = prev.filter(n => n.deletedAt);
+                        const base = Date.now();
+                        const reOrdered = active.map((n, idx) => {
+                            const updated = { ...n, order: base - idx };
+                            if (db) idbPut(db, 'notes', updated);
+                            return updated;
+                        });
+                        return [...reOrdered, ...trashed];
+                    });
+                }
+                dragRef.current = { pointerId: null, noteId: null, timer: null, dragging: false, startX: 0, startY: 0 };
+                setDraggingId(null);
+            };
+
+            const handleCardOpen = (noteId) => {
+                if (justDraggedRef.current) {
+                    justDraggedRef.current = false;
+                    return;
+                }
+                setActiveNoteId(noteId);
+            };
+
             if (loading) {
                 return <div className="loading-screen">Loading notes…</div>;
+            }
+
+            if (view === 'trash') {
+                const trashedNotes = notes.filter(n => n.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt);
+                return (
+                    <TrashScreen
+                        notes={trashedNotes}
+                        onBack={() => setView('home')}
+                        onRestore={restoreNote}
+                        onDeleteForever={deleteForever}
+                        onEmptyTrash={emptyTrash}
+                    />
+                );
             }
 
             const activeNote = activeNoteId ? notes.find(n => n.id === activeNoteId) : null;
@@ -1367,16 +1789,19 @@
             if (activeNote) {
                 return (
                     <NoteEditor
+                        key={activeNote.id}
                         note={activeNote}
                         categories={categories}
                         onBack={() => setActiveNoteId(null)}
                         onSave={persistNote}
-                        onDelete={deleteNote}
+                        onTrash={trashNote}
                     />
                 );
             }
 
-            const visibleNotes = notes.filter(n => noteMatchesCategory(n, filterCategory));
+            const visibleNotes = notes
+                .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory))
+                .sort((a, b) => (b.order || 0) - (a.order || 0));
             const categoryById = Object.fromEntries(categories.map(c => [c.id, c]));
 
             return (
@@ -1384,7 +1809,11 @@
                     <div className="app-header">
                         <div className="header-row">
                             <h1>📓 Notepad</h1>
-                            <button className="icon-btn" onClick={() => setShowCategoryManager(true)}>⚙</button>
+                            <div className="header-actions">
+                                <button className="icon-btn" onClick={() => setShowDashboardBg(true)} title="Dashboard background">🎨</button>
+                                <button className="icon-btn" onClick={() => setView('trash')} title="Trash">🗑</button>
+                                <button className="icon-btn" onClick={() => setShowCategoryManager(true)} title="Categories">⚙</button>
+                            </div>
                         </div>
                         <div className="category-tabs">
                             <button
@@ -1413,7 +1842,7 @@
                         </div>
                     </div>
 
-                    <div className="notes-area">
+                    <div className="notes-area" style={resolvePageBackground(settings.dashboardBackground)}>
                         {visibleNotes.length === 0 ? (
                             <div className="empty-state">
                                 <div className="emoji">🗒️</div>
@@ -1426,18 +1855,19 @@
                                         key={note.id}
                                         note={note}
                                         category={note.categoryId ? categoryById[note.categoryId] : null}
-                                        onOpen={setActiveNoteId}
+                                        onOpen={handleCardOpen}
+                                        dragEnabled={filterCategory === 'all'}
+                                        isDragging={draggingId === note.id}
+                                        onCardPointerDown={handleCardPointerDown}
+                                        onCardPointerMove={handleCardPointerMove}
+                                        onCardPointerUp={handleCardPointerUp}
                                     />
                                 ))}
                             </div>
                         )}
                     </div>
 
-                    <button className="fab" onClick={() => setShowTypePicker(true)}>+</button>
-
-                    {showTypePicker ? (
-                        <TypePickerSheet onPick={createNote} onClose={() => setShowTypePicker(false)} />
-                    ) : null}
+                    <button className="fab" onClick={createNote}>+</button>
 
                     {showCategoryManager ? (
                         <CategoryManagerSheet
@@ -1446,6 +1876,14 @@
                             onRename={renameCategory}
                             onDelete={(id) => setDeleteCategoryId(id)}
                             onClose={() => setShowCategoryManager(false)}
+                        />
+                    ) : null}
+
+                    {showDashboardBg ? (
+                        <DashboardBackgroundSheet
+                            value={settings.dashboardBackground}
+                            onChange={updateDashboardBackground}
+                            onClose={() => setShowDashboardBg(false)}
                         />
                     ) : null}
 
