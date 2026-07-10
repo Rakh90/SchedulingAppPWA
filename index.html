@@ -348,6 +348,24 @@
             gap: 10px;
             padding: 10px 0;
             border-bottom: 1px solid #f0f0f2;
+            background: #fff;
+        }
+
+        .category-manager-row.dragging {
+            opacity: 0.9;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+            border-radius: 8px;
+            position: relative;
+            z-index: 5;
+        }
+
+        .category-drag-handle {
+            flex: 0 0 auto;
+            font-size: 18px;
+            line-height: 1;
+            color: #b3b6c0;
+            padding: 4px 2px;
+            cursor: grab;
         }
 
         .category-manager-row input[type="text"] {
@@ -1394,7 +1412,7 @@
             );
         }
 
-        function CategoryManagerSheet({ categories, onAdd, onRename, onDelete, onClose }) {
+        function CategoryManagerSheet({ categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[0]);
 
@@ -1405,8 +1423,23 @@
                         {categories.length === 0 ? (
                             <p style={{ fontSize: 13, color: '#8a8d99' }}>No categories yet. Add one below.</p>
                         ) : null}
+                        {categories.length > 1 ? (
+                            <p style={{ fontSize: 12, color: '#8a8d99', marginTop: -4 }}>Drag ⠿ to reorder.</p>
+                        ) : null}
                         {categories.map((cat) => (
-                            <div className="category-manager-row" key={cat.id}>
+                            <div
+                                className={'category-manager-row' + (draggingCategoryId === cat.id ? ' dragging' : '')}
+                                key={cat.id}
+                                data-category-id={cat.id}
+                            >
+                                <span
+                                    className="category-drag-handle"
+                                    style={{ touchAction: 'none' }}
+                                    onPointerDown={(e) => onHandlePointerDown(e, cat.id)}
+                                    onPointerMove={onHandlePointerMove}
+                                    onPointerUp={onHandlePointerUp}
+                                    onPointerCancel={onHandlePointerUp}
+                                >⠿</span>
                                 <span className="color-dot" style={{ background: cat.color, width: 12, height: 12 }}></span>
                                 <input
                                     type="text"
@@ -2166,9 +2199,11 @@
             const [showDashboardBg, setShowDashboardBg] = useState(false);
             const [deleteCategoryId, setDeleteCategoryId] = useState(null);
             const [draggingId, setDraggingId] = useState(null);
+            const [draggingCategoryId, setDraggingCategoryId] = useState(null);
 
             const dragRef = useRef({ pointerId: null, noteId: null, timer: null, dragging: false, startX: 0, startY: 0 });
             const justDraggedRef = useRef(false);
+            const categoryDragRef = useRef({ pointerId: null, categoryId: null });
 
             useEffect(() => {
                 openDatabase().then(async (database) => {
@@ -2183,7 +2218,18 @@
                         if (!raw.blocks) idbPut(database, 'notes', m);
                         return m;
                     });
-                    setCategories(cats.sort((a, b) => a.name.localeCompare(b.name)));
+                    // Older categories predate the `order` field used for
+                    // manual drag-reordering — backfill using their existing
+                    // alphabetical position so the first load doesn't jumble
+                    // an already-familiar list.
+                    const sortedCats = cats.slice().sort((a, b) => a.name.localeCompare(b.name));
+                    const catsWithOrder = sortedCats.map((c, idx) => {
+                        if (c.order != null) return c;
+                        const withOrder = { ...c, order: idx };
+                        idbPut(database, 'categories', withOrder);
+                        return withOrder;
+                    });
+                    setCategories(catsWithOrder.sort((a, b) => a.order - b.order));
                     setNotes(migrated);
                     setSettings(settingsRows[0] || { id: 'app', dashboardBackground: null });
                     setLoading(false);
@@ -2239,9 +2285,63 @@
             };
 
             const addCategory = (name, color) => {
-                const cat = { id: makeId(), name, color };
-                setCategories((prev) => [...prev, cat].sort((a, b) => a.name.localeCompare(b.name)));
-                if (db) idbPut(db, 'categories', cat);
+                setCategories((prev) => {
+                    const nextOrder = prev.length ? Math.max(...prev.map(c => c.order || 0)) + 1 : 0;
+                    const cat = { id: makeId(), name, color, order: nextOrder };
+                    if (db) idbPut(db, 'categories', cat);
+                    return [...prev, cat];
+                });
+            };
+
+            // Splices the dragged category to targetId's position and
+            // immediately reassigns sequential `order` values, mirroring
+            // reorderNotes — the sort-by-order render would otherwise snap
+            // the array position back on the very next update.
+            const reorderCategories = (prev, draggedId, targetId) => {
+                const dragIdx = prev.findIndex(c => c.id === draggedId);
+                const targetIdx = prev.findIndex(c => c.id === targetId);
+                if (dragIdx === -1 || targetIdx === -1) return prev;
+                const reordered = [...prev];
+                const [moved] = reordered.splice(dragIdx, 1);
+                reordered.splice(targetIdx, 0, moved);
+                return reordered.map((c, idx) => ({ ...c, order: idx }));
+            };
+
+            const persistCategoryOrder = (cats) => {
+                cats.forEach((c) => { if (db) idbPut(db, 'categories', c); });
+            };
+
+            // Category rows are reordered via a dedicated drag handle rather
+            // than a long-press on the whole row, since the row also holds a
+            // text input for renaming — a long-press there would fight with
+            // placing a text cursor.
+            const handleCategoryHandlePointerDown = (e, categoryId) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                categoryDragRef.current = { pointerId: e.pointerId, categoryId };
+                setDraggingCategoryId(categoryId);
+                if (navigator.vibrate) navigator.vibrate(12);
+            };
+
+            const handleCategoryHandlePointerMove = (e) => {
+                if (categoryDragRef.current.pointerId !== e.pointerId || !categoryDragRef.current.categoryId) return;
+                e.preventDefault();
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                const rowEl = el && el.closest('[data-category-id]');
+                const targetId = rowEl && rowEl.getAttribute('data-category-id');
+                if (targetId && targetId !== categoryDragRef.current.categoryId) {
+                    setCategories((prev) => reorderCategories(prev, categoryDragRef.current.categoryId, targetId));
+                }
+            };
+
+            const handleCategoryHandlePointerUp = () => {
+                if (categoryDragRef.current.categoryId) {
+                    setCategories((prev) => {
+                        persistCategoryOrder(prev);
+                        return prev;
+                    });
+                }
+                categoryDragRef.current = { pointerId: null, categoryId: null };
+                setDraggingCategoryId(null);
             };
 
             const renameCategory = (id, name) => {
@@ -2455,6 +2555,10 @@
                             onRename={renameCategory}
                             onDelete={(id) => setDeleteCategoryId(id)}
                             onClose={() => setShowCategoryManager(false)}
+                            draggingCategoryId={draggingCategoryId}
+                            onHandlePointerDown={handleCategoryHandlePointerDown}
+                            onHandlePointerMove={handleCategoryHandlePointerMove}
+                            onHandlePointerUp={handleCategoryHandlePointerUp}
                         />
                     ) : null}
 
