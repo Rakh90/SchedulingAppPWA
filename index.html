@@ -2401,6 +2401,17 @@
                     console.error('Service worker registration failed:', err);
                 });
             });
+
+            // With skipWaiting + clients.claim on the worker side, a new
+            // version takes control of this already-open page automatically.
+            // Reload once when that happens so the update is visible right
+            // away instead of needing a manual close-and-reopen.
+            let refreshingAfterUpdate = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshingAfterUpdate) return;
+                refreshingAfterUpdate = true;
+                window.location.reload();
+            });
         }
     </script>
 </body>
