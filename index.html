@@ -781,6 +781,33 @@
             border-radius: 6px;
         }
 
+        .mileage-total-row td {
+            border-top: 2px solid rgba(0,0,0,0.15);
+            border-bottom: none;
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+
+        .mileage-total-label {
+            text-align: right;
+            font-weight: 700;
+            font-size: 13px;
+            color: #333;
+            padding-right: 10px;
+        }
+
+        .mileage-total-box {
+            background: #eef0fb;
+            border: 1.5px solid #667eea;
+            border-radius: 8px;
+            padding: 6px 4px;
+            font-weight: 700;
+            font-size: 14px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(102,126,234,0.25);
+            color: #333;
+        }
+
         .bg-swatch {
             flex: 0 0 auto;
             width: 34px;
@@ -908,6 +935,20 @@
         }
 
         .dark-content .mileage-cell-input {
+            color: #f3f4f8;
+        }
+
+        .dark-content .mileage-total-row td {
+            border-top-color: rgba(255,255,255,0.3);
+        }
+
+        .dark-content .mileage-total-label {
+            color: #f3f4f8;
+        }
+
+        .dark-content .mileage-total-box {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.6);
             color: #f3f4f8;
         }
     </style>
@@ -1501,6 +1542,12 @@
                 onActiveDateCellChange(false);
             };
 
+            const totalMilesRaw = table.rows.reduce((sum, row) => {
+                const n = parseFloat(row.cells[3]);
+                return sum + (isNaN(n) ? 0 : n);
+            }, 0);
+            const totalMiles = Math.round(totalMilesRaw * 100) / 100;
+
             return (
                 <div className="mileage-table-wrap">
                     <table className="mileage-table">
@@ -1530,6 +1577,14 @@
                                 </tr>
                             ))}
                         </tbody>
+                        <tfoot>
+                            <tr className="mileage-total-row">
+                                <td colSpan={MILEAGE_COLUMNS.length - 1} className="mileage-total-label">Total Miles</td>
+                                <td>
+                                    <div className="mileage-total-box">{totalMiles}</div>
+                                </td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             );
