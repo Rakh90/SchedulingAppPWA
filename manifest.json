@@ -1,6 +1,6 @@
 {
-  "name": "Notepad",
-  "short_name": "Notepad",
+  "name": "Sly Notes",
+  "short_name": "Sly Notes",
   "description": "Create notes, checklists, and lists organized by category",
   "start_url": "./",
   "scope": "./",

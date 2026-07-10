@@ -7,9 +7,10 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Sly Notes">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="./icon-192.png">
-    <title>Notepad</title>
+    <title>Sly Notes</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
@@ -53,6 +54,7 @@
             color: white;
             padding: 18px 16px 14px;
             padding-top: calc(18px + env(safe-area-inset-top, 0px));
+            box-shadow: 0 2px 10px rgba(0,0,0,0.18);
         }
 
         .app-header h1 {
@@ -1070,8 +1072,13 @@
         .dark-content .block-display,
         .dark-content .editor-title-input,
         .dark-content .section-label,
-        .dark-content .mileage-table th {
+        .dark-content .mileage-table th,
+        .dark-content .trash-row-title {
             color: #f3f4f8;
+        }
+
+        .dark-content .trash-row {
+            border-bottom-color: rgba(255,255,255,0.16);
         }
 
         .dark-content .note-card-photo-badge {
@@ -1413,6 +1420,7 @@
             { id: 'synthwave', label: 'Synthwave', pageCss: 'linear-gradient(135deg, #2b0b3f 0%, #a2246b 55%, #f6a821 100%)', cardCss: 'linear-gradient(135deg, rgba(28,7,41,0.92), rgba(97,23,70,0.85))', dark: true },
             { id: 'plasma', label: 'Plasma', pageCss: 'linear-gradient(135deg, #3a0ca3 0%, #8e2de2 50%, #ff0080 100%)', cardCss: 'linear-gradient(135deg, rgba(36,7,102,0.92), rgba(114,36,181,0.85))', dark: true },
             { id: 'quantum', label: 'Quantum', pageCss: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)', cardCss: 'linear-gradient(135deg, rgba(8,18,22,0.92), rgba(24,47,56,0.85))', dark: true },
+            { id: 'obsidian', label: 'Obsidian', pageCss: 'linear-gradient(135deg, #000000 0%, #0a0a0d 55%, #16161f 100%)', cardCss: 'linear-gradient(135deg, rgba(0,0,0,0.92), rgba(22,22,31,0.85))', dark: true },
         ];
 
         function isThemeDark(bg) {
@@ -1435,6 +1443,18 @@
                 return { backgroundImage: theme.pageCss };
             }
             return { background: bg || '#f1f2f5' };
+        }
+
+        // The header keeps the app's default purple gradient unless a theme is
+        // selected, in which case it picks up that same theme's colors — but
+        // with a dark overlay so it stays a visually distinct band above the
+        // page (and so header text stays legible even over light themes).
+        function resolveHeaderBackground(bg) {
+            if (bg && bg.indexOf('theme:') === 0) {
+                const theme = THEME_BACKGROUNDS.find(t => 'theme:' + t.id === bg) || THEME_BACKGROUNDS[0];
+                return { backgroundImage: 'linear-gradient(rgba(0,0,0,0.32), rgba(0,0,0,0.32)), ' + theme.pageCss };
+            }
+            return {};
         }
 
         function blankNote(categoryIds) {
@@ -2471,12 +2491,12 @@
             );
         }
 
-        function TrashScreen({ notes, onBack, onRestore, onDeleteForever, onEmptyTrash }) {
+        function TrashScreen({ notes, background, onBack, onRestore, onDeleteForever, onEmptyTrash }) {
             const [confirmEmptyOpen, setConfirmEmptyOpen] = useState(false);
             const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
             return (
-                <div className="editor-screen">
+                <div className={'editor-screen' + (isThemeDark(background) ? ' dark-content' : '')} style={resolveCardBackground(background)}>
                     <div className="editor-header">
                         <button className="icon-btn" style={{ background: 'rgba(0,0,0,0.16)', color: '#1a1a1a' }} onClick={onBack}>←</button>
                         <div className="editor-header-title">Trash</div>
@@ -2831,6 +2851,7 @@
                 return (
                     <TrashScreen
                         notes={trashedNotes}
+                        background={settings.dashboardBackground}
                         onBack={() => setView('home')}
                         onRestore={restoreNote}
                         onDeleteForever={deleteForever}
@@ -2869,9 +2890,9 @@
 
             return (
                 <div className="home-screen">
-                    <div className="app-header">
+                    <div className="app-header" style={resolveHeaderBackground(settings.dashboardBackground)}>
                         <div className="header-row">
-                            <h1>📓 Notepad</h1>
+                            <h1>📓 Sly Notes</h1>
                             <div className="header-actions">
                                 <button className={'icon-btn' + (showSearch ? ' active' : '')} onClick={toggleSearch} title="Search">🔍</button>
                                 <button className={'icon-btn' + (showPinnedOnly ? ' active' : '')} onClick={() => setShowPinnedOnly((v) => !v)} title="Show pinned only">📌</button>

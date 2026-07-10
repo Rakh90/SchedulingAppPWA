@@ -1,4 +1,4 @@
-const CACHE_NAME = 'notepad-app-v28';
+const CACHE_NAME = 'notepad-app-v29';
 const urlsToCache = [
   './',
   './index.html',
