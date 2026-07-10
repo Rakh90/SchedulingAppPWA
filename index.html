@@ -1999,10 +1999,11 @@
                                 onActiveDateCellChange={setDateCellActive}
                             />
                         ) : null}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, rowGap: 10, marginTop: 10 }}>
-                            <button className="secondary-btn" onClick={addMileageRow}>+ Add Mileage Row</button>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10, marginTop: 10 }}>
+                            <button className="secondary-btn" style={{ padding: '10px 12px', fontSize: 13 }} onClick={addMileageRow}>+ Add Mileage Row</button>
                             <button
                                 className="secondary-btn"
+                                style={{ padding: '10px 12px', fontSize: 13 }}
                                 disabled={!dateCellActive}
                                 onMouseDown={(e) => e.preventDefault()}
                                 onClick={() => mileageTableRef.current && mileageTableRef.current.fillActiveDateCellWithToday()}
@@ -2011,7 +2012,7 @@
                             </button>
                             <button
                                 className="secondary-btn"
-                                style={{ marginLeft: 'auto' }}
+                                style={{ marginLeft: 'auto', padding: '10px 10px', fontSize: 12 }}
                                 disabled={!draft.table || draft.table.rows.length === 0}
                                 onClick={() => setConfirmRemoveRow(true)}
                             >
@@ -2483,10 +2484,29 @@
 
     <script>
         if ('serviceWorker' in navigator) {
+            let swRegistration = null;
+
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker.js').catch((err) => {
+                navigator.serviceWorker.register('./service-worker.js').then((reg) => {
+                    swRegistration = reg;
+                    // register() alone doesn't reliably re-check for a new
+                    // worker on every launch — Android often resumes an
+                    // installed PWA from a suspended process instead of a
+                    // fresh navigation, which skips the browser's own update
+                    // check entirely. Force one explicitly every time.
+                    reg.update().catch(() => {});
+                }).catch((err) => {
                     console.error('Service worker registration failed:', err);
                 });
+            });
+
+            // Also force a check whenever the app becomes visible again
+            // (e.g. switching back to it from the recent-apps list), which
+            // covers the common case where the process never fully died.
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && swRegistration) {
+                    swRegistration.update().catch(() => {});
+                }
             });
 
             // With skipWaiting + clients.claim on the worker side, a new
