@@ -1157,6 +1157,11 @@
     </style>
 </head>
 <body>
+    <!-- TEMPORARY: on-device inspector for diagnosing an iOS-only rendering
+         bug without access to a Mac for Safari's Web Inspector. Remove once
+         diagnosed. Tap the floating circle button to open it. -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
     <div id="root"></div>
 
     <script type="text/babel" data-presets="react">
@@ -1417,7 +1422,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v36';
+        const APP_VERSION = 'v37 (debug build)';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
