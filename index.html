@@ -452,7 +452,7 @@
             gap: 10px;
             padding: 10px 0;
             border-bottom: 1px solid #f0f0f2;
-            background: #fff;
+            background: transparent;
         }
 
         .category-picker-row {
@@ -463,10 +463,11 @@
             padding: 12px 8px;
             border: none;
             border-bottom: 1px solid #f0f0f2;
-            background: #fff;
+            background: transparent;
             font-size: 15px;
             text-align: left;
             border-radius: 8px;
+            color: inherit;
         }
 
         .category-picker-row.selected {
@@ -1159,6 +1160,39 @@
             border-color: rgba(255,255,255,0.6);
             color: #f3f4f8;
         }
+
+        .dark-content.sheet h2,
+        .dark-content .category-manager-row input[type="text"],
+        .dark-content .add-category-form input[type="text"] {
+            color: #f3f4f8;
+        }
+
+        .dark-content .category-manager-row,
+        .dark-content .category-picker-row,
+        .dark-content .add-category-form {
+            border-color: rgba(255,255,255,0.18);
+        }
+
+        .dark-content .add-category-form input[type="text"] {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.25);
+        }
+
+        .dark-content .category-drag-handle {
+            color: rgba(255,255,255,0.55);
+        }
+
+        .dark-content .settings-divider {
+            border-top-color: rgba(255,255,255,0.18);
+        }
+
+        .sheet-muted-text {
+            color: #8a8d99;
+        }
+
+        .dark-content .sheet-muted-text {
+            color: rgba(243,244,248,0.75);
+        }
     </style>
 </head>
 <body>
@@ -1460,7 +1494,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v46';
+        const APP_VERSION = 'v47';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1713,20 +1747,21 @@
             );
         }
 
-        function CategoryManagerSheet({ categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError }) {
+        function CategoryManagerSheet({ background, categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
             const importInputRef = useRef(null);
+            const dark = isThemeDark(background);
 
             return (
                 <div className="sheet-backdrop" onClick={onClose}>
-                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                    <div className={'sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
                         <h2>Categories</h2>
                         {categories.length === 0 ? (
-                            <p style={{ fontSize: 13, color: '#8a8d99' }}>No categories yet. Add one below.</p>
+                            <p className="sheet-muted-text" style={{ fontSize: 13 }}>No categories yet. Add one below.</p>
                         ) : null}
                         {categories.length > 1 ? (
-                            <p style={{ fontSize: 12, color: '#8a8d99', marginTop: -4 }}>Drag ⠿ to reorder.</p>
+                            <p className="sheet-muted-text" style={{ fontSize: 12, marginTop: -4 }}>Drag ⠿ to reorder.</p>
                         ) : null}
                         {categories.map((cat) => (
                             <div
@@ -1812,9 +1847,9 @@
                         {importError ? (
                             <p style={{ fontSize: 12, color: '#d64545', marginTop: 8 }}>{importError}</p>
                         ) : null}
-                        <p style={{ fontSize: 11, color: '#8a8d99', marginTop: 8 }}>Export saves all your notes and categories to a file you can keep or move to another device. Import adds a backup file's notes and categories back in.</p>
+                        <p className="sheet-muted-text" style={{ fontSize: 11, marginTop: 8 }}>Export saves all your notes and categories to a file you can keep or move to another device. Import adds a backup file's notes and categories back in.</p>
 
-                        <p style={{ fontSize: 11, color: '#b3b6c0', textAlign: 'center', marginTop: 16 }}>Sly Notes {APP_VERSION}</p>
+                        <p className="sheet-muted-text" style={{ fontSize: 11, textAlign: 'center', marginTop: 16 }}>Sly Notes {APP_VERSION}</p>
                     </div>
                 </div>
             );
@@ -3321,6 +3356,7 @@
 
                     {showCategoryManager ? (
                         <CategoryManagerSheet
+                            background={settings.dashboardBackground}
                             categories={categories}
                             onAdd={addCategory}
                             onRename={renameCategory}
