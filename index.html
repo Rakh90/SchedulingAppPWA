@@ -1571,7 +1571,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v54';
+        const APP_VERSION = 'v55';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1863,7 +1863,7 @@
             );
         }
 
-        function CategoryManagerSheet({ background, categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground }) {
+        function CategoryManagerSheet({ background, categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground, dashboardBackground, onChangeDashboardBackground }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
             const importInputRef = useRef(null);
@@ -1946,6 +1946,9 @@
                         <div className="settings-divider"></div>
                         <div className="section-label">Default background for new notes</div>
                         <BackgroundPicker value={defaultNoteBackground || '#ffffff'} onChange={onChangeDefaultNoteBackground} />
+
+                        <div className="section-label">Dashboard background</div>
+                        <BackgroundPicker value={dashboardBackground || '#f1f2f5'} onChange={onChangeDashboardBackground} />
 
                         <div className="settings-divider"></div>
                         <div className="section-label">Backup</div>
@@ -2134,17 +2137,6 @@
             );
         });
 
-        function DashboardBackgroundSheet({ value, onChange, onClose }) {
-            return (
-                <div className="sheet-backdrop" onClick={onClose}>
-                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
-                        <h2>Dashboard background</h2>
-                        <BackgroundPicker value={value || '#f1f2f5'} onChange={onChange} />
-                    </div>
-                </div>
-            );
-        }
-
         function BatchCategorySheet({ background, categories, onAddCategory, onClose }) {
             const dark = isThemeDark(background);
             return (
@@ -2304,6 +2296,21 @@
                         {templates.length === 0 ? (
                             <p className="sheet-muted-text" style={{ fontSize: 12, marginTop: 10 }}>Save any note as a template to see it here.</p>
                         ) : null}
+                    </div>
+                </div>
+            );
+        }
+
+        // Small popup for the round 🎨 button — same pattern used to be a
+        // full dedicated sheet for the dashboard background; reused here for
+        // any single background swatch picker (currently just per-note).
+        function BackgroundPickerSheet({ title, background, value, onChange, onClose }) {
+            const dark = isThemeDark(background);
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className={'sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
+                        <h2>{title}</h2>
+                        <BackgroundPicker value={value} onChange={onChange} />
                     </div>
                 </div>
             );
@@ -2520,6 +2527,7 @@
             const [showCategoryPicker, setShowCategoryPicker] = useState(false);
             const [showSaveTemplate, setShowSaveTemplate] = useState(false);
             const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+            const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
             const [draggingBlockId, setDraggingBlockId] = useState(null);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
@@ -2877,6 +2885,14 @@
                                     ↩
                                 </button>
                             ) : null}
+                            <button
+                                className="icon-btn"
+                                style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
+                                title="Background"
+                                onClick={() => setShowBackgroundPicker(true)}
+                            >
+                                🎨
+                            </button>
                             {isTemplate ? null : (
                                 <button
                                     className="icon-btn"
@@ -3083,8 +3099,6 @@
                             />
                         </div>
 
-                        <div className="section-label">Background</div>
-                        <BackgroundPicker value={draft.background} onChange={(v) => updateField('background', v)} />
                     </div>
 
                     {previewPhoto ? (
@@ -3092,6 +3106,16 @@
                             <button className="photo-preview-close" onClick={() => setPreviewPhoto(null)}>✕</button>
                             <img src={previewPhoto} alt="" />
                         </div>
+                    ) : null}
+
+                    {showBackgroundPicker ? (
+                        <BackgroundPickerSheet
+                            title="Background"
+                            background={draft.background}
+                            value={draft.background}
+                            onChange={(v) => updateField('background', v)}
+                            onClose={() => setShowBackgroundPicker(false)}
+                        />
                     ) : null}
 
                     {showTemplateMenu ? (
@@ -3221,7 +3245,6 @@
             const [activeNoteId, setActiveNoteId] = useState(null);
             const [view, setView] = useState('home');
             const [showCategoryManager, setShowCategoryManager] = useState(false);
-            const [showDashboardBg, setShowDashboardBg] = useState(false);
             const [deleteCategoryId, setDeleteCategoryId] = useState(null);
             const [draggingId, setDraggingId] = useState(null);
             const [draggingCategoryId, setDraggingCategoryId] = useState(null);
@@ -3832,7 +3855,6 @@
                                     <div className="header-actions">
                                         <button className={'icon-btn' + (showSearch ? ' active' : '')} onClick={toggleSearch} title="Search">🔍</button>
                                         <button className={'icon-btn' + (showPinnedOnly ? ' active' : '')} onClick={() => setShowPinnedOnly((v) => !v)} title="Show pinned only">📌</button>
-                                        <button className="icon-btn" onClick={() => setShowDashboardBg(true)} title="Dashboard background">🎨</button>
                                         <button className="icon-btn" onClick={() => setView('trash')} title="Trash">🗑</button>
                                         <button className="icon-btn" onClick={toggleSelectMode} title="Select notes">☑</button>
                                         <button className="icon-btn" onClick={() => setShowCategoryManager(true)} title="Categories">⚙</button>
@@ -3975,16 +3997,11 @@
                             importError={importError}
                             defaultNoteBackground={settings.defaultNoteBackground}
                             onChangeDefaultNoteBackground={updateDefaultNoteBackground}
+                            dashboardBackground={settings.dashboardBackground}
+                            onChangeDashboardBackground={updateDashboardBackground}
                         />
                     ) : null}
 
-                    {showDashboardBg ? (
-                        <DashboardBackgroundSheet
-                            value={settings.dashboardBackground}
-                            onChange={updateDashboardBackground}
-                            onClose={() => setShowDashboardBg(false)}
-                        />
-                    ) : null}
 
                     {deleteCategoryId ? (
                         <ConfirmSheet
