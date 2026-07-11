@@ -835,6 +835,11 @@
             margin: 20px 0 10px;
         }
 
+        .settings-divider {
+            border-top: 1px solid #e5e7ee;
+            margin-top: 18px;
+        }
+
         .section-label-row {
             display: flex;
             align-items: center;
@@ -1449,7 +1454,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v43';
+        const APP_VERSION = 'v45';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1702,9 +1707,10 @@
             );
         }
 
-        function CategoryManagerSheet({ categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp }) {
+        function CategoryManagerSheet({ categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
+            const importInputRef = useRef(null);
 
             return (
                 <div className="sheet-backdrop" onClick={onClose}>
@@ -1779,6 +1785,29 @@
                                 Add category
                             </button>
                         </div>
+
+                        <div className="settings-divider"></div>
+                        <div className="section-label">Backup</div>
+                        <div className="btn-row">
+                            <button className="secondary-btn" onClick={onExport}>⬇ Export data</button>
+                            <button className="secondary-btn" onClick={() => importInputRef.current && importInputRef.current.click()}>⬆ Import data</button>
+                        </div>
+                        <input
+                            type="file"
+                            accept="application/json,.json"
+                            ref={importInputRef}
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                                const file = e.target.files && e.target.files[0];
+                                if (file) onImportFile(file);
+                                e.target.value = '';
+                            }}
+                        />
+                        {importError ? (
+                            <p style={{ fontSize: 12, color: '#d64545', marginTop: 8 }}>{importError}</p>
+                        ) : null}
+                        <p style={{ fontSize: 11, color: '#8a8d99', marginTop: 8 }}>Export saves all your notes and categories to a file you can keep or move to another device. Import adds a backup file's notes and categories back in.</p>
+
                         <p style={{ fontSize: 11, color: '#b3b6c0', textAlign: 'center', marginTop: 16 }}>Sly Notes {APP_VERSION}</p>
                     </div>
                 </div>
@@ -2203,6 +2232,7 @@
             const [showCategoryPicker, setShowCategoryPicker] = useState(false);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
+            const filesInputRef = useRef(null);
             const mileageTableRef = useRef(null);
             const saveTimer = useRef(null);
             const removedRowToastTimer = useRef(null);
@@ -2323,7 +2353,10 @@
             };
 
             const handleAddPhotos = async (e) => {
-                const files = Array.from(e.target.files || []);
+                // The Files picker (unlike Gallery) has no accept restriction, so it
+                // can return non-image files if someone browses into a folder full
+                // of documents — filter those out instead of trying to render them.
+                const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
                 if (files.length === 0) return;
                 setUploading(true);
                 try {
@@ -2338,6 +2371,7 @@
                     setUploading(false);
                     if (cameraInputRef.current) cameraInputRef.current.value = '';
                     if (galleryInputRef.current) galleryInputRef.current.value = '';
+                    if (filesInputRef.current) filesInputRef.current.value = '';
                 }
             };
 
@@ -2579,6 +2613,10 @@
                                 <span>🖼️</span>
                                 <span className="add-photo-label">Gallery</span>
                             </button>
+                            <button className="add-photo-btn" onClick={() => filesInputRef.current && filesInputRef.current.click()} disabled={uploading}>
+                                <span>📁</span>
+                                <span className="add-photo-label">Files</span>
+                            </button>
                             <input
                                 type="file"
                                 accept="image/*"
@@ -2592,6 +2630,18 @@
                                 accept="image/*"
                                 multiple
                                 ref={galleryInputRef}
+                                style={{ display: 'none' }}
+                                onChange={handleAddPhotos}
+                            />
+                            {/* No `accept` here on purpose — an image/* accept steers
+                                Android into its restricted Photos picker, which has no
+                                way to browse Downloads/Drive/other folders on many OS
+                                versions. Leaving it off opens the real Files app instead;
+                                handleAddPhotos filters the result down to images. */}
+                            <input
+                                type="file"
+                                multiple
+                                ref={filesInputRef}
                                 style={{ display: 'none' }}
                                 onChange={handleAddPhotos}
                             />
@@ -2718,6 +2768,8 @@
             const [searchQuery, setSearchQuery] = useState('');
             const [showPinnedOnly, setShowPinnedOnly] = useState(false);
             const [trashToast, setTrashToast] = useState(null);
+            const [pendingImport, setPendingImport] = useState(null);
+            const [importError, setImportError] = useState('');
 
             const dragRef = useRef({ pointerId: null, noteId: null, timer: null, dragging: false, startX: 0, startY: 0 });
             const justDraggedRef = useRef(false);
@@ -2752,6 +2804,32 @@
                     setNotes(migrated);
                     setSettings(settingsRows[0] || { id: 'app', dashboardBackground: localStorage.getItem('dashboardBackground') || null });
                     setLoading(false);
+
+                    // Android's share sheet lands here as a GET navigation with
+                    // ?title=&text=&url= (wired up via manifest.json's share_target),
+                    // since a static GitHub Pages site can't run a POST handler.
+                    // Turn that straight into a new note instead of just opening the app.
+                    const params = new URLSearchParams(window.location.search);
+                    const sharedTitle = (params.get('title') || '').trim();
+                    const sharedText = (params.get('text') || '').trim();
+                    const sharedUrl = (params.get('url') || '').trim();
+                    if (sharedTitle || sharedText || sharedUrl) {
+                        window.history.replaceState({}, '', window.location.pathname);
+                        const bodyParts = [sharedText];
+                        if (sharedUrl && !sharedText.includes(sharedUrl)) bodyParts.push(sharedUrl);
+                        const lines = bodyParts.filter(Boolean).join('\n').split('\n').filter(l => l.trim() !== '');
+                        const titleFallback = sharedText.split('\n')[0] || sharedUrl || '';
+                        const note = {
+                            ...blankNote([]),
+                            title: (sharedTitle || titleFallback).slice(0, 200),
+                            blocks: lines.length > 0
+                                ? lines.map(line => ({ id: makeId(), type: 'text', html: escapeHtml(line) }))
+                                : [{ id: makeId(), type: 'text', html: '' }],
+                        };
+                        idbPut(database, 'notes', note);
+                        setNotes((prev) => [note, ...prev]);
+                        setActiveNoteId(note.id);
+                    }
                 });
             }, []);
 
@@ -2939,6 +3017,69 @@
                 } else {
                     localStorage.removeItem('dashboardBackground');
                 }
+            };
+
+            const exportAllData = () => {
+                const payload = {
+                    app: 'Sly Notes',
+                    version: APP_VERSION,
+                    exportedAt: Date.now(),
+                    notes,
+                    categories,
+                    settings,
+                };
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'sly-notes-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            const handleImportFile = (file) => {
+                setImportError('');
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const parsed = JSON.parse(reader.result);
+                        if (!parsed || !Array.isArray(parsed.notes) || !Array.isArray(parsed.categories)) {
+                            setImportError("That file doesn't look like a Sly Notes backup.");
+                            return;
+                        }
+                        setPendingImport(parsed);
+                    } catch (err) {
+                        setImportError('Could not read that file — is it a Sly Notes backup?');
+                    }
+                };
+                reader.onerror = () => setImportError('Could not read that file.');
+                reader.readAsText(file);
+            };
+
+            // Upserts by id so importing a backup never wipes out notes/categories
+            // created since the backup was made — matching ids are overwritten,
+            // everything else is left alone.
+            const confirmImport = () => {
+                if (!pendingImport || !db) return;
+                const importedNotes = pendingImport.notes.map(migrateNote);
+                importedNotes.forEach((n) => idbPut(db, 'notes', n));
+                pendingImport.categories.forEach((c) => idbPut(db, 'categories', c));
+                setNotes((prev) => {
+                    const byId = Object.fromEntries(prev.map(n => [n.id, n]));
+                    importedNotes.forEach((n) => { byId[n.id] = n; });
+                    return Object.values(byId);
+                });
+                setCategories((prev) => {
+                    const byId = Object.fromEntries(prev.map(c => [c.id, c]));
+                    pendingImport.categories.forEach((c) => { byId[c.id] = c; });
+                    return Object.values(byId).sort((a, b) => (a.order || 0) - (b.order || 0));
+                });
+                if (pendingImport.settings && pendingImport.settings.dashboardBackground !== undefined) {
+                    updateDashboardBackground(pendingImport.settings.dashboardBackground);
+                }
+                setPendingImport(null);
             };
 
             // Splices the dragged note to targetId's position and immediately
@@ -3170,11 +3311,14 @@
                             onAdd={addCategory}
                             onRename={renameCategory}
                             onDelete={(id) => setDeleteCategoryId(id)}
-                            onClose={() => setShowCategoryManager(false)}
+                            onClose={() => { setShowCategoryManager(false); setImportError(''); }}
                             draggingCategoryId={draggingCategoryId}
                             onHandlePointerDown={handleCategoryHandlePointerDown}
                             onHandlePointerMove={handleCategoryHandlePointerMove}
                             onHandlePointerUp={handleCategoryHandlePointerUp}
+                            onExport={exportAllData}
+                            onImportFile={handleImportFile}
+                            importError={importError}
                         />
                     ) : null}
 
@@ -3193,6 +3337,16 @@
                             confirmLabel="Delete"
                             onCancel={() => setDeleteCategoryId(null)}
                             onConfirm={() => deleteCategory(deleteCategoryId)}
+                        />
+                    ) : null}
+
+                    {pendingImport ? (
+                        <ConfirmSheet
+                            title="Import backup?"
+                            message={'This will add ' + pendingImport.notes.length + ' note(s) and ' + pendingImport.categories.length + ' categor' + (pendingImport.categories.length === 1 ? 'y' : 'ies') + ' from the backup, overwriting any with matching IDs. Nothing else is removed.'}
+                            confirmLabel="Import"
+                            onCancel={() => setPendingImport(null)}
+                            onConfirm={confirmImport}
                         />
                     ) : null}
                 </div>
