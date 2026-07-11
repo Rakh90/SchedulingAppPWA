@@ -1960,7 +1960,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v73';
+        const APP_VERSION = 'v74';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3053,7 +3053,7 @@
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, dateAvailable, anyFieldFocused, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onDatePointerDown, onDateChange, onDismissForDate }) {
+        function LineToolbar({ hasActiveLine, dateAvailable, dateInputReady, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onDatePointerDown, onDateChange, onDismissForDate }) {
             const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
@@ -3109,30 +3109,10 @@
                         <input> sits invisibly right on top of the visible
                         button instead, and the tap goes to it directly —
                         but only once nothing else in the editor still has
-                        the on-screen keyboard up (see anyFieldFocused
-                        below). */}
+                        the on-screen keyboard up, and a beat has passed
+                        since it was dismissed (see dateInputReady below). */}
                     <span className="line-toolbar-date-wrap">
-                        {anyFieldFocused ? (
-                            /* A field still has the keyboard up. Jumping
-                               straight from that keyboard to this input's own
-                               date-wheel picker within the same tap was
-                               observed, on real iOS hardware, to flash the
-                               picker open and immediately auto-close it with
-                               today's date — and that held true even trying
-                               to explicitly block the browser's default
-                               focus-shift via preventDefault() on pointerdown,
-                               which per spec should suppress it for a touch
-                               gesture but apparently doesn't reliably in
-                               practice here. So while anything's focused, this
-                               spot is just an ordinary button (no type="date",
-                               no overlay trick, nothing for iOS's picker
-                               machinery to race) whose only job is to blur
-                               whatever's focused. Once that state update
-                               lands, this swaps for the real overlay input
-                               below, ready for a clean tap with nothing left
-                               to compete with it. */
-                            <button className="line-toolbar-btn line-toolbar-date-btn" disabled={!dateAvailable} onMouseDown={(e) => { e.preventDefault(); onDismissForDate(); }}>📅</button>
-                        ) : (
+                        {dateInputReady ? (
                             <React.Fragment>
                                 <button className="line-toolbar-btn line-toolbar-date-btn" tabIndex={-1} aria-hidden="true">📅</button>
                                 <input
@@ -3143,6 +3123,26 @@
                                     onChange={onDateChange}
                                 />
                             </React.Fragment>
+                        ) : (
+                            /* A field still has the keyboard up, or was just
+                               dismissed a moment ago (see dateInputReady's
+                               debounce). Jumping straight from a keyboard to
+                               this input's own date-wheel picker within the
+                               same tap was observed, on real iOS hardware, to
+                               flash the picker open and immediately auto-
+                               close it with today's date — and that held true
+                               even trying to explicitly block the browser's
+                               default focus-shift via preventDefault() on
+                               pointerdown. So while anything's focused (or
+                               was just dismissed this instant), this spot is
+                               just an ordinary button (no type="date", no
+                               overlay trick, nothing for iOS's picker
+                               machinery to race) whose only job is to blur
+                               whatever's focused. The real overlay input
+                               swaps in a beat later, ready for a clean,
+                               separate tap with nothing left to compete with
+                               it. */
+                            <button className="line-toolbar-btn line-toolbar-date-btn" disabled={!dateAvailable} onMouseDown={(e) => { e.preventDefault(); onDismissForDate(); }}>📅</button>
                         )}
                     </span>
                 </div>
@@ -3463,6 +3463,30 @@
             // iOS's picker machinery to race — and the real input swaps back
             // in on the next render once nothing is left focused.
             const anyFieldFocused = titleFocused || !!editingBlockId || mileageCellFocused;
+
+            // Guards against a race within the SAME physical tap: the moment
+            // anyFieldFocused flips false (a field just got dismissed), that
+            // very tap's own mouseup/click hasn't necessarily finished
+            // resolving yet. If the real date input swapped in immediately,
+            // that trailing mouseup/click could land on it — reopening (and,
+            // on iOS, instantly auto-closing with today's date) the picker
+            // as a side effect of the tap that was only ever supposed to
+            // dismiss the keyboard. This was observed on a real iPhone: the
+            // calendar would flash and self-select today's date every time,
+            // even with the structural swap in place. Delaying the swap
+            // well past any single tap's own event tail (a tap's mousedown
+            // -> mouseup -> click all resolve in well under 100ms) guarantees
+            // only a genuinely separate, later tap can ever reach the real
+            // input.
+            const [dateInputReady, setDateInputReady] = useState(!anyFieldFocused);
+            useEffect(() => {
+                if (anyFieldFocused) {
+                    setDateInputReady(false);
+                    return undefined;
+                }
+                const t = setTimeout(() => setDateInputReady(true), 300);
+                return () => clearTimeout(t);
+            }, [anyFieldFocused]);
 
             // One button (in the line toolbar) serves both the title field and
             // body lines. This runs on the overlay input's pointerdown, which
@@ -4091,7 +4115,7 @@
                             <LineToolbar
                                 hasActiveLine={!!editingBlockId}
                                 dateAvailable={!!editingBlockId || titleFocused}
-                                anyFieldFocused={anyFieldFocused}
+                                dateInputReady={dateInputReady}
                                 activeType={activeBlock ? activeBlock.type : null}
                                 activeFormats={activeFormats}
                                 onFormat={toggleLineFormat}
@@ -4170,14 +4194,7 @@
                                 📅 Today
                             </button>
                             <span className="mileage-date-btn-wrap">
-                                {anyFieldFocused ? (
-                                    // See the matching comment on the line-toolbar
-                                    // date button — same fix, same reason: while
-                                    // any field's keyboard is up, this is just an
-                                    // ordinary button that dismisses it, not the
-                                    // real date input.
-                                    <button className="secondary-btn mileage-date-visible-btn" style={{ padding: '10px 12px', fontSize: 13 }} onMouseDown={(e) => { e.preventDefault(); dismissForMileageDate(); }}>📅 Pick Date</button>
-                                ) : (
+                                {dateInputReady ? (
                                     <React.Fragment>
                                         <button className="secondary-btn mileage-date-visible-btn" style={{ padding: '10px 12px', fontSize: 13 }} tabIndex={-1} aria-hidden="true">📅 Pick Date</button>
                                         <input
@@ -4187,6 +4204,14 @@
                                             onChange={handleDateChange}
                                         />
                                     </React.Fragment>
+                                ) : (
+                                    // See the matching comment on the line-toolbar
+                                    // date button — same fix, same reason: while
+                                    // any field's keyboard is up, or was just
+                                    // dismissed a moment ago, this is just an
+                                    // ordinary button that dismisses it, not the
+                                    // real date input.
+                                    <button className="secondary-btn mileage-date-visible-btn" style={{ padding: '10px 12px', fontSize: 13 }} onMouseDown={(e) => { e.preventDefault(); dismissForMileageDate(); }}>📅 Pick Date</button>
                                 )}
                             </span>
                             <button
