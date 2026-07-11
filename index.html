@@ -1417,7 +1417,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v41';
+        const APP_VERSION = 'v42';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2655,7 +2655,15 @@
             const [loading, setLoading] = useState(true);
             const [categories, setCategories] = useState([]);
             const [notes, setNotes] = useState([]);
-            const [settings, setSettings] = useState({ id: 'app', dashboardBackground: null });
+            // IndexedDB reads are always async, so settings.dashboardBackground
+            // would briefly be null on first paint (flashing the default
+            // purple header before the real theme loads a moment later).
+            // localStorage is synchronous, so seed the initial state from
+            // there to have the correct theme from the very first frame;
+            // idbPut below keeps it in sync on every change, and the DB load
+            // effect further down still treats IndexedDB as the source of
+            // truth once it resolves.
+            const [settings, setSettings] = useState({ id: 'app', dashboardBackground: localStorage.getItem('dashboardBackground') || null });
             const [filterCategory, setFilterCategory] = useState('all');
             const [activeNoteId, setActiveNoteId] = useState(null);
             const [view, setView] = useState('home');
@@ -2700,7 +2708,7 @@
                     });
                     setCategories(catsWithOrder.sort((a, b) => a.order - b.order));
                     setNotes(migrated);
-                    setSettings(settingsRows[0] || { id: 'app', dashboardBackground: null });
+                    setSettings(settingsRows[0] || { id: 'app', dashboardBackground: localStorage.getItem('dashboardBackground') || null });
                     setLoading(false);
                 });
             }, []);
@@ -2884,6 +2892,11 @@
             const updateDashboardBackground = (bg) => {
                 setSettings((s) => ({ ...s, dashboardBackground: bg }));
                 if (db) idbPut(db, 'settings', { id: 'app', dashboardBackground: bg });
+                if (bg) {
+                    localStorage.setItem('dashboardBackground', bg);
+                } else {
+                    localStorage.removeItem('dashboardBackground');
+                }
             };
 
             // Splices the dragged note to targetId's position and immediately
