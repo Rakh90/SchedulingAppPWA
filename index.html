@@ -1422,7 +1422,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v37 (debug build)';
+        const APP_VERSION = 'v38 (debug build)';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1796,6 +1796,13 @@
                     onUpdateCell(row.id, 0, todayStr);
                     const next = cellRefs.current[active.rowIdx + '-1'];
                     if (next) next.focus();
+                },
+                // Queues a cell to be focused once it exists — used right
+                // after a caller-triggered row addition, since the new row
+                // hasn't rendered (and its ref isn't captured) yet at the
+                // moment this is called.
+                focusRowCell: (rowIdx, colIdx) => {
+                    pendingFocusKey.current = rowIdx + '-' + colIdx;
                 },
             }));
 
@@ -2301,6 +2308,22 @@
                 });
             };
 
+            // Used by the Today button when no date cell is currently
+            // focused: rather than doing nothing, add a fresh row pre-filled
+            // with today's date instead of an empty one.
+            const addMileageRowWithToday = () => {
+                const todayStr = new Date().toLocaleDateString();
+                const newRowIdx = draft.table ? draft.table.rows.length : 0;
+                setDraft((d) => {
+                    const table = d.table || { columns: MILEAGE_COLUMNS, rows: [] };
+                    const newRow = { id: makeId(), cells: [todayStr, '', '', ''] };
+                    return { ...d, table: { ...table, rows: [...table.rows, newRow] } };
+                });
+                if (mileageTableRef.current) {
+                    mileageTableRef.current.focusRowCell(newRowIdx, 1);
+                }
+            };
+
             const removeLastMileageRow = () => {
                 setDraft((d) => {
                     if (!d.table || d.table.rows.length === 0) return d;
@@ -2445,9 +2468,14 @@
                             <button
                                 className="secondary-btn"
                                 style={{ padding: '10px 12px', fontSize: 13 }}
-                                disabled={!dateCellActive}
                                 onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => mileageTableRef.current && mileageTableRef.current.fillActiveDateCellWithToday()}
+                                onClick={() => {
+                                    if (dateCellActive && mileageTableRef.current) {
+                                        mileageTableRef.current.fillActiveDateCellWithToday();
+                                    } else {
+                                        addMileageRowWithToday();
+                                    }
+                                }}
                             >
                                 📅 Today
                             </button>
