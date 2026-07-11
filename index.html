@@ -22,6 +22,10 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        html {
+            --keyboard-inset: 0px;
+        }
+
         html, body {
             height: 100%;
             overscroll-behavior-y: none;
@@ -476,7 +480,16 @@
         /* ---------- Sheets / Modals ---------- */
         .sheet-backdrop {
             position: fixed;
-            inset: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            /* Shrinks the backdrop's own box to the actually-visible area
+               instead of the full layout viewport when the keyboard is up
+               (see the --keyboard-inset comment near .editor-body), so a
+               bottom sheet — or a centered one — renders above the keyboard
+               instead of partly or fully behind it. 0px with the keyboard
+               closed, identical to plain inset:0. */
+            bottom: var(--keyboard-inset, 0px);
             background: rgba(0,0,0,0.45);
             z-index: 40;
             display: flex;
@@ -754,6 +767,7 @@
             overflow-y: auto;
             overscroll-behavior-y: none;
             padding: 16px;
+            padding-bottom: calc(16px + var(--keyboard-inset, 0px));
         }
 
         .editor-title-input {
@@ -1843,7 +1857,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v64';
+        const APP_VERSION = 'v65';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -4151,6 +4165,39 @@
             const justDraggedRef = useRef(false);
             const categoryDragRef = useRef({ pointerId: null, categoryId: null });
             const trashToastTimer = useRef(null);
+
+            // On-screen-keyboard-aware scroll room. The editor screen and
+            // every sheet are position:fixed containers with their own
+            // internal overflow-y:auto scroll (not the plain document), so
+            // their scrollable range is based on their own box height, not
+            // on how much of that box the keyboard is currently covering. If
+            // everything already "fits" in the box without overflowing, the
+            // browser has nothing to scroll even though the keyboard is
+            // visually hiding the bottom of it — the field just can't be
+            // brought into view no matter how you try to scroll. dvh units
+            // are *supposed* to track the shrunk visual viewport live and
+            // avoid exactly this, but that isn't reliable across every
+            // Android WebView/Chrome version in practice. The VisualViewport
+            // API always reports the true visible height, so this keeps a
+            // --keyboard-inset CSS variable in sync with it; .editor-body and
+            // .sheet add it as extra bottom padding, guaranteeing there's
+            // always room to scroll whatever the keyboard is covering up
+            // above it, regardless of whether dvh itself did the right thing.
+            useEffect(() => {
+                const vv = window.visualViewport;
+                if (!vv) return undefined;
+                const updateKeyboardInset = () => {
+                    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+                    document.documentElement.style.setProperty('--keyboard-inset', inset + 'px');
+                };
+                vv.addEventListener('resize', updateKeyboardInset);
+                vv.addEventListener('scroll', updateKeyboardInset);
+                updateKeyboardInset();
+                return () => {
+                    vv.removeEventListener('resize', updateKeyboardInset);
+                    vv.removeEventListener('scroll', updateKeyboardInset);
+                };
+            }, []);
 
             useEffect(() => {
                 openDatabase().then(async (database) => {
