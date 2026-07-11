@@ -756,17 +756,6 @@
             padding: 16px;
         }
 
-        .editor-title-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .editor-title-row .line-toolbar-btn {
-            flex: 0 0 auto;
-            margin-bottom: 12px;
-        }
-
         .editor-title-input {
             width: 100%;
             border: none;
@@ -1107,14 +1096,28 @@
             letter-spacing: 0.03em;
             color: #5f6470;
             padding: 8px 10px;
-            border-bottom: 1px solid rgba(0,0,0,0.14);
+            border-bottom: 1px solid rgba(0,0,0,0.22);
+            border-right: 1px solid rgba(0,0,0,0.1);
             background: #fafafa;
             white-space: nowrap;
         }
 
+        .mileage-table th:last-child {
+            border-right: none;
+        }
+
         .mileage-table td {
             padding: 2px 6px;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
+            border-bottom: 1px solid rgba(0,0,0,0.18);
+            border-right: 1px solid rgba(0,0,0,0.08);
+        }
+
+        .mileage-table td:last-child {
+            border-right: none;
+        }
+
+        .mileage-table tbody tr:nth-child(even) td {
+            background: rgba(0,0,0,0.03);
         }
 
         .mileage-cell-input {
@@ -1295,6 +1298,17 @@
 
         .dark-content .mileage-table th {
             background: rgba(255,255,255,0.08);
+            border-bottom-color: rgba(255,255,255,0.3);
+            border-right-color: rgba(255,255,255,0.18);
+        }
+
+        .dark-content .mileage-table td {
+            border-bottom-color: rgba(255,255,255,0.22);
+            border-right-color: rgba(255,255,255,0.14);
+        }
+
+        .dark-content .mileage-table tbody tr:nth-child(even) td {
+            background: rgba(255,255,255,0.05);
         }
 
         .dark-content .mileage-table-container {
@@ -1721,7 +1735,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v61';
+        const APP_VERSION = 'v62';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2798,7 +2812,7 @@
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker }) {
+        function LineToolbar({ hasActiveLine, dateAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker }) {
             const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
@@ -2823,7 +2837,7 @@
             };
             const runDatePicker = (e) => {
                 e.preventDefault();
-                if (!hasActiveLine) return;
+                if (!dateAvailable) return;
                 onOpenDatePicker();
             };
             const allActive = activeFormats.b && activeFormats.i && activeFormats.u;
@@ -2847,7 +2861,7 @@
                     ))}
                     <span className="line-toolbar-divider"></span>
                     <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runSizeMenu} title="Text size">Aa</button>
-                    <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runDatePicker} title="Insert date">📅</button>
+                    <button className="line-toolbar-btn" disabled={!dateAvailable} onMouseDown={runDatePicker} title="Insert date">📅</button>
                 </div>
             );
         }
@@ -2962,6 +2976,13 @@
             // already blurred out of edit mode (clicking anything outside a
             // contentEditable blurs it) and editingBlockId would already be null.
             const [textSizeMenuBlockId, setTextSizeMenuBlockId] = useState(null);
+            // Lets the single date-insert button in the line toolbar also work
+            // for the title field: it decides where to insert by checking
+            // document.activeElement at click time (reliable, since the button
+            // uses onMouseDown+preventDefault to avoid stealing focus), and this
+            // state just controls whether the button looks enabled while the
+            // title — rather than a body line — is what's focused.
+            const [titleFocused, setTitleFocused] = useState(false);
             const [copiedFlash, setCopiedFlash] = useState(false);
             const copiedFlashTimer = useRef(null);
             const [draggingBlockId, setDraggingBlockId] = useState(null);
@@ -3109,14 +3130,37 @@
                 triggerNativeDatePicker();
             };
 
-            // Only meaningful while the mileage table's Date column has a
-            // focused cell — mirrors the existing "Today" button's own
-            // active-cell check, just picking an arbitrary date instead.
+            // One button (in the line toolbar) serves both the title field and
+            // body lines. onMouseDown+preventDefault means whichever of the two
+            // was actually focused is still focused when this runs, so
+            // document.activeElement reliably says which one to target.
+            const openDatePickerSmart = () => {
+                const active = document.activeElement;
+                if (active && active.classList && active.classList.contains('editor-title-input')) {
+                    openDatePickerForTitle();
+                } else if (editingBlockId) {
+                    openDatePickerForBlock();
+                }
+            };
+
+            // Mirrors the "Today" button: if a Date cell is currently focused,
+            // pick a date for it; otherwise add a fresh (empty) row first, the
+            // same way addMileageRowWithToday does, and target its Date cell.
             const openDatePickerForMileage = () => {
                 const table = mileageTableRef.current;
                 const active = table && table.getActiveDateCell ? table.getActiveDateCell() : null;
-                if (!active) return;
-                dateTargetRef.current = { kind: 'mileage', rowId: active.rowId };
+                if (active) {
+                    dateTargetRef.current = { kind: 'mileage', rowId: active.rowId };
+                    triggerNativeDatePicker();
+                    return;
+                }
+                const newRowId = makeId();
+                setDraft((d) => {
+                    const t = d.table || { columns: MILEAGE_COLUMNS, rows: [] };
+                    const newRow = { id: newRowId, cells: ['', '', '', ''] };
+                    return { ...d, table: { ...t, rows: [...t.rows, newRow] } };
+                });
+                dateTargetRef.current = { kind: 'mileage', rowId: newRowId };
                 triggerNativeDatePicker();
             };
 
@@ -3181,6 +3225,11 @@
                     // Individual cell edits (typing, the Today button) aren't
                     // part of the line-undo system either — stay consistent.
                     updateMileageCell(target.rowId, 0, dateStr);
+                    // Same as the Today button: move on to the next cell.
+                    const rowIdx = draft.table ? draft.table.rows.findIndex(r => r.id === target.rowId) : -1;
+                    if (rowIdx !== -1 && mileageTableRef.current) {
+                        mileageTableRef.current.focusRowCell(rowIdx, 1);
+                    }
                 }
             };
 
@@ -3550,30 +3599,21 @@
                         </div>
                     </div>
                     <div className="editor-body" style={resolvePageBackground(draft.background)}>
-                        <div className="editor-title-row">
-                            <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
-                                <input
-                                    ref={titleInputRef}
-                                    className="editor-title-input"
-                                    autoComplete="note-title-nofill"
-                                    data-lpignore="true"
-                                    data-form-type="other"
-                                    placeholder={isTemplate ? 'Template name' : 'Title'}
-                                    value={draft.title}
-                                    onChange={(e) => updateField('title', e.target.value)}
-                                    autoFocus={note.title === ''}
-                                />
-                            </form>
-                            <button
-                                type="button"
-                                className="line-toolbar-btn"
-                                title="Insert date into title"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={openDatePickerForTitle}
-                            >
-                                📅
-                            </button>
-                        </div>
+                        <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                            <input
+                                ref={titleInputRef}
+                                className="editor-title-input"
+                                autoComplete="note-title-nofill"
+                                data-lpignore="true"
+                                data-form-type="other"
+                                placeholder={isTemplate ? 'Template name' : 'Title'}
+                                value={draft.title}
+                                onChange={(e) => updateField('title', e.target.value)}
+                                onFocus={() => setTitleFocused(true)}
+                                onBlur={() => setTitleFocused(false)}
+                                autoFocus={note.title === ''}
+                            />
+                        </form>
 
                         <div className="editor-meta-row">
                             <button
@@ -3595,13 +3635,14 @@
                             </button>
                             <LineToolbar
                                 hasActiveLine={!!editingBlockId}
+                                dateAvailable={!!editingBlockId || titleFocused}
                                 activeType={activeBlock ? activeBlock.type : null}
                                 activeFormats={activeFormats}
                                 onFormat={toggleLineFormat}
                                 onToggleAllFormats={toggleAllFormats}
                                 onSetType={(type) => setBlockType(editingBlockId, type)}
                                 onOpenSizeMenu={() => setTextSizeMenuBlockId(editingBlockId)}
-                                onOpenDatePicker={openDatePickerForBlock}
+                                onOpenDatePicker={openDatePickerSmart}
                             />
                             <input
                                 type="date"
@@ -3676,7 +3717,6 @@
                             <button
                                 className="secondary-btn"
                                 style={{ padding: '10px 12px', fontSize: 13 }}
-                                disabled={!dateCellActive}
                                 onMouseDown={(e) => e.preventDefault()}
                                 onClick={openDatePickerForMileage}
                             >
