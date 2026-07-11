@@ -952,13 +952,13 @@
 
         .uncheck-all-btn {
             display: block;
-            margin: 0 0 8px auto;
+            margin: 0 0 16px auto;
             background: #f1f1f4;
             color: #333;
             border: none;
-            border-radius: 8px;
-            padding: 6px 10px;
-            font-size: 12px;
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 11px;
             font-weight: 600;
         }
 
@@ -1618,7 +1618,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v58';
+        const APP_VERSION = 'v59';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1875,8 +1875,12 @@
         function makeNoteSortCompare(mode, categoryById) {
             return (a, b) => {
                 if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
-                if (mode === 'edited') return (b.updatedAt || 0) - (a.updatedAt || 0);
-                if (mode === 'created') return (b.createdAt || 0) - (a.createdAt || 0);
+                // Notes saved before createdAt/updatedAt were reliably set
+                // have those fields missing — falling back to `order` (always
+                // populated, including for migrated notes) keeps date sorts
+                // from collapsing into a 0-vs-0 no-op for them.
+                if (mode === 'edited') return (b.updatedAt || b.order || 0) - (a.updatedAt || a.order || 0);
+                if (mode === 'created') return (b.createdAt || b.order || 0) - (a.createdAt || a.order || 0);
                 if (mode === 'alpha') return (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase());
                 if (mode === 'category') {
                     const keyA = categorySortKey(a, categoryById);
@@ -2063,7 +2067,7 @@
                         <BackgroundPicker value={dashboardBackground || '#f1f2f5'} onChange={onChangeDashboardBackground} />
 
                         <div className="settings-divider"></div>
-                        <div className="section-label">App lock</div>
+                        <div className="section-label">Note lock</div>
                         {hasPin ? (
                             <div className="btn-row">
                                 <button className="secondary-btn" onClick={onStartPinChange}>Change PIN</button>
@@ -2751,7 +2755,7 @@
                         <div
                             className={'block-display' + (block.type === 'checklist' && block.checked ? ' checked' : '')}
                             onClick={(e) => { if (e.target.tagName === 'A') return; onStartEdit(); }}
-                            dangerouslySetInnerHTML={{ __html: stripHtml(block.html).trim() ? linkify(block.html) : '<span class="block-placeholder">List item</span>' }}
+                            dangerouslySetInnerHTML={{ __html: stripHtml(block.html).trim() ? linkify(block.html) : '<span class="block-placeholder">...</span>' }}
                         />
                     )}
                 </div>
