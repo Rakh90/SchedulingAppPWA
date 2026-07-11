@@ -1200,7 +1200,7 @@
         const { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } = React;
 
         const DB_NAME = 'notepad-db';
-        const DB_VERSION = 2;
+        const DB_VERSION = 3;
 
         function openDatabase() {
             return new Promise((resolve, reject) => {
@@ -1215,6 +1215,12 @@
                     }
                     if (!db.objectStoreNames.contains('settings')) {
                         db.createObjectStore('settings', { keyPath: 'id' });
+                    }
+                    // Written by the service worker when it intercepts a POST from
+                    // the OS share sheet (see service-worker.js) — holds one pending
+                    // shared title/text/url/photos payload for the page to consume.
+                    if (!db.objectStoreNames.contains('shareInbox')) {
+                        db.createObjectStore('shareInbox', { keyPath: 'id' });
                     }
                 };
                 req.onsuccess = (e) => resolve(e.target.result);
@@ -1454,7 +1460,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v45';
+        const APP_VERSION = 'v46';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2805,16 +2811,23 @@
                     setSettings(settingsRows[0] || { id: 'app', dashboardBackground: localStorage.getItem('dashboardBackground') || null });
                     setLoading(false);
 
-                    // Android's share sheet lands here as a GET navigation with
-                    // ?title=&text=&url= (wired up via manifest.json's share_target),
-                    // since a static GitHub Pages site can't run a POST handler.
-                    // Turn that straight into a new note instead of just opening the app.
-                    const params = new URLSearchParams(window.location.search);
-                    const sharedTitle = (params.get('title') || '').trim();
-                    const sharedText = (params.get('text') || '').trim();
-                    const sharedUrl = (params.get('url') || '').trim();
-                    if (sharedTitle || sharedText || sharedUrl) {
-                        window.history.replaceState({}, '', window.location.pathname);
+                    // The service worker intercepts the OS share sheet's POST
+                    // (manifest.json's share_target) and leaves one pending
+                    // title/text/url/photos payload here before redirecting back
+                    // to the app — pick it up and turn it straight into a note.
+                    const inboxRows = await idbGetAll(database, 'shareInbox');
+                    const pending = inboxRows[0];
+                    if (pending) {
+                        idbDelete(database, 'shareInbox', pending.id);
+                        const sharedTitle = (pending.title || '').trim();
+                        const sharedText = (pending.text || '').trim();
+                        const sharedUrl = (pending.url || '').trim();
+                        const photos = [];
+                        for (const file of (pending.files || [])) {
+                            const raw = await readFileAsDataUrl(file);
+                            const resized = await resizeImage(raw, 1280, 0.82);
+                            photos.push({ id: makeId(), dataUrl: resized });
+                        }
                         const bodyParts = [sharedText];
                         if (sharedUrl && !sharedText.includes(sharedUrl)) bodyParts.push(sharedUrl);
                         const lines = bodyParts.filter(Boolean).join('\n').split('\n').filter(l => l.trim() !== '');
@@ -2825,6 +2838,7 @@
                             blocks: lines.length > 0
                                 ? lines.map(line => ({ id: makeId(), type: 'text', html: escapeHtml(line) }))
                                 : [{ id: makeId(), type: 'text', html: '' }],
+                            photos,
                         };
                         idbPut(database, 'notes', note);
                         setNotes((prev) => [note, ...prev]);
