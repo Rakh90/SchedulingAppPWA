@@ -1561,7 +1561,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v50';
+        const APP_VERSION = 'v51';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1671,13 +1671,6 @@
             };
         }
 
-        // Always-available starter template, shown alongside any user-saved ones
-        // in the long-press template picker off the + button. Not stored in
-        // IndexedDB — it's just a fixed shape a new note gets seeded from.
-        const BUILT_IN_TEMPLATES = [
-            { id: 'builtin-grocery-list', name: 'Grocery List', builtIn: true, title: 'Grocery List', blocks: [{ type: 'checklist', html: '' }], table: null, background: '#ffffff' },
-        ];
-
         // Regenerates ids for every block/row so instantiating the same template
         // twice never lets two notes share a block id.
         function noteFromTemplate(template, categoryIds) {
@@ -1688,10 +1681,22 @@
                 : null;
             return {
                 ...blankNote(categoryIds),
-                title: template.title || '',
+                title: template.name || '',
                 blocks,
+                photos: (template.photos || []).map((p) => ({ id: makeId(), dataUrl: p.dataUrl })),
                 table,
                 background: template.background || '#ffffff',
+            };
+        }
+
+        // Used both when creating a note from a template and when opening a
+        // template for editing (which reuses NoteEditor itself) — shapes a
+        // template into the same "draft" object NoteEditor expects.
+        function templateToNoteDraft(template) {
+            return {
+                ...noteFromTemplate(template, []),
+                id: template.id,
+                createdAt: template.createdAt || Date.now(),
             };
         }
 
@@ -2260,7 +2265,7 @@
             );
         }
 
-        function TemplatePickerSheet({ background, templates, onPick, onDeleteTemplate, onClose }) {
+        function TemplatePickerSheet({ background, templates, onPick, onEditTemplate, onDeleteTemplate, onClose }) {
             const dark = isThemeDark(background);
             return (
                 <div className="sheet-backdrop" onClick={onClose}>
@@ -2269,11 +2274,6 @@
                         <button className="category-picker-row" onClick={() => onPick(null)}>
                             <span className="category-picker-name">📝 Blank note</span>
                         </button>
-                        {BUILT_IN_TEMPLATES.map((t) => (
-                            <button key={t.id} className="category-picker-row" onClick={() => onPick(t)}>
-                                <span className="category-picker-name">🧾 {t.name}</span>
-                            </button>
-                        ))}
                         {templates.map((t) => (
                             <div className="category-manager-row" key={t.id}>
                                 <button
@@ -2283,7 +2283,8 @@
                                 >
                                     📄 {t.name}
                                 </button>
-                                <button className="small-icon-btn" onClick={() => onDeleteTemplate(t.id)}>✕</button>
+                                <button className="small-icon-btn" title="Edit template" onClick={() => onEditTemplate(t.id)}>✎</button>
+                                <button className="small-icon-btn" title="Delete template" onClick={() => onDeleteTemplate(t.id)}>✕</button>
                             </div>
                         ))}
                         {templates.length === 0 ? (
@@ -2464,7 +2465,7 @@
             );
         }
 
-        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate }) {
+        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate, isTemplate }) {
             const [draft, setDraft] = useState(note);
             const [editingBlockId, setEditingBlockId] = useState(null);
             const [confirmTrash, setConfirmTrash] = useState(false);
@@ -2813,15 +2814,17 @@
                                     ↩
                                 </button>
                             ) : null}
-                            <button
-                                className={'icon-btn' + (draft.pinned ? ' active' : '')}
-                                style={draft.pinned ? { background: 'rgba(102,126,234,0.85)', color: '#fff' } : { background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
-                                title={draft.pinned ? 'Unpin' : 'Pin to top'}
-                                onClick={() => updateField('pinned', !draft.pinned)}
-                            >
-                                📌
-                            </button>
-                            <button className="icon-btn" style={{ background: headerBadgeBg(editorHeaderDark), color: '#c5221f' }} onClick={() => setConfirmTrash(true)}>🗑</button>
+                            {isTemplate ? null : (
+                                <button
+                                    className={'icon-btn' + (draft.pinned ? ' active' : '')}
+                                    style={draft.pinned ? { background: 'rgba(102,126,234,0.85)', color: '#fff' } : { background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
+                                    title={draft.pinned ? 'Unpin' : 'Pin to top'}
+                                    onClick={() => updateField('pinned', !draft.pinned)}
+                                >
+                                    📌
+                                </button>
+                            )}
+                            <button className="icon-btn" title={isTemplate ? 'Delete template' : 'Move to trash'} style={{ background: headerBadgeBg(editorHeaderDark), color: '#c5221f' }} onClick={() => setConfirmTrash(true)}>🗑</button>
                         </div>
                     </div>
                     <div className="editor-body" style={resolvePageBackground(draft.background)}>
@@ -2831,7 +2834,7 @@
                                 autoComplete="note-title-nofill"
                                 data-lpignore="true"
                                 data-form-type="other"
-                                placeholder="Title"
+                                placeholder={isTemplate ? 'Template name' : 'Title'}
                                 value={draft.title}
                                 onChange={(e) => updateField('title', e.target.value)}
                                 autoFocus={note.title === ''}
@@ -2839,23 +2842,25 @@
                         </form>
 
                         <div className="editor-meta-row">
-                            <button
-                                type="button"
-                                className="category-select"
-                                onClick={() => setShowCategoryPicker(true)}
-                            >
-                                {draft.categoryIds && draft.categoryIds.length > 0 ? (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                        {draft.categoryIds.map((id) => {
-                                            const cat = categories.find(c => c.id === id);
-                                            return cat ? <span key={id} className="color-dot" style={{ background: cat.color }}></span> : null;
-                                        })}
-                                        {draft.categoryIds.length === 1
-                                            ? (categories.find(c => c.id === draft.categoryIds[0]) || {}).name
-                                            : draft.categoryIds.length + ' categories'}
-                                    </span>
-                                ) : 'Uncategorized'}
-                            </button>
+                            {isTemplate ? null : (
+                                <button
+                                    type="button"
+                                    className="category-select"
+                                    onClick={() => setShowCategoryPicker(true)}
+                                >
+                                    {draft.categoryIds && draft.categoryIds.length > 0 ? (
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            {draft.categoryIds.map((id) => {
+                                                const cat = categories.find(c => c.id === id);
+                                                return cat ? <span key={id} className="color-dot" style={{ background: cat.color }}></span> : null;
+                                            })}
+                                            {draft.categoryIds.length === 1
+                                                ? (categories.find(c => c.id === draft.categoryIds[0]) || {}).name
+                                                : draft.categoryIds.length + ' categories'}
+                                        </span>
+                                    ) : 'Uncategorized'}
+                                </button>
+                            )}
                             <LineToolbar
                                 hasActiveLine={!!editingBlockId}
                                 activeType={activeBlock ? activeBlock.type : null}
@@ -3008,8 +3013,12 @@
                         <div className="section-label">Background</div>
                         <BackgroundPicker value={draft.background} onChange={(v) => updateField('background', v)} />
 
-                        <div className="section-label">Templates</div>
-                        <button className="secondary-btn" onClick={() => setShowSaveTemplate(true)}>💾 Save as Template</button>
+                        {isTemplate ? null : (
+                            <React.Fragment>
+                                <div className="section-label">Templates</div>
+                                <button className="secondary-btn" onClick={() => setShowSaveTemplate(true)}>💾 Save as Template</button>
+                            </React.Fragment>
+                        )}
                     </div>
 
                     {previewPhoto ? (
@@ -3032,9 +3041,9 @@
 
                     {confirmTrash ? (
                         <ConfirmSheet
-                            title="Move to trash?"
-                            message="You can restore this note from the Trash later."
-                            confirmLabel="Move to Trash"
+                            title={isTemplate ? 'Delete template?' : 'Move to trash?'}
+                            message={isTemplate ? 'This template will be permanently deleted.' : 'You can restore this note from the Trash later.'}
+                            confirmLabel={isTemplate ? 'Delete' : 'Move to Trash'}
                             onCancel={() => setConfirmTrash(false)}
                             onConfirm={() => { onTrash(draft.id); onBack(); }}
                         />
@@ -3122,6 +3131,7 @@
             const [notes, setNotes] = useState([]);
             const [templates, setTemplates] = useState([]);
             const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+            const [editingTemplateId, setEditingTemplateId] = useState(null);
             // IndexedDB reads are always async, so settings.dashboardBackground
             // would briefly be null on first paint (flashing the default
             // purple header before the real theme loads a moment later).
@@ -3374,8 +3384,8 @@
                 const tmpl = {
                     id: makeId(),
                     name,
-                    title: sourceNote.title,
                     blocks: sourceNote.blocks.map((b) => ({ type: b.type, html: b.html })),
+                    photos: (sourceNote.photos || []).map((p) => ({ dataUrl: p.dataUrl })),
                     table: sourceNote.table
                         ? { columns: sourceNote.table.columns, rows: sourceNote.table.rows.map((r) => ({ cells: [...r.cells] })) }
                         : null,
@@ -3386,9 +3396,28 @@
                 if (db) idbPut(db, 'templates', tmpl);
             };
 
+            const updateTemplateContent = (updatedDraft) => {
+                setTemplates((prev) => prev.map((t) => {
+                    if (t.id !== editingTemplateId) return t;
+                    const updated = {
+                        ...t,
+                        name: updatedDraft.title || t.name,
+                        blocks: updatedDraft.blocks.map((b) => ({ type: b.type, html: b.html })),
+                        photos: (updatedDraft.photos || []).map((p) => ({ dataUrl: p.dataUrl })),
+                        table: updatedDraft.table
+                            ? { columns: updatedDraft.table.columns, rows: updatedDraft.table.rows.map((r) => ({ cells: [...r.cells] })) }
+                            : null,
+                        background: updatedDraft.background,
+                    };
+                    if (db) idbPut(db, 'templates', updated);
+                    return updated;
+                }));
+            };
+
             const deleteTemplate = (id) => {
                 setTemplates((prev) => prev.filter(t => t.id !== id));
                 if (db) idbDelete(db, 'templates', id);
+                setEditingTemplateId((current) => current === id ? null : current);
             };
 
             // A quick tap on the + button creates a blank note as always; holding
@@ -3675,6 +3704,23 @@
                 );
             }
 
+            const editingTemplate = editingTemplateId ? templates.find(t => t.id === editingTemplateId) : null;
+
+            if (editingTemplate) {
+                return (
+                    <NoteEditor
+                        key={editingTemplate.id}
+                        note={templateToNoteDraft(editingTemplate)}
+                        categories={[]}
+                        onBack={() => setEditingTemplateId(null)}
+                        onSave={updateTemplateContent}
+                        onTrash={deleteTemplate}
+                        onAddCategory={() => null}
+                        isTemplate
+                    />
+                );
+            }
+
             const activeNote = activeNoteId ? notes.find(n => n.id === activeNoteId) : null;
 
             if (activeNote) {
@@ -3831,6 +3877,7 @@
                             background={settings.dashboardBackground}
                             templates={templates}
                             onPick={createNoteFromTemplate}
+                            onEditTemplate={(id) => { setShowTemplatePicker(false); setEditingTemplateId(id); }}
                             onDeleteTemplate={deleteTemplate}
                             onClose={() => setShowTemplatePicker(false)}
                         />
