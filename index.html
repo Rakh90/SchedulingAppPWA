@@ -426,6 +426,9 @@
             align-items: center;
             justify-content: center;
             z-index: 20;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
         }
 
         .fab:active {
@@ -1561,7 +1564,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v51';
+        const APP_VERSION = 'v52';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2279,17 +2282,46 @@
                                 <button
                                     type="button"
                                     onClick={() => onPick(t)}
-                                    style={{ flex: 1, textAlign: 'left', background: 'transparent', border: 'none', font: 'inherit', color: 'inherit', padding: '4px 0' }}
+                                    style={{ flex: 1, textAlign: 'left', background: 'transparent', border: 'none', font: 'inherit', padding: '4px 0' }}
                                 >
-                                    📄 {t.name}
+                                    <span className="category-picker-name">📄 {t.name}</span>
                                 </button>
                                 <button className="small-icon-btn" title="Edit template" onClick={() => onEditTemplate(t.id)}>✎</button>
                                 <button className="small-icon-btn" title="Delete template" onClick={() => onDeleteTemplate(t.id)}>✕</button>
                             </div>
                         ))}
                         {templates.length === 0 ? (
-                            <p className="sheet-muted-text" style={{ fontSize: 12, marginTop: 10 }}>Save any note as a template (see the Templates section inside a note) to see it here.</p>
+                            <p className="sheet-muted-text" style={{ fontSize: 12, marginTop: 10 }}>Save any note as a template to see it here.</p>
                         ) : null}
+                    </div>
+                </div>
+            );
+        }
+
+        // Opened from the round 📑 button in the note editor header. Styled
+        // like CategoryPickerSheet on purpose — same row/sheet look, just with
+        // a save action up top instead of an inline create-category form.
+        function TemplateMenuSheet({ background, templates, onSaveNew, onLoad, onClose }) {
+            const dark = isThemeDark(background);
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className={'sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
+                        <h2>Templates</h2>
+                        <button className="category-picker-row" onClick={onSaveNew}>
+                            <span className="category-picker-name">💾 Save as new template</span>
+                        </button>
+                        {templates.length > 0 ? (
+                            <React.Fragment>
+                                <div className="section-label" style={{ marginTop: 16 }}>Load a template</div>
+                                {templates.map((t) => (
+                                    <button key={t.id} className="category-picker-row" onClick={() => onLoad(t)}>
+                                        <span className="category-picker-name">📄 {t.name}</span>
+                                    </button>
+                                ))}
+                            </React.Fragment>
+                        ) : (
+                            <p className="sheet-muted-text" style={{ fontSize: 12, marginTop: 10 }}>No saved templates yet.</p>
+                        )}
                     </div>
                 </div>
             );
@@ -2465,7 +2497,7 @@
             );
         }
 
-        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate, isTemplate }) {
+        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate, templates, isTemplate }) {
             const [draft, setDraft] = useState(note);
             const [editingBlockId, setEditingBlockId] = useState(null);
             const [confirmTrash, setConfirmTrash] = useState(false);
@@ -2476,6 +2508,7 @@
             const [removedRowToast, setRemovedRowToast] = useState(null);
             const [showCategoryPicker, setShowCategoryPicker] = useState(false);
             const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+            const [showTemplateMenu, setShowTemplateMenu] = useState(false);
             const [draggingBlockId, setDraggingBlockId] = useState(null);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
@@ -2724,6 +2757,22 @@
                 setDraft((d) => ({ ...d, photos: d.photos.filter(p => p.id !== id) }));
             };
 
+            // Replaces this note's content with a saved template's — reversible
+            // via the Undo button, so there's no need for a separate "are you
+            // sure" confirmation on top of that.
+            const loadTemplateIntoDraft = (template) => {
+                pushEditHistory();
+                const blocks = (template.blocks && template.blocks.length > 0 ? template.blocks : [{ type: 'text', html: '' }])
+                    .map((b) => ({ id: makeId(), type: b.type, html: b.html || '', checked: false }));
+                const table = template.table
+                    ? { columns: template.table.columns, rows: template.table.rows.map((r) => ({ id: makeId(), cells: [...r.cells] })) }
+                    : null;
+                const photos = (template.photos || []).map((p) => ({ id: makeId(), dataUrl: p.dataUrl }));
+                setDraft((d) => ({ ...d, blocks, table, photos, background: template.background || d.background }));
+                setEditingBlockId(null);
+                setShowTemplateMenu(false);
+            };
+
             // Also creates the table (with these fixed mileage columns) on its
             // first press if one doesn't exist yet on this note.
             const addMileageRow = () => {
@@ -2814,6 +2863,16 @@
                                     ↩
                                 </button>
                             ) : null}
+                            {isTemplate ? null : (
+                                <button
+                                    className="icon-btn"
+                                    style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
+                                    title="Templates"
+                                    onClick={() => setShowTemplateMenu(true)}
+                                >
+                                    📑
+                                </button>
+                            )}
                             {isTemplate ? null : (
                                 <button
                                     className={'icon-btn' + (draft.pinned ? ' active' : '')}
@@ -3012,13 +3071,6 @@
 
                         <div className="section-label">Background</div>
                         <BackgroundPicker value={draft.background} onChange={(v) => updateField('background', v)} />
-
-                        {isTemplate ? null : (
-                            <React.Fragment>
-                                <div className="section-label">Templates</div>
-                                <button className="secondary-btn" onClick={() => setShowSaveTemplate(true)}>💾 Save as Template</button>
-                            </React.Fragment>
-                        )}
                     </div>
 
                     {previewPhoto ? (
@@ -3026,6 +3078,16 @@
                             <button className="photo-preview-close" onClick={() => setPreviewPhoto(null)}>✕</button>
                             <img src={previewPhoto} alt="" />
                         </div>
+                    ) : null}
+
+                    {showTemplateMenu ? (
+                        <TemplateMenuSheet
+                            background={draft.background}
+                            templates={templates}
+                            onSaveNew={() => { setShowTemplateMenu(false); setShowSaveTemplate(true); }}
+                            onLoad={loadTemplateIntoDraft}
+                            onClose={() => setShowTemplateMenu(false)}
+                        />
                     ) : null}
 
                     {showSaveTemplate ? (
@@ -3734,6 +3796,7 @@
                         onTrash={trashNote}
                         onAddCategory={addCategory}
                         onSaveTemplate={saveTemplate}
+                        templates={templates}
                     />
                 );
             }
@@ -3868,6 +3931,7 @@
                         onPointerMove={handleFabPointerMove}
                         onPointerUp={handleFabPointerUp}
                         onPointerCancel={handleFabPointerUp}
+                        onContextMenu={(e) => e.preventDefault()}
                     >
                         +
                     </button>
