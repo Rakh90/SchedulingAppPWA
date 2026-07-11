@@ -777,17 +777,6 @@
             flex-wrap: wrap;
         }
 
-        /* Stays out of the layout and invisible, but — unlike display:none —
-           is still "being rendered", which showPicker() requires to work. */
-        .date-picker-hidden-input {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            opacity: 0;
-            pointer-events: none;
-            border: none;
-        }
-
         .category-select {
             border: 1px solid rgba(0,0,0,0.12);
             border-radius: 16px;
@@ -862,6 +851,34 @@
             background: rgba(0,0,0,0.12);
             margin: 0 2px;
             flex: 0 0 auto;
+        }
+
+        .line-toolbar-date-wrap {
+            position: relative;
+            flex: 0 0 auto;
+            width: 30px;
+            height: 30px;
+        }
+
+        .line-toolbar-date-wrap .line-toolbar-btn {
+            width: 100%;
+            height: 100%;
+        }
+
+        .line-toolbar-date-input {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            border: none;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .line-toolbar-date-input:disabled {
+            cursor: default;
         }
 
         .list-item-marker {
@@ -1133,6 +1150,23 @@
             outline: none;
             background: #f1f2fb;
             border-radius: 6px;
+        }
+
+        .mileage-date-btn-wrap {
+            position: relative;
+            display: inline-flex;
+        }
+
+        .mileage-date-btn-input {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            border: none;
+            opacity: 0;
+            cursor: pointer;
         }
 
         .mileage-total-bar {
@@ -1809,7 +1843,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v63';
+        const APP_VERSION = 'v64';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2886,7 +2920,7 @@
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, dateAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker }) {
+        function LineToolbar({ hasActiveLine, dateAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onDatePointerDown, onDateChange }) {
             const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
@@ -2909,11 +2943,6 @@
                 if (!hasActiveLine) return;
                 onOpenSizeMenu();
             };
-            const runDatePicker = (e) => {
-                e.preventDefault();
-                if (!dateAvailable) return;
-                onOpenDatePicker();
-            };
             const allActive = activeFormats.b && activeFormats.i && activeFormats.u;
             return (
                 <div className="line-toolbar">
@@ -2935,7 +2964,28 @@
                     ))}
                     <span className="line-toolbar-divider"></span>
                     <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runSizeMenu} title="Text size">Aa</button>
-                    <button className="line-toolbar-btn" disabled={!dateAvailable} onMouseDown={runDatePicker} title="Insert date">📅</button>
+                    {/* Unlike every other button here, this one does NOT use a
+                        decoy button + preventDefault + a programmatic
+                        showPicker()/click() on a hidden <input type="date">
+                        elsewhere in the DOM. iOS Safari only opens a date
+                        input's native picker for a genuine tap that lands
+                        directly on that input — a synthetic .click() call
+                        from a proxy button silently does nothing (Android
+                        Chrome isn't picky about this, which is why that
+                        approach worked there but not on iPhone). So the real
+                        <input> sits invisibly right on top of the visible
+                        button instead, and the tap goes to it directly. */}
+                    <span className="line-toolbar-date-wrap">
+                        <button className="line-toolbar-btn" disabled={!dateAvailable} tabIndex={-1} aria-hidden="true">📅</button>
+                        <input
+                            type="date"
+                            className="line-toolbar-date-input"
+                            title="Insert date"
+                            disabled={!dateAvailable}
+                            onPointerDown={(e) => { e.currentTarget.value = ''; onDatePointerDown(); }}
+                            onChange={onDateChange}
+                        />
+                    </span>
                 </div>
             );
         }
@@ -3063,7 +3113,6 @@
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
             const filesInputRef = useRef(null);
-            const dateInputRef = useRef(null);
             const titleInputRef = useRef(null);
             const mileageTableRef = useRef(null);
             const saveTimer = useRef(null);
@@ -3175,24 +3224,19 @@
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, size } : b) }));
             };
 
-            // Shared low-level trigger for the one hidden <input type="date">
-            // — mirrors the trick the photo buttons use for a hidden
-            // <input type="file">. Callers stash where the result should go
-            // in dateTargetRef before calling this.
-            const triggerNativeDatePicker = () => {
-                const input = dateInputRef.current;
-                if (!input) return;
-                input.value = '';
-                if (input.showPicker) {
-                    try { input.showPicker(); } catch (e) { input.click(); }
-                } else {
-                    input.click();
-                }
-            };
-
-            // Captures the caret's plain-text offset in the active line, then
-            // opens the native date picker.
-            const openDatePickerForBlock = () => {
+            // These "prepare" functions only stash where a picked date should
+            // land in dateTargetRef — they never open anything themselves.
+            // The date input each one is paired with is a real, visible-to-
+            // the-browser <input type="date"> sitting invisibly right on top
+            // of its button (see LineToolbar and the mileage "Pick Date"
+            // button), and the tap that lands on it is what actually opens
+            // the native picker. An earlier version tried to trigger a
+            // hidden decoy input's picker programmatically via
+            // showPicker()/click() from a proxy button; that's exactly why
+            // it silently did nothing on iOS Safari, which — unlike Android
+            // Chrome — only opens a date input's picker for a genuine tap
+            // directly on that element.
+            const prepareDateTargetForBlock = () => {
                 if (!editingBlockId) return;
                 const el = document.querySelector('.block-editable[data-block-id="' + editingBlockId + '"]');
                 if (!el) return;
@@ -3202,10 +3246,9 @@
                     offset: getCaretCharOffset(el),
                     html: sanitizeInlineHtml(el.innerHTML),
                 };
-                triggerNativeDatePicker();
             };
 
-            const openDatePickerForTitle = () => {
+            const prepareDateTargetForTitle = () => {
                 const el = titleInputRef.current;
                 if (!el) return;
                 dateTargetRef.current = {
@@ -3214,31 +3257,31 @@
                     selEnd: el.selectionEnd == null ? draft.title.length : el.selectionEnd,
                     value: draft.title,
                 };
-                triggerNativeDatePicker();
             };
 
             // One button (in the line toolbar) serves both the title field and
-            // body lines. onMouseDown+preventDefault means whichever of the two
-            // was actually focused is still focused when this runs, so
-            // document.activeElement reliably says which one to target.
-            const openDatePickerSmart = () => {
+            // body lines. This runs on the overlay input's pointerdown, which
+            // fires before the browser shifts focus to it — so whichever of
+            // the two was actually focused a moment ago is still
+            // document.activeElement right now, reliably saying which one to
+            // target.
+            const prepareDateTargetSmart = () => {
                 const active = document.activeElement;
                 if (active && active.classList && active.classList.contains('editor-title-input')) {
-                    openDatePickerForTitle();
+                    prepareDateTargetForTitle();
                 } else if (editingBlockId) {
-                    openDatePickerForBlock();
+                    prepareDateTargetForBlock();
                 }
             };
 
             // Mirrors the "Today" button: if a Date cell is currently focused,
-            // pick a date for it; otherwise add a fresh (empty) row first, the
-            // same way addMileageRowWithToday does, and target its Date cell.
-            const openDatePickerForMileage = () => {
+            // target it; otherwise add a fresh (empty) row first, the same
+            // way addMileageRowWithToday does, and target its Date cell.
+            const prepareDateTargetForMileage = () => {
                 const table = mileageTableRef.current;
                 const active = table && table.getActiveDateCell ? table.getActiveDateCell() : null;
                 if (active) {
                     dateTargetRef.current = { kind: 'mileage', rowId: active.rowId };
-                    triggerNativeDatePicker();
                     return;
                 }
                 const newRowId = makeId();
@@ -3248,7 +3291,6 @@
                     return { ...d, table: { ...t, rows: [...t.rows, newRow] } };
                 });
                 dateTargetRef.current = { kind: 'mileage', rowId: newRowId };
-                triggerNativeDatePicker();
             };
 
             // Applies the picked date to whichever target openDatePickerFor*
@@ -3729,14 +3771,8 @@
                                 onToggleAllFormats={toggleAllFormats}
                                 onSetType={(type) => setBlockType(editingBlockId, type)}
                                 onOpenSizeMenu={() => setTextSizeMenuBlockId(editingBlockId)}
-                                onOpenDatePicker={openDatePickerSmart}
-                            />
-                            <input
-                                type="date"
-                                ref={dateInputRef}
-                                className="date-picker-hidden-input"
-                                tabIndex={-1}
-                                onChange={handleDateChange}
+                                onDatePointerDown={prepareDateTargetSmart}
+                                onDateChange={handleDateChange}
                             />
                         </div>
 
@@ -3801,14 +3837,15 @@
                             >
                                 📅 Today
                             </button>
-                            <button
-                                className="secondary-btn"
-                                style={{ padding: '10px 12px', fontSize: 13 }}
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={openDatePickerForMileage}
-                            >
-                                📅 Pick Date
-                            </button>
+                            <span className="mileage-date-btn-wrap">
+                                <button className="secondary-btn" style={{ padding: '10px 12px', fontSize: 13 }} tabIndex={-1} aria-hidden="true">📅 Pick Date</button>
+                                <input
+                                    type="date"
+                                    className="mileage-date-btn-input"
+                                    onPointerDown={(e) => { e.currentTarget.value = ''; prepareDateTargetForMileage(); }}
+                                    onChange={handleDateChange}
+                                />
+                            </span>
                             <button
                                 className="secondary-btn"
                                 style={{ marginLeft: 'auto', padding: '10px 10px', fontSize: 12 }}
