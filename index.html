@@ -671,8 +671,8 @@
            escape hatch), not a discoverable "reset" button. */
         .pin-secret-zone {
             position: absolute;
-            left: 0;
-            bottom: 0;
+            top: 0;
+            right: 0;
             width: 46px;
             height: 46px;
             background: transparent;
@@ -754,6 +754,17 @@
             overflow-y: auto;
             overscroll-behavior-y: none;
             padding: 16px;
+        }
+
+        .editor-title-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .editor-title-row .line-toolbar-btn {
+            flex: 0 0 auto;
+            margin-bottom: 12px;
         }
 
         .editor-title-input {
@@ -1710,7 +1721,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v60';
+        const APP_VERSION = 'v61';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2255,6 +2266,16 @@
                 focusRowCell: (rowIdx, colIdx) => {
                     pendingFocusKey.current = rowIdx + '-' + colIdx;
                 },
+                // Row id (not index) for whichever Date-column cell is
+                // currently focused, so a caller can act on it after the
+                // native date picker's own focus-stealing/blur has made
+                // activeCellRef stale.
+                getActiveDateCell: () => {
+                    const active = activeCellRef.current;
+                    if (!active || active.colIdx !== 0) return null;
+                    const row = table.rows[active.rowIdx];
+                    return row ? { rowId: row.id, rowIdx: active.rowIdx } : null;
+                },
             }));
 
             // Last column: move into the next row if one exists, otherwise add a
@@ -2409,10 +2430,13 @@
             { id: 'large', label: 'Large' },
         ];
 
+        // Centered (not bottom-anchored) on purpose — this is opened while a
+        // line is mid-edit, so the on-screen keyboard is up; a bottom sheet
+        // would land at least partly underneath it.
         function TextSizeMenuSheet({ background, value, onChange, onClose }) {
             const dark = isThemeDark(background);
             return (
-                <div className="sheet-backdrop" onClick={onClose}>
+                <div className="sheet-backdrop centered" onClick={onClose}>
                     <div className={'sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
                         <h2>Text size</h2>
                         {TEXT_SIZE_OPTIONS.map((o) => (
@@ -2945,28 +2969,23 @@
             const galleryInputRef = useRef(null);
             const filesInputRef = useRef(null);
             const dateInputRef = useRef(null);
+            const titleInputRef = useRef(null);
             const mileageTableRef = useRef(null);
             const saveTimer = useRef(null);
             const removedRowToastTimer = useRef(null);
             const blockDragRef = useRef({ pointerId: null, blockId: null, timer: null, dragging: false, startX: 0, startY: 0 });
             const justDraggedBlockRef = useRef(false);
-            // Character offset (plain text, not HTML) captured from the active
-            // line's caret right before opening the native date picker — the
-            // picker steals focus and can outlive the block's edit session, so a
-            // DOM Range wouldn't survive; a plain number does.
-            const savedDateCaretRef = useRef(null);
-            // Which block the date picker was opened for, captured at the same
-            // moment as savedDateCaretRef — opening the picker blurs the block
-            // (focus moves to the picker), which nulls out editingBlockId well
-            // before the user actually picks a date, so handleDateChange can't
-            // rely on reading editingBlockId live.
-            const dateTargetBlockIdRef = useRef(null);
-            // The line's live innerHTML at the moment the picker opened — same
-            // reasoning as toggleLineFormat reading the DOM directly instead of
-            // draft.blocks: whatever was just typed may not have been committed
-            // to state yet (that only happens on blur/Enter), so draft.blocks
-            // could still hold stale/empty content here.
-            const dateTargetHtmlRef = useRef('');
+            // One shared native <input type="date"> serves the body line
+            // toolbar, the title field, and the mileage table's date column.
+            // This holds where a picked date should land, captured at the
+            // moment the picker opens (not read live later) — the picker
+            // steals focus, which can blur out of a line's edit mode or a
+            // text selection well before the user actually picks a date, so
+            // reading state live in the change handler isn't reliable. One of:
+            //   { kind: 'block', blockId, offset, html }
+            //   { kind: 'title', selStart, selEnd, value }
+            //   { kind: 'mileage', rowId }
+            const dateTargetRef = useRef(null);
             // Set right after inserting a date, so the follow-up effect that
             // re-enters edit mode on this block can land the caret just past the
             // inserted text instead of wherever placeCursorAtDeepestEnd puts it.
@@ -3048,16 +3067,11 @@
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, size } : b) }));
             };
 
-            // Captures the caret's plain-text offset in the active line, then
-            // opens the native date picker — mirrors the trick the photo buttons
-            // use to trigger a hidden <input type="file">, just for type="date".
-            const openDatePicker = () => {
-                if (!editingBlockId) return;
-                const el = document.querySelector('.block-editable[data-block-id="' + editingBlockId + '"]');
-                if (!el) return;
-                savedDateCaretRef.current = getCaretCharOffset(el);
-                dateTargetBlockIdRef.current = editingBlockId;
-                dateTargetHtmlRef.current = sanitizeInlineHtml(el.innerHTML);
+            // Shared low-level trigger for the one hidden <input type="date">
+            // — mirrors the trick the photo buttons use for a hidden
+            // <input type="file">. Callers stash where the result should go
+            // in dateTargetRef before calling this.
+            const triggerNativeDatePicker = () => {
                 const input = dateInputRef.current;
                 if (!input) return;
                 input.value = '';
@@ -3068,41 +3082,106 @@
                 }
             };
 
-            // Splices the picked date into the line's plain text at the caret
-            // offset saved by openDatePicker, then re-wraps it in whatever
-            // bold/italic/underline chain the line already had (formatting is
-            // always whole-line, never partial, so this is safe).
+            // Captures the caret's plain-text offset in the active line, then
+            // opens the native date picker.
+            const openDatePickerForBlock = () => {
+                if (!editingBlockId) return;
+                const el = document.querySelector('.block-editable[data-block-id="' + editingBlockId + '"]');
+                if (!el) return;
+                dateTargetRef.current = {
+                    kind: 'block',
+                    blockId: editingBlockId,
+                    offset: getCaretCharOffset(el),
+                    html: sanitizeInlineHtml(el.innerHTML),
+                };
+                triggerNativeDatePicker();
+            };
+
+            const openDatePickerForTitle = () => {
+                const el = titleInputRef.current;
+                if (!el) return;
+                dateTargetRef.current = {
+                    kind: 'title',
+                    selStart: el.selectionStart == null ? draft.title.length : el.selectionStart,
+                    selEnd: el.selectionEnd == null ? draft.title.length : el.selectionEnd,
+                    value: draft.title,
+                };
+                triggerNativeDatePicker();
+            };
+
+            // Only meaningful while the mileage table's Date column has a
+            // focused cell — mirrors the existing "Today" button's own
+            // active-cell check, just picking an arbitrary date instead.
+            const openDatePickerForMileage = () => {
+                const table = mileageTableRef.current;
+                const active = table && table.getActiveDateCell ? table.getActiveDateCell() : null;
+                if (!active) return;
+                dateTargetRef.current = { kind: 'mileage', rowId: active.rowId };
+                triggerNativeDatePicker();
+            };
+
+            // Applies the picked date to whichever target openDatePickerFor*
+            // stashed in dateTargetRef — a body line (splicing into the plain
+            // text at the saved caret offset, then re-wrapping in whatever
+            // bold/italic/underline chain the line already had — formatting is
+            // always whole-line, never partial, so this is safe), the title
+            // field, or a mileage table date cell.
             const handleDateChange = (e) => {
                 const val = e.target.value;
-                const blockId = dateTargetBlockIdRef.current;
-                if (!val || !blockId) return;
+                const target = dateTargetRef.current;
+                dateTargetRef.current = null;
+                if (!val || !target) return;
                 const dateStr = new Date(val + 'T00:00:00').toLocaleDateString();
-                if (!draft.blocks.some(b => b.id === blockId)) return;
-                const sourceHtml = dateTargetHtmlRef.current;
-                const plain = stripHtml(sourceHtml);
-                const offset = savedDateCaretRef.current == null ? plain.length : Math.min(savedDateCaretRef.current, plain.length);
-                const newPlain = plain.slice(0, offset) + dateStr + plain.slice(offset);
-                const chain = getWholeLineTagChain(sourceHtml);
-                const newHtml = wrapInTagChain(escapeHtml(newPlain), chain);
-                const caretTarget = offset + dateStr.length;
-                pushEditHistory();
-                setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: newHtml } : b) }));
-                // Whether the picker actually stole focus (and so blurred the line
-                // out of edit mode) varies by browser/device. If the editable DOM
-                // node is still right there, update it directly — React won't
-                // otherwise touch a contentEditable's innerHTML on re-render, and
-                // the reseed effect below only fires on an edit-mode *transition*,
-                // which won't happen if focus never left in the first place.
-                const liveEl = document.querySelector('.block-editable[data-block-id="' + blockId + '"]');
-                if (liveEl) {
-                    liveEl.innerHTML = newHtml;
-                    liveEl.focus();
-                    setCaretCharOffset(liveEl, caretTarget);
-                } else {
-                    pendingCaretOffsetRef.current = caretTarget;
+
+                if (target.kind === 'block') {
+                    const { blockId, html: sourceHtml } = target;
+                    if (!draft.blocks.some(b => b.id === blockId)) return;
+                    const plain = stripHtml(sourceHtml);
+                    const offset = target.offset == null ? plain.length : Math.min(target.offset, plain.length);
+                    const newPlain = plain.slice(0, offset) + dateStr + plain.slice(offset);
+                    const chain = getWholeLineTagChain(sourceHtml);
+                    const newHtml = wrapInTagChain(escapeHtml(newPlain), chain);
+                    const caretTarget = offset + dateStr.length;
+                    pushEditHistory();
+                    setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: newHtml } : b) }));
+                    // Whether the picker actually stole focus (and so blurred the
+                    // line out of edit mode) varies by browser/device. If the
+                    // editable DOM node is still right there, update it directly —
+                    // React won't otherwise touch a contentEditable's innerHTML on
+                    // re-render, and the reseed effect below only fires on an edit
+                    // mode *transition*, which won't happen if focus never left.
+                    const liveEl = document.querySelector('.block-editable[data-block-id="' + blockId + '"]');
+                    if (liveEl) {
+                        liveEl.innerHTML = newHtml;
+                        liveEl.focus();
+                        setCaretCharOffset(liveEl, caretTarget);
+                    } else {
+                        pendingCaretOffsetRef.current = caretTarget;
+                    }
+                    setEditingBlockId(blockId);
+                    return;
                 }
-                setEditingBlockId(blockId);
-                dateTargetBlockIdRef.current = null;
+
+                if (target.kind === 'title') {
+                    const { selStart, selEnd, value } = target;
+                    const newTitle = value.slice(0, selStart) + dateStr + value.slice(selEnd);
+                    updateField('title', newTitle);
+                    const caretTarget = selStart + dateStr.length;
+                    // Same reasoning as the block case: the picker may have
+                    // blurred the title input, so wait a tick for the value to
+                    // land, then refocus and restore the caret ourselves.
+                    requestAnimationFrame(() => {
+                        const el = titleInputRef.current;
+                        if (el) { el.focus(); el.setSelectionRange(caretTarget, caretTarget); }
+                    });
+                    return;
+                }
+
+                if (target.kind === 'mileage') {
+                    // Individual cell edits (typing, the Today button) aren't
+                    // part of the line-undo system either — stay consistent.
+                    updateMileageCell(target.rowId, 0, dateStr);
+                }
             };
 
             // Covers the case where the picker *did* steal focus and blur the
@@ -3471,18 +3550,30 @@
                         </div>
                     </div>
                     <div className="editor-body" style={resolvePageBackground(draft.background)}>
-                        <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
-                            <input
-                                className="editor-title-input"
-                                autoComplete="note-title-nofill"
-                                data-lpignore="true"
-                                data-form-type="other"
-                                placeholder={isTemplate ? 'Template name' : 'Title'}
-                                value={draft.title}
-                                onChange={(e) => updateField('title', e.target.value)}
-                                autoFocus={note.title === ''}
-                            />
-                        </form>
+                        <div className="editor-title-row">
+                            <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                                <input
+                                    ref={titleInputRef}
+                                    className="editor-title-input"
+                                    autoComplete="note-title-nofill"
+                                    data-lpignore="true"
+                                    data-form-type="other"
+                                    placeholder={isTemplate ? 'Template name' : 'Title'}
+                                    value={draft.title}
+                                    onChange={(e) => updateField('title', e.target.value)}
+                                    autoFocus={note.title === ''}
+                                />
+                            </form>
+                            <button
+                                type="button"
+                                className="line-toolbar-btn"
+                                title="Insert date into title"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={openDatePickerForTitle}
+                            >
+                                📅
+                            </button>
+                        </div>
 
                         <div className="editor-meta-row">
                             <button
@@ -3510,7 +3601,7 @@
                                 onToggleAllFormats={toggleAllFormats}
                                 onSetType={(type) => setBlockType(editingBlockId, type)}
                                 onOpenSizeMenu={() => setTextSizeMenuBlockId(editingBlockId)}
-                                onOpenDatePicker={openDatePicker}
+                                onOpenDatePicker={openDatePickerForBlock}
                             />
                             <input
                                 type="date"
@@ -3581,6 +3672,15 @@
                                 }}
                             >
                                 📅 Today
+                            </button>
+                            <button
+                                className="secondary-btn"
+                                style={{ padding: '10px 12px', fontSize: 13 }}
+                                disabled={!dateCellActive}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={openDatePickerForMileage}
+                            >
+                                📅 Pick Date
                             </button>
                             <button
                                 className="secondary-btn"
