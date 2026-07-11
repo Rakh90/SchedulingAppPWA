@@ -359,6 +359,7 @@
             font-size: 12px;
             color: rgba(20,21,24,0.55);
             letter-spacing: 0.02em;
+            margin-top: 26px;
         }
 
         .dark-content .note-card-locked-hint {
@@ -665,6 +666,27 @@
             font-weight: 600;
         }
 
+        /* Invisible tap target — deliberately has no visual affordance so it
+           only helps someone who already knows it's there (a forgot-PIN
+           escape hatch), not a discoverable "reset" button. */
+        .pin-secret-zone {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 46px;
+            height: 46px;
+            background: transparent;
+            border: none;
+            padding: 0;
+            z-index: 1;
+        }
+
+        .pin-secret-panel {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed rgba(0,0,0,0.15);
+        }
+
         .btn-row {
             display: flex;
             gap: 10px;
@@ -753,6 +775,17 @@
             gap: 8px;
             margin-bottom: 16px;
             flex-wrap: wrap;
+        }
+
+        /* Stays out of the layout and invisible, but — unlike display:none —
+           is still "being rendered", which showPicker() requires to work. */
+        .date-picker-hidden-input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+            border: none;
         }
 
         .category-select {
@@ -873,6 +906,14 @@
             padding: 3px 0;
             color: #17181a;
             font-weight: 500;
+        }
+
+        .block-size-small {
+            font-size: 13px;
+        }
+
+        .block-size-large {
+            font-size: 20px;
         }
 
         .block-placeholder {
@@ -1122,6 +1163,15 @@
             box-shadow: 0 0 0 1.5px white inset;
         }
 
+        .dark-content .bg-swatch {
+            border-color: rgba(255,255,255,0.4);
+        }
+
+        .dark-content .bg-swatch.selected {
+            border-color: #fff;
+            box-shadow: 0 0 0 1.5px #667eea inset;
+        }
+
         .photo-preview-backdrop {
             position: fixed;
             inset: 0;
@@ -1328,6 +1378,7 @@
                     plasma: 'linear-gradient(135deg, #3a0ca3 0%, #8e2de2 50%, #ff0080 100%)',
                     quantum: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
                     obsidian: 'linear-gradient(135deg, #000000 0%, #0a0a0d 55%, #16161f 100%)',
+                    inferno: 'linear-gradient(135deg, #1a0000 0%, #7a0c0c 55%, #ff2d1f 100%)',
                 };
                 if (bg.indexOf('theme:') === 0) {
                     var css = gradients[bg.slice(6)];
@@ -1612,13 +1663,54 @@
             sel.addRange(range);
         }
 
+        // Returns the caret's position as a plain-text character offset (tags
+        // stripped) rather than a DOM Range, so it survives the active block
+        // losing focus/re-rendering — e.g. while a native <input type="date">
+        // picker is open — long enough to be used again once a date comes back.
+        function getCaretCharOffset(el) {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return null;
+            const range = sel.getRangeAt(0);
+            if (!el.contains(range.startContainer)) return null;
+            const preRange = document.createRange();
+            preRange.selectNodeContents(el);
+            preRange.setEnd(range.startContainer, range.startOffset);
+            return preRange.toString().length;
+        }
+
+        // Inverse of getCaretCharOffset — walks the text nodes of `el` to find
+        // the DOM position matching a plain-text character offset and collapses
+        // the selection there.
+        function setCaretCharOffset(el, targetOffset) {
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+            let remaining = targetOffset;
+            let node = walker.nextNode();
+            let found = null;
+            while (node) {
+                const len = node.textContent.length;
+                if (remaining <= len) { found = { node, offset: remaining }; break; }
+                remaining -= len;
+                node = walker.nextNode();
+            }
+            const range = document.createRange();
+            if (found) {
+                range.setStart(found.node, found.offset);
+            } else {
+                range.selectNodeContents(el);
+            }
+            range.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+
         const CATEGORY_COLORS = ['#667eea', '#e57373', '#f2a541', '#ffd54f', '#81c784', '#4dd0c9', '#4fc3f7', '#9575cd', '#f06292', '#a1887f'];
 
         // Bumped alongside service-worker.js's CACHE_NAME on every deploy so
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v59';
+        const APP_VERSION = 'v60';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1641,6 +1733,7 @@
             { id: 'plasma', label: 'Plasma', pageCss: 'linear-gradient(135deg, #3a0ca3 0%, #8e2de2 50%, #ff0080 100%)', cardCss: 'linear-gradient(135deg, rgba(36,7,102,0.92), rgba(114,36,181,0.85))', dark: true, accent: '#3a0ca3' },
             { id: 'quantum', label: 'Quantum', pageCss: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)', cardCss: 'linear-gradient(135deg, rgba(8,18,22,0.92), rgba(24,47,56,0.85))', dark: true, accent: '#0f2027' },
             { id: 'obsidian', label: 'Obsidian', pageCss: 'linear-gradient(135deg, #000000 0%, #0a0a0d 55%, #16161f 100%)', cardCss: 'linear-gradient(135deg, rgba(0,0,0,0.92), rgba(22,22,31,0.85))', dark: true, accent: '#000000' },
+            { id: 'inferno', label: 'Inferno', pageCss: 'linear-gradient(135deg, #1a0000 0%, #7a0c0c 55%, #ff2d1f 100%)', cardCss: 'linear-gradient(135deg, rgba(40,3,3,0.92), rgba(150,15,15,0.8))', dark: true, accent: '#7a0c0c' },
         ];
 
         const DEFAULT_THEME_COLOR = '#667eea';
@@ -2046,7 +2139,7 @@
                                 ))}
                             </div>
                             <button
-                                className="primary-btn"
+                                className="secondary-btn"
                                 onClick={() => {
                                     if (!newName.trim()) return;
                                     onAdd(newName.trim(), newColor);
@@ -2310,6 +2403,33 @@
             );
         }
 
+        const TEXT_SIZE_OPTIONS = [
+            { id: 'small', label: 'Small' },
+            { id: 'medium', label: 'Medium' },
+            { id: 'large', label: 'Large' },
+        ];
+
+        function TextSizeMenuSheet({ background, value, onChange, onClose }) {
+            const dark = isThemeDark(background);
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className={'sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
+                        <h2>Text size</h2>
+                        {TEXT_SIZE_OPTIONS.map((o) => (
+                            <button
+                                key={o.id}
+                                className={'category-picker-row' + ((value || 'medium') === o.id ? ' selected' : '')}
+                                onClick={() => { onChange(o.id); onClose(); }}
+                            >
+                                <span className="category-picker-name">{o.label}</span>
+                                <span className="category-picker-check">{(value || 'medium') === o.id ? '✓' : ''}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
         function CategoryPickerSheet({ background, categories, selectedIds, onToggle, onClose, onCreateCategory }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
@@ -2360,7 +2480,7 @@
                                 ))}
                             </div>
                             <button
-                                className="primary-btn"
+                                className="secondary-btn"
                                 onClick={() => {
                                     if (!newName.trim()) return;
                                     onCreateCategory(newName.trim(), newColor);
@@ -2478,9 +2598,10 @@
 
         // Verifies an already-set PIN — used to unlock a locked note, and as
         // the required first step before changing or removing the PIN.
-        function PinEntrySheet({ title, message, onConfirm, onCancel }) {
+        function PinEntrySheet({ title, message, onConfirm, onCancel, onForgotPin }) {
             const [pin, setPin] = useState('');
             const [error, setError] = useState('');
+            const [showSecret, setShowSecret] = useState(false);
 
             const submit = async () => {
                 const ok = await onConfirm(pin);
@@ -2489,9 +2610,31 @@
 
             return (
                 <div className="sheet-backdrop centered" onClick={onCancel}>
-                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                    <div className="sheet" style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                        {onForgotPin ? (
+                            <button
+                                type="button"
+                                className="pin-secret-zone"
+                                aria-hidden="true"
+                                tabIndex={-1}
+                                onClick={() => setShowSecret(true)}
+                            ></button>
+                        ) : null}
                         <h2>{title || 'Enter PIN'}</h2>
                         {message ? <p style={{ fontSize: 13, color: '#555' }}>{message}</p> : null}
+                        {showSecret ? (
+                            <div className="pin-secret-panel">
+                                <p style={{ fontSize: 12, color: '#555', margin: '0 0 8px' }}>Forgot your PIN? This removes it right away, no confirmation.</p>
+                                <button
+                                    type="button"
+                                    className="danger-btn"
+                                    style={{ width: '100%' }}
+                                    onClick={() => { onForgotPin(); setShowSecret(false); }}
+                                >
+                                    Remove PIN now
+                                </button>
+                            </div>
+                        ) : null}
                         <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
                             <input
                                 type="password"
@@ -2631,7 +2774,7 @@
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType }) {
+        function LineToolbar({ hasActiveLine, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker }) {
             const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
@@ -2648,6 +2791,16 @@
                 e.preventDefault();
                 if (!hasActiveLine) return;
                 onSetType(activeType === type && type !== 'text' ? 'text' : type);
+            };
+            const runSizeMenu = (e) => {
+                e.preventDefault();
+                if (!hasActiveLine) return;
+                onOpenSizeMenu();
+            };
+            const runDatePicker = (e) => {
+                e.preventDefault();
+                if (!hasActiveLine) return;
+                onOpenDatePicker();
             };
             const allActive = activeFormats.b && activeFormats.i && activeFormats.u;
             return (
@@ -2668,6 +2821,9 @@
                             {icon}
                         </button>
                     ))}
+                    <span className="line-toolbar-divider"></span>
+                    <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runSizeMenu} title="Text size">Aa</button>
+                    <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runDatePicker} title="Insert date">📅</button>
                 </div>
             );
         }
@@ -2738,13 +2894,14 @@
                 <span className="list-item-marker" {...markerDragProps}></span>
             );
 
+            const sizeClass = ' block-size-' + (block.size || 'medium');
             return (
                 <div className={'block-row' + (isDragging ? ' dragging' : '')} data-block-id={block.id}>
                     {marker}
                     {isEditing ? (
                         <div
                             ref={editableRef}
-                            className="block-editable"
+                            className={'block-editable' + sizeClass}
                             data-block-id={block.id}
                             contentEditable
                             suppressContentEditableWarning
@@ -2753,7 +2910,7 @@
                         />
                     ) : (
                         <div
-                            className={'block-display' + (block.type === 'checklist' && block.checked ? ' checked' : '')}
+                            className={'block-display' + sizeClass + (block.type === 'checklist' && block.checked ? ' checked' : '')}
                             onClick={(e) => { if (e.target.tagName === 'A') return; onStartEdit(); }}
                             dangerouslySetInnerHTML={{ __html: stripHtml(block.html).trim() ? linkify(block.html) : '<span class="block-placeholder">...</span>' }}
                         />
@@ -2776,17 +2933,44 @@
             const [showTemplateMenu, setShowTemplateMenu] = useState(false);
             const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
             const [showPinSetup, setShowPinSetup] = useState(false);
+            // Holds which block the size menu applies to, captured at the moment
+            // it's opened — by the time a row inside it is clicked, the block has
+            // already blurred out of edit mode (clicking anything outside a
+            // contentEditable blurs it) and editingBlockId would already be null.
+            const [textSizeMenuBlockId, setTextSizeMenuBlockId] = useState(null);
             const [copiedFlash, setCopiedFlash] = useState(false);
             const copiedFlashTimer = useRef(null);
             const [draggingBlockId, setDraggingBlockId] = useState(null);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
             const filesInputRef = useRef(null);
+            const dateInputRef = useRef(null);
             const mileageTableRef = useRef(null);
             const saveTimer = useRef(null);
             const removedRowToastTimer = useRef(null);
             const blockDragRef = useRef({ pointerId: null, blockId: null, timer: null, dragging: false, startX: 0, startY: 0 });
             const justDraggedBlockRef = useRef(false);
+            // Character offset (plain text, not HTML) captured from the active
+            // line's caret right before opening the native date picker — the
+            // picker steals focus and can outlive the block's edit session, so a
+            // DOM Range wouldn't survive; a plain number does.
+            const savedDateCaretRef = useRef(null);
+            // Which block the date picker was opened for, captured at the same
+            // moment as savedDateCaretRef — opening the picker blurs the block
+            // (focus moves to the picker), which nulls out editingBlockId well
+            // before the user actually picks a date, so handleDateChange can't
+            // rely on reading editingBlockId live.
+            const dateTargetBlockIdRef = useRef(null);
+            // The line's live innerHTML at the moment the picker opened — same
+            // reasoning as toggleLineFormat reading the DOM directly instead of
+            // draft.blocks: whatever was just typed may not have been committed
+            // to state yet (that only happens on blur/Enter), so draft.blocks
+            // could still hold stale/empty content here.
+            const dateTargetHtmlRef = useRef('');
+            // Set right after inserting a date, so the follow-up effect that
+            // re-enters edit mode on this block can land the caret just past the
+            // inserted text instead of wherever placeCursorAtDeepestEnd puts it.
+            const pendingCaretOffsetRef = useRef(null);
             // In-memory-only undo stack for this editing session (not persisted) —
             // one snapshot per line-level action (a line committed, added, removed,
             // retyped, reformatted, checked, reordered, or a photo added/removed),
@@ -2856,6 +3040,82 @@
                         : b),
                 }));
             };
+
+            const setBlockSize = (blockId, size) => {
+                const current = draft.blocks.find(b => b.id === blockId);
+                if (current && (current.size || 'medium') === size) return;
+                pushEditHistory();
+                setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, size } : b) }));
+            };
+
+            // Captures the caret's plain-text offset in the active line, then
+            // opens the native date picker — mirrors the trick the photo buttons
+            // use to trigger a hidden <input type="file">, just for type="date".
+            const openDatePicker = () => {
+                if (!editingBlockId) return;
+                const el = document.querySelector('.block-editable[data-block-id="' + editingBlockId + '"]');
+                if (!el) return;
+                savedDateCaretRef.current = getCaretCharOffset(el);
+                dateTargetBlockIdRef.current = editingBlockId;
+                dateTargetHtmlRef.current = sanitizeInlineHtml(el.innerHTML);
+                const input = dateInputRef.current;
+                if (!input) return;
+                input.value = '';
+                if (input.showPicker) {
+                    try { input.showPicker(); } catch (e) { input.click(); }
+                } else {
+                    input.click();
+                }
+            };
+
+            // Splices the picked date into the line's plain text at the caret
+            // offset saved by openDatePicker, then re-wraps it in whatever
+            // bold/italic/underline chain the line already had (formatting is
+            // always whole-line, never partial, so this is safe).
+            const handleDateChange = (e) => {
+                const val = e.target.value;
+                const blockId = dateTargetBlockIdRef.current;
+                if (!val || !blockId) return;
+                const dateStr = new Date(val + 'T00:00:00').toLocaleDateString();
+                if (!draft.blocks.some(b => b.id === blockId)) return;
+                const sourceHtml = dateTargetHtmlRef.current;
+                const plain = stripHtml(sourceHtml);
+                const offset = savedDateCaretRef.current == null ? plain.length : Math.min(savedDateCaretRef.current, plain.length);
+                const newPlain = plain.slice(0, offset) + dateStr + plain.slice(offset);
+                const chain = getWholeLineTagChain(sourceHtml);
+                const newHtml = wrapInTagChain(escapeHtml(newPlain), chain);
+                const caretTarget = offset + dateStr.length;
+                pushEditHistory();
+                setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: newHtml } : b) }));
+                // Whether the picker actually stole focus (and so blurred the line
+                // out of edit mode) varies by browser/device. If the editable DOM
+                // node is still right there, update it directly — React won't
+                // otherwise touch a contentEditable's innerHTML on re-render, and
+                // the reseed effect below only fires on an edit-mode *transition*,
+                // which won't happen if focus never left in the first place.
+                const liveEl = document.querySelector('.block-editable[data-block-id="' + blockId + '"]');
+                if (liveEl) {
+                    liveEl.innerHTML = newHtml;
+                    liveEl.focus();
+                    setCaretCharOffset(liveEl, caretTarget);
+                } else {
+                    pendingCaretOffsetRef.current = caretTarget;
+                }
+                setEditingBlockId(blockId);
+                dateTargetBlockIdRef.current = null;
+            };
+
+            // Covers the case where the picker *did* steal focus and blur the
+            // line out of edit mode: re-entering edit mode from handleDateChange
+            // re-triggers BlockLine's own effect (which reseeds the DOM and
+            // places the caret at the end) — this runs after that child effect
+            // and moves the caret to just past the inserted date.
+            useEffect(() => {
+                if (pendingCaretOffsetRef.current == null || !editingBlockId) return;
+                const el = document.querySelector('.block-editable[data-block-id="' + editingBlockId + '"]');
+                if (el) setCaretCharOffset(el, pendingCaretOffsetRef.current);
+                pendingCaretOffsetRef.current = null;
+            }, [editingBlockId]);
 
             // Reads the live DOM (not stale React state) so a format toggle picks up
             // whatever was just typed, then writes the result straight back into the
@@ -2989,7 +3249,7 @@
                     const blocks = [...d.blocks];
                     const chain = getWholeLineTagChain(current.html);
                     const newHtml = chain.length > 0 ? wrapInTagChain(ZWSP, chain) : '';
-                    blocks.splice(idx + 1, 0, { id: newId, type: current.type, html: newHtml, checked: false });
+                    blocks.splice(idx + 1, 0, { id: newId, type: current.type, html: newHtml, checked: false, size: current.size });
                     return { ...d, blocks };
                 });
                 setEditingBlockId(newId);
@@ -3249,6 +3509,15 @@
                                 onFormat={toggleLineFormat}
                                 onToggleAllFormats={toggleAllFormats}
                                 onSetType={(type) => setBlockType(editingBlockId, type)}
+                                onOpenSizeMenu={() => setTextSizeMenuBlockId(editingBlockId)}
+                                onOpenDatePicker={openDatePicker}
+                            />
+                            <input
+                                type="date"
+                                ref={dateInputRef}
+                                className="date-picker-hidden-input"
+                                tabIndex={-1}
+                                onChange={handleDateChange}
                             />
                         </div>
 
@@ -3411,6 +3680,22 @@
                             value={draft.background}
                             onChange={(v) => updateField('background', v)}
                             onClose={() => setShowBackgroundPicker(false)}
+                        />
+                    ) : null}
+
+                    {textSizeMenuBlockId ? (
+                        <TextSizeMenuSheet
+                            background={draft.background}
+                            value={(draft.blocks.find(b => b.id === textSizeMenuBlockId) || {}).size}
+                            onChange={(size) => {
+                                setBlockSize(textSizeMenuBlockId, size);
+                                // The row click blurred the line out of edit mode
+                                // (clicking anything outside a contentEditable does
+                                // that); re-enter it so typing can continue right
+                                // where it left off instead of needing a second tap.
+                                setEditingBlockId(textSizeMenuBlockId);
+                            }}
+                            onClose={() => setTextSizeMenuBlockId(null)}
                         />
                     ) : null}
 
@@ -4377,6 +4662,12 @@
                                 return ok;
                             }}
                             onCancel={() => setPendingUnlockNoteId(null)}
+                            onForgotPin={() => {
+                                removeAppPin();
+                                setPinUnlockedThisSession(true);
+                                setActiveNoteId(pendingUnlockNoteId);
+                                setPendingUnlockNoteId(null);
+                            }}
                         />
                     ) : null}
 
@@ -4397,6 +4688,7 @@
                                 return ok;
                             }}
                             onCancel={() => setPinFlow(null)}
+                            onForgotPin={() => { removeAppPin(); setPinFlow(null); }}
                         />
                     ) : null}
 
@@ -4418,6 +4710,7 @@
                                 return ok;
                             }}
                             onCancel={() => setPinFlow(null)}
+                            onForgotPin={() => { removeAppPin(); setPinFlow(null); }}
                         />
                     ) : null}
 
