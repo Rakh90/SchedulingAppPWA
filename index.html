@@ -1960,7 +1960,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v72';
+        const APP_VERSION = 'v73';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2483,7 +2483,7 @@
             );
         }
 
-        const MileageTable = forwardRef(function MileageTable({ table, onUpdateCell, onAddRow, onActiveDateCellChange }, ref) {
+        const MileageTable = forwardRef(function MileageTable({ table, onUpdateCell, onAddRow, onActiveDateCellChange, onAnyCellFocusChange }, ref) {
             const cellRefs = useRef({});
             const pendingFocusKey = useRef(null);
             const activeCellRef = useRef(null);
@@ -2568,11 +2568,13 @@
             const handleFocus = (rowIdx, colIdx) => {
                 activeCellRef.current = { rowIdx, colIdx };
                 onActiveDateCellChange(colIdx === 0);
+                if (onAnyCellFocusChange) onAnyCellFocusChange(true);
             };
 
             const handleBlur = () => {
                 activeCellRef.current = null;
                 onActiveDateCellChange(false);
+                if (onAnyCellFocusChange) onAnyCellFocusChange(false);
             };
 
             const totalMilesRaw = table.rows.reduce((sum, row) => {
@@ -3051,7 +3053,7 @@
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, dateAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onDatePointerDown, onDateChange }) {
+        function LineToolbar({ hasActiveLine, dateAvailable, anyFieldFocused, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onDatePointerDown, onDateChange, onDismissForDate }) {
             const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
@@ -3105,26 +3107,43 @@
                         Chrome isn't picky about this, which is why that
                         approach worked there but not on iPhone). So the real
                         <input> sits invisibly right on top of the visible
-                        button instead, and the tap goes to it directly. */}
+                        button instead, and the tap goes to it directly —
+                        but only once nothing else in the editor still has
+                        the on-screen keyboard up (see anyFieldFocused
+                        below). */}
                     <span className="line-toolbar-date-wrap">
-                        {/* The decorative button carries the disabled *look*
-                            (dimmed when nothing's focused) — but the real
-                            input underneath must never actually be disabled.
-                            Tapping it blurs whatever was focused (title or
-                            the active line), and that blur synchronously
-                            flips dateAvailable false; a disabled input can't
-                            hold focus, so it would get kicked back out
-                            mid-gesture and silently abort the picker before
-                            it ever opens (observed: the tap just seems to
-                            "lose" the cursor with nothing else happening). */}
-                        <button className="line-toolbar-btn" disabled={!dateAvailable} tabIndex={-1} aria-hidden="true">📅</button>
-                        <input
-                            type="date"
-                            className="line-toolbar-date-input"
-                            title="Insert date"
-                            onPointerDown={onDatePointerDown}
-                            onChange={onDateChange}
-                        />
+                        {anyFieldFocused ? (
+                            /* A field still has the keyboard up. Jumping
+                               straight from that keyboard to this input's own
+                               date-wheel picker within the same tap was
+                               observed, on real iOS hardware, to flash the
+                               picker open and immediately auto-close it with
+                               today's date — and that held true even trying
+                               to explicitly block the browser's default
+                               focus-shift via preventDefault() on pointerdown,
+                               which per spec should suppress it for a touch
+                               gesture but apparently doesn't reliably in
+                               practice here. So while anything's focused, this
+                               spot is just an ordinary button (no type="date",
+                               no overlay trick, nothing for iOS's picker
+                               machinery to race) whose only job is to blur
+                               whatever's focused. Once that state update
+                               lands, this swaps for the real overlay input
+                               below, ready for a clean tap with nothing left
+                               to compete with it. */
+                            <button className="line-toolbar-btn line-toolbar-date-btn" disabled={!dateAvailable} onMouseDown={(e) => { e.preventDefault(); onDismissForDate(); }}>📅</button>
+                        ) : (
+                            <React.Fragment>
+                                <button className="line-toolbar-btn line-toolbar-date-btn" tabIndex={-1} aria-hidden="true">📅</button>
+                                <input
+                                    type="date"
+                                    className="line-toolbar-date-input"
+                                    title="Insert date"
+                                    onPointerDown={onDatePointerDown}
+                                    onChange={onDateChange}
+                                />
+                            </React.Fragment>
+                        )}
                     </span>
                 </div>
             );
@@ -3232,6 +3251,11 @@
             const [previewPhoto, setPreviewPhoto] = useState(null);
             const [uploading, setUploading] = useState(false);
             const [dateCellActive, setDateCellActive] = useState(false);
+            // Whether ANY mileage cell (not just a Date-column one) currently
+            // has the on-screen keyboard up — used, alongside titleFocused and
+            // editingBlockId, to gate the real date-picker overlay inputs (see
+            // anyFieldFocused below).
+            const [mileageCellFocused, setMileageCellFocused] = useState(false);
             const [confirmRemoveRow, setConfirmRemoveRow] = useState(false);
             const [removedRowToast, setRemovedRowToast] = useState(null);
             const [showCategoryPicker, setShowCategoryPicker] = useState(false);
@@ -3419,51 +3443,56 @@
                 };
             };
 
-            // On iOS, if a text field or contentEditable line still has the
-            // on-screen keyboard up, tapping the date button can't cleanly
-            // swap straight from that keyboard to this input's own date-
-            // wheel picker within a single tap — observed as the picker
-            // flashing open and immediately auto-closing with today's date,
-            // seemingly racing the keyboard's own dismiss animation (this
-            // was tried and did NOT fix it: merely keeping the field's own
-            // React state from changing during that blur, since the
-            // conflict is with the keyboard's native dismiss animation
-            // itself, not anything our own re-renders were doing). So this
-            // first tap is used purely to dismiss the keyboard — the caller
-            // must already have stashed where the date should land before
-            // calling this — and the browser's default action (shifting
-            // focus onto this date input) is blocked so nothing tries to
-            // open its picker yet. iOS Pointer Events suppresses the
-            // compatibility mousedown/click (and so the focus that would
-            // normally follow it) for the rest of this gesture once
-            // pointerdown's preventDefault() is called. The very next tap on
-            // this same button, with nothing left focused, opens the picker
-            // cleanly with nothing competing against it. Returns true if it
-            // intercepted the tap this way.
-            const dismissKeyboardFirst = (e) => {
-                const active = document.activeElement;
-                if (!active || active === document.body) return false;
-                const isTextField = active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable;
-                if (!isTextField) return false;
-                e.preventDefault();
-                active.blur();
-                return true;
-            };
+            // Whether ANYTHING with an on-screen keyboard is currently
+            // focused anywhere in the editor (title, a body line, or a
+            // mileage cell). On iOS, jumping straight from any of those
+            // keyboards to a date input's own wheel picker within the same
+            // tap was observed, on real hardware, to flash the picker open
+            // and immediately auto-close it with today's date — and that
+            // held true even when explicitly trying to block the browser's
+            // default focus-shift via preventDefault() on pointerdown (which
+            // per the Pointer Events spec should suppress it for a touch
+            // gesture, but evidently doesn't reliably in practice here). So
+            // instead of trying to out-clever a single combined gesture, the
+            // real <input type="date"> for both the line-toolbar button and
+            // the mileage "Pick Date" button is only ever mounted in the DOM
+            // while this is false (see the ternaries around each). While
+            // it's true, that spot renders as an ordinary button (see
+            // dismissForDate / dismissForMileageDate) whose only job is to
+            // blur whatever's focused — plain, unremarkable, nothing for
+            // iOS's picker machinery to race — and the real input swaps back
+            // in on the next render once nothing is left focused.
+            const anyFieldFocused = titleFocused || !!editingBlockId || mileageCellFocused;
 
             // One button (in the line toolbar) serves both the title field and
             // body lines. This runs on the overlay input's pointerdown, which
             // fires before the browser shifts focus to it — so whichever of
             // the two was actually focused a moment ago is still
             // document.activeElement right now, reliably saying which one to
-            // target.
-            const prepareDateTargetSmart = (e) => {
+            // target. By the time this can fire at all, anyFieldFocused is
+            // already false (that's what mounted the real input in the first
+            // place), so in practice neither branch here does anything —
+            // kept as a harmless fallback in case of a same-tick focus race.
+            const prepareDateTargetSmart = () => {
                 const active = document.activeElement;
                 if (active && active.classList && active.classList.contains('editor-title-input')) {
                     prepareDateTargetForTitle();
                 } else if (editingBlockId) {
                     prepareDateTargetForBlock();
                 }
-                dismissKeyboardFirst(e);
+            };
+
+            // Captures where the date should land (whichever of title/body is
+            // focused right now), then blurs it — dismissing the keyboard
+            // without touching any date input at all.
+            const dismissForDate = () => {
+                const active = document.activeElement;
+                if (active && active.classList && active.classList.contains('editor-title-input')) {
+                    prepareDateTargetForTitle();
+                } else if (editingBlockId) {
+                    prepareDateTargetForBlock();
+                }
+                if (active && active.blur) active.blur();
             };
 
             // Mirrors the "Today" button: if a Date cell is currently
@@ -3476,11 +3505,20 @@
             // the input on that same gesture disrupts it). Instead just flag
             // "no row yet" and let handleDateChange create the row once a
             // date is actually picked, well after the gesture has settled.
-            const prepareDateTargetForMileage = (e) => {
+            const prepareDateTargetForMileage = () => {
                 const table = mileageTableRef.current;
                 const active = table && table.getActiveDateCell ? table.getActiveDateCell() : null;
                 dateTargetRef.current = { kind: 'mileage', rowId: active ? active.rowId : null };
-                dismissKeyboardFirst(e);
+            };
+
+            // Mileage equivalent of dismissForDate: capture the target cell
+            // (if any), then blur whatever currently has focus.
+            const dismissForMileageDate = () => {
+                const table = mileageTableRef.current;
+                const active = table && table.getActiveDateCell ? table.getActiveDateCell() : null;
+                dateTargetRef.current = { kind: 'mileage', rowId: active ? active.rowId : null };
+                const el = document.activeElement;
+                if (el && el.blur) el.blur();
             };
 
             // Applies the picked date to whichever target openDatePickerFor*
@@ -4053,6 +4091,7 @@
                             <LineToolbar
                                 hasActiveLine={!!editingBlockId}
                                 dateAvailable={!!editingBlockId || titleFocused}
+                                anyFieldFocused={anyFieldFocused}
                                 activeType={activeBlock ? activeBlock.type : null}
                                 activeFormats={activeFormats}
                                 onFormat={toggleLineFormat}
@@ -4061,6 +4100,7 @@
                                 onOpenSizeMenu={() => setTextSizeMenuBlockId(editingBlockId)}
                                 onDatePointerDown={prepareDateTargetSmart}
                                 onDateChange={handleDateChange}
+                                onDismissForDate={dismissForDate}
                             />
                         </div>
 
@@ -4107,6 +4147,7 @@
                                 onUpdateCell={updateMileageCell}
                                 onAddRow={addMileageRow}
                                 onActiveDateCellChange={setDateCellActive}
+                                onAnyCellFocusChange={setMileageCellFocused}
                             />
                         ) : null}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10, marginTop: 10 }}>
@@ -4129,13 +4170,24 @@
                                 📅 Today
                             </button>
                             <span className="mileage-date-btn-wrap">
-                                <button className="secondary-btn" style={{ padding: '10px 12px', fontSize: 13 }} tabIndex={-1} aria-hidden="true">📅 Pick Date</button>
-                                <input
-                                    type="date"
-                                    className="mileage-date-btn-input"
-                                    onPointerDown={prepareDateTargetForMileage}
-                                    onChange={handleDateChange}
-                                />
+                                {anyFieldFocused ? (
+                                    // See the matching comment on the line-toolbar
+                                    // date button — same fix, same reason: while
+                                    // any field's keyboard is up, this is just an
+                                    // ordinary button that dismisses it, not the
+                                    // real date input.
+                                    <button className="secondary-btn mileage-date-visible-btn" style={{ padding: '10px 12px', fontSize: 13 }} onMouseDown={(e) => { e.preventDefault(); dismissForMileageDate(); }}>📅 Pick Date</button>
+                                ) : (
+                                    <React.Fragment>
+                                        <button className="secondary-btn mileage-date-visible-btn" style={{ padding: '10px 12px', fontSize: 13 }} tabIndex={-1} aria-hidden="true">📅 Pick Date</button>
+                                        <input
+                                            type="date"
+                                            className="mileage-date-btn-input"
+                                            onPointerDown={prepareDateTargetForMileage}
+                                            onChange={handleDateChange}
+                                        />
+                                    </React.Fragment>
+                                )}
                             </span>
                             <button
                                 className="secondary-btn"
