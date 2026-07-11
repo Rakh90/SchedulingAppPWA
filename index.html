@@ -1857,7 +1857,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v65';
+        const APP_VERSION = 'v66';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2041,14 +2041,21 @@
             };
         }
 
+        // One running count per indent level, so a nested numbered sub-list
+        // numbers independently (starting back at 1) while the parent
+        // level's count is untouched and simply continues once the outline
+        // returns to it. Any non-numbered line — at that line's own indent
+        // level — breaks/restarts the numbered run there.
         function computeListNumbers(blocks) {
-            let n = 0;
+            const counters = [];
             return blocks.map((b) => {
+                const indent = b.indent || 0;
                 if (b.type === 'numbered') {
-                    n += 1;
-                    return n;
+                    counters[indent] = (counters[indent] || 0) + 1;
+                    counters.length = indent + 1;
+                    return counters[indent];
                 }
-                n = 0;
+                counters.length = indent;
                 return null;
             });
         }
@@ -2060,10 +2067,11 @@
             note.blocks.forEach((b, idx) => {
                 const text = stripHtml(b.html || '').trim();
                 if (!text) return;
-                if (b.type === 'checklist') lines.push((b.checked ? '[x] ' : '[ ] ') + text);
-                else if (b.type === 'bulleted') lines.push('• ' + text);
-                else if (b.type === 'numbered') lines.push(numbers[idx] + '. ' + text);
-                else lines.push(text);
+                const indent = '  '.repeat(b.indent || 0);
+                if (b.type === 'checklist') lines.push(indent + (b.checked ? '[x] ' : '[ ] ') + text);
+                else if (b.type === 'bulleted') lines.push(indent + '• ' + text);
+                else if (b.type === 'numbered') lines.push(indent + numbers[idx] + '. ' + text);
+                else lines.push(indent + text);
             });
             return lines.join('\n');
         }
@@ -2902,6 +2910,12 @@
             { type: 'checklist', icon: '☐' },
         ];
 
+        // Caps how deep a bulleted/numbered/checklist line can nest via the
+        // empty-line Enter cycle — a handful of levels is already more than
+        // useful on a phone-width screen.
+        const MAX_LINE_INDENT = 4;
+        const LINE_INDENT_PX = 22;
+
         const MILEAGE_COLUMNS = ['Date', 'Start Point', 'End Point', 'Miles'];
 
         function csvEscapeCell(value) {
@@ -3072,7 +3086,11 @@
 
             const sizeClass = ' block-size-' + (block.size || 'medium');
             return (
-                <div className={'block-row' + (isDragging ? ' dragging' : '')} data-block-id={block.id}>
+                <div
+                    className={'block-row' + (isDragging ? ' dragging' : '')}
+                    data-block-id={block.id}
+                    style={{ marginLeft: (block.indent || 0) * LINE_INDENT_PX }}
+                >
                     {marker}
                     {isEditing ? (
                         <div
@@ -3154,6 +3172,12 @@
             // not per keystroke.
             const editHistoryRef = useRef([]);
             const [canUndoEdit, setCanUndoEdit] = useState(false);
+            // Tracks whether the line Enter was just pressed on is the same
+            // still-empty bulleted/numbered/checklist line as last time, so a
+            // second consecutive Enter on it indents instead of creating yet
+            // another empty line, and a third gives up on the list entirely.
+            // Reset (blockId: null) the moment anything else happens to it.
+            const emptyEnterRef = useRef({ blockId: null, indented: false });
 
             // Hardware/gesture back button: closes whichever sheet is open,
             // or — if nothing is — leaves the editor the same as tapping ←.
@@ -3511,16 +3535,54 @@
                 setDraggingBlockId(null);
             };
 
+            // Bulleted/numbered/checklist lines get a 3-stage Enter cycle on
+            // an EMPTY line: 1st Enter (line has content) — normal, moves to
+            // a new line of the same type/indent. 2nd Enter (that new line
+            // is still empty) — indents it a level instead of adding yet
+            // another line. 3rd Enter (still empty, already indented) —
+            // gives up on the list and turns it into a plain text line.
+            // emptyEnterRef distinguishes "1st time landing on this empty
+            // line" from "2nd consecutive Enter on it", since a fresh empty
+            // list line and an already-indented-but-still-empty one are
+            // otherwise indistinguishable from block state alone. Reads the
+            // live DOM (not draft.blocks) for the emptiness check — the
+            // block's html in state doesn't get updated until blur/commit,
+            // which BlockLine's onKeyDown does *just* before calling this,
+            // but that update is async and hasn't landed in this closure's
+            // `draft` yet.
             const handleEnter = (blockId) => {
+                const current = draft.blocks.find(b => b.id === blockId);
+                if (!current) return;
+                const isListType = current.type === 'bulleted' || current.type === 'numbered' || current.type === 'checklist';
+                const liveEl = document.querySelector('.block-editable[data-block-id="' + blockId + '"]');
+                const isEmpty = stripHtml(liveEl ? liveEl.innerHTML : current.html).trim() === '';
+
+                if (isListType && isEmpty) {
+                    const alreadyIndentedThisLine = emptyEnterRef.current.blockId === blockId && emptyEnterRef.current.indented;
+                    if (!alreadyIndentedThisLine) {
+                        const nextIndent = Math.min((current.indent || 0) + 1, MAX_LINE_INDENT);
+                        if (nextIndent !== (current.indent || 0)) {
+                            pushEditHistory();
+                            setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, indent: nextIndent } : b) }));
+                        }
+                        emptyEnterRef.current = { blockId, indented: true };
+                        return;
+                    }
+                    pushEditHistory();
+                    setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, type: 'text', indent: 0 } : b) }));
+                    emptyEnterRef.current = { blockId: null, indented: false };
+                    return;
+                }
+
+                emptyEnterRef.current = { blockId: null, indented: false };
                 const newId = makeId();
                 pushEditHistory();
                 setDraft((d) => {
                     const idx = d.blocks.findIndex(b => b.id === blockId);
-                    const current = d.blocks[idx];
                     const blocks = [...d.blocks];
                     const chain = getWholeLineTagChain(current.html);
                     const newHtml = chain.length > 0 ? wrapInTagChain(ZWSP, chain) : '';
-                    blocks.splice(idx + 1, 0, { id: newId, type: current.type, html: newHtml, checked: false, size: current.size });
+                    blocks.splice(idx + 1, 0, { id: newId, type: current.type, html: newHtml, checked: false, size: current.size, indent: current.indent });
                     return { ...d, blocks };
                 });
                 setEditingBlockId(newId);
@@ -3528,6 +3590,7 @@
 
             const handleBackspaceEmpty = (blockId) => {
                 if (draft.blocks.length <= 1) return;
+                if (emptyEnterRef.current.blockId === blockId) emptyEnterRef.current = { blockId: null, indented: false };
                 const idx = draft.blocks.findIndex(b => b.id === blockId);
                 const nextFocusId = draft.blocks[idx - 1] ? draft.blocks[idx - 1].id : (draft.blocks[idx + 1] ? draft.blocks[idx + 1].id : null);
                 pushEditHistory();
@@ -4274,6 +4337,22 @@
                     }
                 });
             }, []);
+
+            // The "New note" home screen shortcut (manifest.json's
+            // `shortcuts`) launches the installed app at ./?new=1 — jumping
+            // straight into a fresh blank note instead of the dashboard.
+            // Waits for the full DB load (not just `db` itself, which is set
+            // earlier) so settings.defaultNoteBackground is already the real
+            // persisted value by the time the note is created, and strips
+            // the query param immediately so a later reload or back press
+            // doesn't keep re-triggering it.
+            useEffect(() => {
+                if (loading) return;
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('new') !== '1') return;
+                history.replaceState(null, '', window.location.pathname);
+                createNote();
+            }, [loading]);
 
             useEffect(() => {
                 const meta = document.querySelector('meta[name="theme-color"]');
