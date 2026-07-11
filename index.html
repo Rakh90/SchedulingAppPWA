@@ -585,6 +585,72 @@
             text-align: center;
         }
 
+        .calendar-sheet {
+            width: 320px;
+        }
+
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .calendar-month-label {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .calendar-nav-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: none;
+            background: #f1f2fb;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .calendar-nav-btn:disabled {
+            opacity: 0.35;
+        }
+
+        .calendar-weekdays,
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+
+        .calendar-weekdays span {
+            text-align: center;
+            font-size: 12px;
+            color: #8a8d99;
+            padding-bottom: 6px;
+        }
+
+        .calendar-day,
+        .calendar-day-empty {
+            aspect-ratio: 1;
+        }
+
+        .calendar-day {
+            border: none;
+            background: transparent;
+            border-radius: 50%;
+            font-size: 14px;
+            color: inherit;
+        }
+
+        .calendar-day:active {
+            background: #eef0fb;
+        }
+
+        .calendar-day.today {
+            background: #667eea;
+            color: white;
+            font-weight: 700;
+        }
+
         .category-manager-row.dragging {
             opacity: 0.9;
             box-shadow: 0 6px 16px rgba(0,0,0,0.18);
@@ -885,40 +951,6 @@
             flex: 0 0 auto;
         }
 
-        .line-toolbar-date-wrap {
-            position: relative;
-            flex: 0 0 auto;
-            width: 30px;
-            height: 30px;
-        }
-
-        .line-toolbar-date-wrap .line-toolbar-btn {
-            width: 100%;
-            height: 100%;
-        }
-
-        .line-toolbar-date-input {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            border: none;
-            /* Not literally 0 — some recent iOS Safari versions appear to
-               distrust a fully-invisible interactive element enough to
-               auto-dismiss whatever native UI (like this date picker) it
-               triggers almost immediately, which matches this input's
-               observed real-device behavior exactly: the picker opens and
-               is gone before there's any chance to interact with it,
-               regardless of what triggered the tap or how much time had
-               passed since the last DOM change. A hair above zero keeps it
-               visually indistinguishable from fully invisible while
-               (hopefully) reading as "genuinely there" to whatever check
-               this is. */
-            opacity: 0.01;
-            cursor: pointer;
-        }
 
         .list-item-marker {
             flex: 0 0 auto;
@@ -1191,34 +1223,6 @@
             border-radius: 6px;
         }
 
-        .mileage-date-btn-wrap {
-            position: relative;
-            display: inline-flex;
-        }
-
-        .mileage-date-btn-input {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            border: none;
-            /* Not literally 0 — some recent iOS Safari versions appear to
-               distrust a fully-invisible interactive element enough to
-               auto-dismiss whatever native UI (like this date picker) it
-               triggers almost immediately, which matches this input's
-               observed real-device behavior exactly: the picker opens and
-               is gone before there's any chance to interact with it,
-               regardless of what triggered the tap or how much time had
-               passed since the last DOM change. A hair above zero keeps it
-               visually indistinguishable from fully invisible while
-               (hopefully) reading as "genuinely there" to whatever check
-               this is. */
-            opacity: 0.01;
-            cursor: pointer;
-        }
-
         .mileage-total-bar {
             display: flex;
             align-items: center;
@@ -1455,6 +1459,23 @@
             background: rgba(255,255,255,0.15);
         }
 
+        .dark-content .calendar-nav-btn {
+            background: rgba(255,255,255,0.12);
+            color: #f3f4f8;
+        }
+
+        .dark-content .calendar-weekdays span {
+            color: rgba(243,244,248,0.6);
+        }
+
+        .dark-content .calendar-day {
+            color: #f3f4f8;
+        }
+
+        .dark-content .calendar-day:active {
+            background: rgba(255,255,255,0.15);
+        }
+
         .sheet-muted-text {
             color: #8a8d99;
         }
@@ -1506,17 +1527,6 @@
         const DB_NAME = 'notepad-db';
         const DB_VERSION = 4;
         const TRASH_AUTO_PURGE_DAYS = 30;
-
-        // iPadOS 13+ reports itself as "MacIntel" in the UA string, so the
-        // classic /iPad|iPhone|iPod/ sniff alone misses iPads — the extra
-        // maxTouchPoints check catches those (a real Mac never reports touch
-        // points here). Used to scope the iOS-only keyboard-vs-date-picker
-        // workaround (see dateInputReady in NoteEditor) to iOS specifically —
-        // Android never needed it and was working with a plain single tap
-        // even while a field's keyboard was up since it was fixed for
-        // Android alone; applying the iOS workaround there too regressed it.
-        const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         function openDatabase() {
             return new Promise((resolve, reject) => {
@@ -1993,7 +2003,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v76';
+        const APP_VERSION = 'v77';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2516,7 +2526,7 @@
             );
         }
 
-        const MileageTable = forwardRef(function MileageTable({ table, onUpdateCell, onAddRow, onActiveDateCellChange, onAnyCellFocusChange }, ref) {
+        const MileageTable = forwardRef(function MileageTable({ table, onUpdateCell, onAddRow, onActiveDateCellChange }, ref) {
             const cellRefs = useRef({});
             const pendingFocusKey = useRef(null);
             const activeCellRef = useRef(null);
@@ -2601,13 +2611,11 @@
             const handleFocus = (rowIdx, colIdx) => {
                 activeCellRef.current = { rowIdx, colIdx };
                 onActiveDateCellChange(colIdx === 0);
-                if (onAnyCellFocusChange) onAnyCellFocusChange(true);
             };
 
             const handleBlur = () => {
                 activeCellRef.current = null;
                 onActiveDateCellChange(false);
-                if (onAnyCellFocusChange) onAnyCellFocusChange(false);
             };
 
             const totalMilesRaw = table.rows.reduce((sum, row) => {
@@ -2731,6 +2739,96 @@
                                 <span className="category-picker-check">{(value || 'medium') === o.id ? '✓' : ''}</span>
                             </button>
                         ))}
+                    </div>
+                </div>
+            );
+        }
+
+        const CALENDAR_WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+        const CALENDAR_MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        // How far in each direction from today month navigation is allowed to
+        // go — comfortably covers logging past mileage trips and any near-term
+        // future planning without an unbounded, awkward-to-navigate picker.
+        const CALENDAR_YEARS_RANGE = 5;
+
+        // This app's own date picker, replacing an earlier design that
+        // overlaid a real, invisible native <input type="date"> on the
+        // calendar buttons to trigger the OS picker. That worked on Android,
+        // but went through several rounds of real-device iOS failures (the
+        // native picker would flash open and immediately auto-close with
+        // today's date) that survived every gesture-timing fix tried — this
+        // sidesteps the whole class of bug by never touching a native date
+        // picker at all. Centered (not bottom-anchored), same reasoning as
+        // TextSizeMenuSheet — this can be opened while a title/body line is
+        // mid-edit with the keyboard up, and every button here uses
+        // onMouseDown+preventDefault so tapping around inside it never blurs
+        // (and thus never loses) whatever's being edited underneath.
+        function CalendarPickerSheet({ background, onPick, onClose }) {
+            const dark = isThemeDark(background);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const [viewYear, setViewYear] = useState(today.getFullYear());
+            const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+            const viewMonthIndex = viewYear * 12 + viewMonth;
+            const minMonthIndex = today.getFullYear() * 12 + today.getMonth() - CALENDAR_YEARS_RANGE * 12;
+            const maxMonthIndex = today.getFullYear() * 12 + today.getMonth() + CALENDAR_YEARS_RANGE * 12;
+
+            const goMonth = (delta) => {
+                const nextIndex = viewMonthIndex + delta;
+                if (nextIndex < minMonthIndex || nextIndex > maxMonthIndex) return;
+                const nextDate = new Date(viewYear, viewMonth + delta, 1);
+                setViewYear(nextDate.getFullYear());
+                setViewMonth(nextDate.getMonth());
+            };
+
+            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+            const startWeekday = new Date(viewYear, viewMonth, 1).getDay();
+            const cells = [];
+            for (let i = 0; i < startWeekday; i++) cells.push(null);
+            for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+            const pickDay = (day) => {
+                const iso = viewYear.toString().padStart(4, '0') + '-'
+                    + (viewMonth + 1).toString().padStart(2, '0') + '-'
+                    + day.toString().padStart(2, '0');
+                onPick(iso);
+            };
+
+            return (
+                <div className="sheet-backdrop centered" onClick={onClose}>
+                    <div className={'sheet calendar-sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
+                        <div className="calendar-header">
+                            <button
+                                className="calendar-nav-btn"
+                                disabled={viewMonthIndex <= minMonthIndex}
+                                onMouseDown={(e) => { e.preventDefault(); goMonth(-1); }}
+                            >‹</button>
+                            <h2 className="calendar-month-label">{CALENDAR_MONTH_NAMES[viewMonth]} {viewYear}</h2>
+                            <button
+                                className="calendar-nav-btn"
+                                disabled={viewMonthIndex >= maxMonthIndex}
+                                onMouseDown={(e) => { e.preventDefault(); goMonth(1); }}
+                            >›</button>
+                        </div>
+                        <div className="calendar-weekdays">
+                            {CALENDAR_WEEKDAY_LABELS.map((w) => <span key={w}>{w}</span>)}
+                        </div>
+                        <div className="calendar-grid">
+                            {cells.map((day, i) => {
+                                if (day == null) return <span key={i} className="calendar-day-empty"></span>;
+                                const isToday = viewYear === today.getFullYear() && viewMonth === today.getMonth() && day === today.getDate();
+                                return (
+                                    <button
+                                        key={i}
+                                        className={'calendar-day' + (isToday ? ' today' : '')}
+                                        onMouseDown={(e) => { e.preventDefault(); pickDay(day); }}
+                                    >
+                                        {day}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             );
@@ -3086,7 +3184,7 @@
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, dateAvailable, dateInputReady, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onDatePointerDown, onDateChange, onDismissForDate }) {
+        function LineToolbar({ hasActiveLine, dateAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker }) {
             const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
@@ -3130,54 +3228,21 @@
                     ))}
                     <span className="line-toolbar-divider"></span>
                     <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runSizeMenu} title="Text size">Aa</button>
-                    {/* Unlike every other button here, this one does NOT use a
-                        decoy button + preventDefault + a programmatic
-                        showPicker()/click() on a hidden <input type="date">
-                        elsewhere in the DOM. iOS Safari only opens a date
-                        input's native picker for a genuine tap that lands
-                        directly on that input — a synthetic .click() call
-                        from a proxy button silently does nothing (Android
-                        Chrome isn't picky about this, which is why that
-                        approach worked there but not on iPhone). So the real
-                        <input> sits invisibly right on top of the visible
-                        button instead, and the tap goes to it directly —
-                        but only once nothing else in the editor still has
-                        the on-screen keyboard up, and a beat has passed
-                        since it was dismissed (see dateInputReady below). */}
-                    <span className="line-toolbar-date-wrap">
-                        {dateInputReady ? (
-                            <React.Fragment>
-                                <button className="line-toolbar-btn line-toolbar-date-btn" tabIndex={-1} aria-hidden="true">📅</button>
-                                <input
-                                    type="date"
-                                    className="line-toolbar-date-input"
-                                    title="Insert date"
-                                    onPointerDown={onDatePointerDown}
-                                    onChange={onDateChange}
-                                />
-                            </React.Fragment>
-                        ) : (
-                            /* A field still has the keyboard up, or was just
-                               dismissed a moment ago (see dateInputReady's
-                               debounce). Jumping straight from a keyboard to
-                               this input's own date-wheel picker within the
-                               same tap was observed, on real iOS hardware, to
-                               flash the picker open and immediately auto-
-                               close it with today's date — and that held true
-                               even trying to explicitly block the browser's
-                               default focus-shift via preventDefault() on
-                               pointerdown. So while anything's focused (or
-                               was just dismissed this instant), this spot is
-                               just an ordinary button (no type="date", no
-                               overlay trick, nothing for iOS's picker
-                               machinery to race) whose only job is to blur
-                               whatever's focused. The real overlay input
-                               swaps in a beat later, ready for a clean,
-                               separate tap with nothing left to compete with
-                               it. */
-                            <button className="line-toolbar-btn line-toolbar-date-btn" disabled={!dateAvailable} onMouseDown={(e) => { e.preventDefault(); onDismissForDate(); }}>📅</button>
-                        )}
-                    </span>
+                    {/* This used to overlay a real, invisible <input
+                        type="date"> here to trigger iOS/Android's native
+                        date picker — abandoned after several rounds of
+                        real-device iOS bugs (flash-open-then-auto-close with
+                        today's date) that survived every gesture-timing fix
+                        tried. Opens the app's own CalendarPickerSheet
+                        instead, which sidesteps all of that: it's just
+                        another sheet, like the size menu or background
+                        picker, with no native picker quirks to fight. */}
+                    <button
+                        className="line-toolbar-btn"
+                        disabled={!dateAvailable}
+                        onMouseDown={(e) => { e.preventDefault(); if (dateAvailable) onOpenDatePicker(); }}
+                        title="Insert date"
+                    >📅</button>
                 </div>
             );
         }
@@ -3284,11 +3349,6 @@
             const [previewPhoto, setPreviewPhoto] = useState(null);
             const [uploading, setUploading] = useState(false);
             const [dateCellActive, setDateCellActive] = useState(false);
-            // Whether ANY mileage cell (not just a Date-column one) currently
-            // has the on-screen keyboard up — used, alongside titleFocused and
-            // editingBlockId, to gate the real date-picker overlay inputs (see
-            // anyFieldFocused below).
-            const [mileageCellFocused, setMileageCellFocused] = useState(false);
             const [confirmRemoveRow, setConfirmRemoveRow] = useState(false);
             const [removedRowToast, setRemovedRowToast] = useState(null);
             const [showCategoryPicker, setShowCategoryPicker] = useState(false);
@@ -3320,17 +3380,18 @@
             const removedRowToastTimer = useRef(null);
             const blockDragRef = useRef({ pointerId: null, blockId: null, timer: null, dragging: false, startX: 0, startY: 0 });
             const justDraggedBlockRef = useRef(false);
-            // One shared native <input type="date"> serves the body line
-            // toolbar, the title field, and the mileage table's date column.
-            // This holds where a picked date should land, captured at the
-            // moment the picker opens (not read live later) — the picker
-            // steals focus, which can blur out of a line's edit mode or a
-            // text selection well before the user actually picks a date, so
-            // reading state live in the change handler isn't reliable. One of:
+            // One shared CalendarPickerSheet serves the body line toolbar,
+            // the title field, and the mileage table's date column. This
+            // holds where a picked date should land, captured at the moment
+            // the sheet opens (not read live later) — opening the sheet can
+            // blur out of a line's edit mode or a text selection well before
+            // the user actually picks a date, so reading state live in the
+            // pick handler isn't reliable. One of:
             //   { kind: 'block', blockId, offset, html }
             //   { kind: 'title', selStart, selEnd, value }
             //   { kind: 'mileage', rowId }
             const dateTargetRef = useRef(null);
+            const [showDatePickerSheet, setShowDatePickerSheet] = useState(false);
             // Set right after inserting a date, so the follow-up effect that
             // re-enters edit mode on this block can land the caret just past the
             // inserted text instead of wherever placeCursorAtDeepestEnd puts it.
@@ -3367,6 +3428,7 @@
             useBackClose(showSaveTemplate, () => setShowSaveTemplate(false));
             useBackClose(confirmTrash, () => setConfirmTrash(false));
             useBackClose(showCategoryPicker, () => setShowCategoryPicker(false));
+            useBackClose(showDatePickerSheet, () => setShowDatePickerSheet(false));
 
             const resolvedEditorIconOrder = resolveIconOrder(editorIconOrder, DEFAULT_EDITOR_ICON_ORDER);
             const editorIconDrag = useIconReorder(resolvedEditorIconOrder, (order) => onChangeEditorIconOrder && onChangeEditorIconOrder(order));
@@ -3441,19 +3503,17 @@
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, size } : b) }));
             };
 
-            // These "prepare" functions only stash where a picked date should
-            // land in dateTargetRef — they never open anything themselves.
-            // The date input each one is paired with is a real, visible-to-
-            // the-browser <input type="date"> sitting invisibly right on top
-            // of its button (see LineToolbar and the mileage "Pick Date"
-            // button), and the tap that lands on it is what actually opens
-            // the native picker. An earlier version tried to trigger a
-            // hidden decoy input's picker programmatically via
-            // showPicker()/click() from a proxy button; that's exactly why
-            // it silently did nothing on iOS Safari, which — unlike Android
-            // Chrome — only opens a date input's picker for a genuine tap
-            // directly on that element.
-            const prepareDateTargetForBlock = () => {
+            // These "open" functions stash where a picked date should land in
+            // dateTargetRef, then open the shared CalendarPickerSheet. An
+            // earlier design overlaid a real, invisible native <input
+            // type="date"> on each button instead — that worked on Android,
+            // but went through several rounds of real-device iOS failures
+            // (the native picker would flash open and immediately auto-close
+            // with today's date) that survived every gesture-timing fix
+            // tried. The sheet sidesteps that entire class of bug: it's just
+            // another sheet, like the size menu or background picker, with
+            // no native picker for iOS to quietly sabotage.
+            const openDateSheetForBlock = () => {
                 if (!editingBlockId) return;
                 const el = document.querySelector('.block-editable[data-block-id="' + editingBlockId + '"]');
                 if (!el) return;
@@ -3463,9 +3523,10 @@
                     offset: getCaretCharOffset(el),
                     html: sanitizeInlineHtml(el.innerHTML),
                 };
+                setShowDatePickerSheet(true);
             };
 
-            const prepareDateTargetForTitle = () => {
+            const openDateSheetForTitle = () => {
                 const el = titleInputRef.current;
                 if (!el) return;
                 dateTargetRef.current = {
@@ -3474,150 +3535,49 @@
                     selEnd: el.selectionEnd == null ? draft.title.length : el.selectionEnd,
                     value: draft.title,
                 };
+                setShowDatePickerSheet(true);
             };
 
-            // Whether ANYTHING with an on-screen keyboard is currently
-            // focused anywhere in the editor (title, a body line, or a
-            // mileage cell). On iOS, jumping straight from any of those
-            // keyboards to a date input's own wheel picker within the same
-            // tap was observed, on real hardware, to flash the picker open
-            // and immediately auto-close it with today's date — and that
-            // held true even when explicitly trying to block the browser's
-            // default focus-shift via preventDefault() on pointerdown (which
-            // per the Pointer Events spec should suppress it for a touch
-            // gesture, but evidently doesn't reliably in practice here). So
-            // instead of trying to out-clever a single combined gesture, the
-            // real <input type="date"> for both the line-toolbar button and
-            // the mileage "Pick Date" button is only ever mounted in the DOM
-            // while this is false (see the ternaries around each). While
-            // it's true, that spot renders as an ordinary button (see
-            // dismissForDate / dismissForMileageDate) whose only job is to
-            // blur whatever's focused — plain, unremarkable, nothing for
-            // iOS's picker machinery to race — and the real input swaps back
-            // in on the next render once nothing is left focused.
-            const anyFieldFocused = titleFocused || !!editingBlockId || mileageCellFocused;
-
-            // This whole dismiss-button/real-input swap exists only to work
-            // around iOS Safari's keyboard-vs-date-picker conflict — Android
-            // never had that bug and was already working fine with the real
-            // <input type="date"> mounted unconditionally and a plain single
-            // tap, even while a field's keyboard was up (that was the
-            // original Android-specific fix). Scoping this to IS_IOS keeps
-            // that simple, always-working Android behavior intact instead of
-            // saddling it with an iOS-only workaround it was never broken
-            // enough to need — which is exactly what happened when this was
-            // applied unconditionally: Android went from "one tap always
-            // opens it" to "one tap only dismisses the keyboard," reading as
-            // completely broken.
-            //
-            // On iOS, guards against a race within the SAME physical tap:
-            // the moment anyFieldFocused flips false (a field just got
-            // dismissed), that very tap's own mouseup/click hasn't
-            // necessarily finished resolving yet. If the real date input
-            // swapped in immediately, that trailing mouseup/click could land
-            // on it — reopening (and instantly auto-closing with today's
-            // date) the picker as a side effect of the tap that was only
-            // ever supposed to dismiss the keyboard. This was observed on a
-            // real iPhone: the calendar would flash and self-select today's
-            // date every time, even with the structural swap in place.
-            // Delaying the swap well past any single tap's own event tail
-            // (a tap's mousedown -> mouseup -> click all resolve in well
-            // under 100ms) guarantees only a genuinely separate, later tap
-            // can ever reach the real input.
-            const [dateInputReady, setDateInputReady] = useState(!IS_IOS || !anyFieldFocused);
-            useEffect(() => {
-                if (!IS_IOS) return undefined;
-                if (anyFieldFocused) {
-                    setDateInputReady(false);
-                    return undefined;
-                }
-                const t = setTimeout(() => setDateInputReady(true), 300);
-                return () => clearTimeout(t);
-            }, [anyFieldFocused]);
-
-            // One button (in the line toolbar) serves both the title field and
-            // body lines. This runs on the overlay input's pointerdown, which
-            // fires before the browser shifts focus to it — so whichever of
-            // the two was actually focused a moment ago is still
-            // document.activeElement right now, reliably saying which one to
-            // target. By the time this can fire at all, anyFieldFocused is
-            // already false (that's what mounted the real input in the first
-            // place), so in practice neither branch here does anything —
-            // kept as a harmless fallback in case of a same-tick focus race.
-            const prepareDateTargetSmart = () => {
+            // One button (in the line toolbar) serves both the title field
+            // and body lines. It uses onMouseDown+preventDefault, like every
+            // other line-toolbar button, so document.activeElement is still
+            // whichever of the two was actually focused when this runs —
+            // reliably saying which one to target — and opening the sheet
+            // never blurs the field in the first place.
+            const openDateSheetSmart = () => {
                 const active = document.activeElement;
                 if (active && active.classList && active.classList.contains('editor-title-input')) {
-                    prepareDateTargetForTitle();
+                    openDateSheetForTitle();
                 } else if (editingBlockId) {
-                    prepareDateTargetForBlock();
+                    openDateSheetForBlock();
                 }
-            };
-
-            // Captures where the date should land (whichever of title/body is
-            // focused right now), then blurs it — dismissing the keyboard
-            // without touching any date input at all.
-            const dismissForDate = () => {
-                const active = document.activeElement;
-                if (active && active.classList && active.classList.contains('editor-title-input')) {
-                    prepareDateTargetForTitle();
-                } else if (editingBlockId) {
-                    prepareDateTargetForBlock();
-                }
-                if (active && active.blur) active.blur();
             };
 
             // Mirrors the "Today" button: if a Date cell is currently
-            // focused, target it directly. Otherwise, DON'T create the new
-            // row here — a setDraft call synchronously inside the pointerdown
-            // that's opening the native picker was observed to abort the
-            // picker before it appeared (same "silently does nothing" class
-            // of bug as the disabled-input issue above: a state update that
-            // touches the DOM right as the browser is trying to focus/open
-            // the input on that same gesture disrupts it). Instead just flag
-            // "no row yet" and let handleDateChange create the row once a
-            // date is actually picked, well after the gesture has settled.
-            const prepareDateTargetForMileage = () => {
+            // focused, target it directly. Otherwise leave rowId null and
+            // let applyPickedDate add a fresh row once a date is actually
+            // picked.
+            const openDateSheetForMileage = () => {
                 const table = mileageTableRef.current;
                 const active = table && table.getActiveDateCell ? table.getActiveDateCell() : null;
                 dateTargetRef.current = { kind: 'mileage', rowId: active ? active.rowId : null };
+                setShowDatePickerSheet(true);
             };
 
-            // Mileage equivalent of dismissForDate: capture the target cell
-            // (if any), then blur whatever currently has focus.
-            const dismissForMileageDate = () => {
-                const table = mileageTableRef.current;
-                const active = table && table.getActiveDateCell ? table.getActiveDateCell() : null;
-                dateTargetRef.current = { kind: 'mileage', rowId: active ? active.rowId : null };
-                const el = document.activeElement;
-                if (el && el.blur) el.blur();
-            };
-
-            // Applies the picked date to whichever target openDatePickerFor*
+            // Applies the picked date to whichever target openDateSheetFor*
             // stashed in dateTargetRef — a body line (splicing into the plain
             // text at the saved caret offset, then re-wrapping in whatever
             // bold/italic/underline chain the line already had — formatting is
             // always whole-line, never partial, so this is safe), the title
-            // field, or a mileage table date cell.
-            const handleDateChange = (e) => {
-                const val = e.target.value;
-                // Clearing this here (once the picker has already produced a
-                // real value), rather than proactively on pointerdown right
-                // before the picker opens, matters on iOS specifically:
-                // mutating the input's value synchronously in that same
-                // pointerdown was observed to make Safari's date picker open
-                // and immediately auto-close with today's date populated,
-                // without waiting for the user to actually pick anything —
-                // the same "don't touch the DOM mid-gesture" lesson as the
-                // Android disabled-input/setDraft bugs, just a different
-                // mutation tripping it up on a different engine. Resetting
-                // here instead still guarantees picking the same date twice
-                // in a row fires a real change event next time (value goes
-                // ''->date again, not date->date).
-                e.target.value = '';
+            // field, or a mileage table date cell. isoDateStr is the sheet's
+            // own 'YYYY-MM-DD' value, or null if the sheet was dismissed
+            // without picking anything.
+            const applyPickedDate = (isoDateStr) => {
+                setShowDatePickerSheet(false);
                 const target = dateTargetRef.current;
                 dateTargetRef.current = null;
-                if (!val || !target) return;
-                const dateStr = new Date(val + 'T00:00:00').toLocaleDateString();
+                if (!isoDateStr || !target) return;
+                const dateStr = new Date(isoDateStr + 'T00:00:00').toLocaleDateString();
 
                 if (target.kind === 'block') {
                     const { blockId, html: sourceHtml } = target;
@@ -3630,9 +3590,10 @@
                     const caretTarget = offset + dateStr.length;
                     pushEditHistory();
                     setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: newHtml } : b) }));
-                    // Whether the picker actually stole focus (and so blurred the
-                    // line out of edit mode) varies by browser/device. If the
-                    // editable DOM node is still right there, update it directly —
+                    // The day button in the sheet uses onMouseDown+preventDefault
+                    // so the line normally never blurs out of edit mode while
+                    // picking, but just in case: if the editable DOM node is
+                    // still right there, update it directly —
                     // React won't otherwise touch a contentEditable's innerHTML on
                     // re-render, and the reseed effect below only fires on an edit
                     // mode *transition*, which won't happen if focus never left.
@@ -3653,9 +3614,8 @@
                     const newTitle = value.slice(0, selStart) + dateStr + value.slice(selEnd);
                     updateField('title', newTitle);
                     const caretTarget = selStart + dateStr.length;
-                    // Same reasoning as the block case: the picker may have
-                    // blurred the title input, so wait a tick for the value to
-                    // land, then refocus and restore the caret ourselves.
+                    // Same reasoning as the block case: refocus and restore
+                    // the caret defensively, in case anything did blur it.
                     requestAnimationFrame(() => {
                         const el = titleInputRef.current;
                         if (el) { el.focus(); el.setSelectionRange(caretTarget, caretTarget); }
@@ -3674,11 +3634,9 @@
                             mileageTableRef.current.focusRowCell(rowIdx, 1);
                         }
                     } else {
-                        // No cell was focused when the picker opened — add a
-                        // fresh row with the picked date already in it
-                        // (deferred until now, rather than at pointerdown
-                        // time — see prepareDateTargetForMileage). If this is
-                        // the note's first-ever mileage row, MileageTable
+                        // No cell was focused when the sheet opened — add a
+                        // fresh row with the picked date already in it. If
+                        // this is the note's first-ever mileage row, MileageTable
                         // hasn't mounted yet (it only renders once
                         // draft.table exists) — queue the focus request and
                         // let the effect below resolve it once that happens.
@@ -3693,11 +3651,11 @@
                 }
             };
 
-            // Covers the case where the picker *did* steal focus and blur the
-            // line out of edit mode: re-entering edit mode from handleDateChange
-            // re-triggers BlockLine's own effect (which reseeds the DOM and
-            // places the caret at the end) — this runs after that child effect
-            // and moves the caret to just past the inserted date.
+            // Covers the case where something *did* blur the line out of edit
+            // mode: re-entering edit mode from applyPickedDate re-triggers
+            // BlockLine's own effect (which reseeds the DOM and places the
+            // caret at the end) — this runs after that child effect and
+            // moves the caret to just past the inserted date.
             useEffect(() => {
                 if (pendingCaretOffsetRef.current == null || !editingBlockId) return;
                 const el = document.querySelector('.block-editable[data-block-id="' + editingBlockId + '"]');
@@ -4162,16 +4120,13 @@
                             <LineToolbar
                                 hasActiveLine={!!editingBlockId}
                                 dateAvailable={!!editingBlockId || titleFocused}
-                                dateInputReady={dateInputReady}
                                 activeType={activeBlock ? activeBlock.type : null}
                                 activeFormats={activeFormats}
                                 onFormat={toggleLineFormat}
                                 onToggleAllFormats={toggleAllFormats}
                                 onSetType={(type) => setBlockType(editingBlockId, type)}
                                 onOpenSizeMenu={() => setTextSizeMenuBlockId(editingBlockId)}
-                                onDatePointerDown={prepareDateTargetSmart}
-                                onDateChange={handleDateChange}
-                                onDismissForDate={dismissForDate}
+                                onOpenDatePicker={openDateSheetSmart}
                             />
                         </div>
 
@@ -4218,7 +4173,6 @@
                                 onUpdateCell={updateMileageCell}
                                 onAddRow={addMileageRow}
                                 onActiveDateCellChange={setDateCellActive}
-                                onAnyCellFocusChange={setMileageCellFocused}
                             />
                         ) : null}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10, marginTop: 10 }}>
@@ -4240,27 +4194,13 @@
                             >
                                 📅 Today
                             </button>
-                            <span className="mileage-date-btn-wrap">
-                                {dateInputReady ? (
-                                    <React.Fragment>
-                                        <button className="secondary-btn mileage-date-visible-btn" style={{ padding: '10px 12px', fontSize: 13 }} tabIndex={-1} aria-hidden="true">📅 Pick Date</button>
-                                        <input
-                                            type="date"
-                                            className="mileage-date-btn-input"
-                                            onPointerDown={prepareDateTargetForMileage}
-                                            onChange={handleDateChange}
-                                        />
-                                    </React.Fragment>
-                                ) : (
-                                    // See the matching comment on the line-toolbar
-                                    // date button — same fix, same reason: while
-                                    // any field's keyboard is up, or was just
-                                    // dismissed a moment ago, this is just an
-                                    // ordinary button that dismisses it, not the
-                                    // real date input.
-                                    <button className="secondary-btn mileage-date-visible-btn" style={{ padding: '10px 12px', fontSize: 13 }} onMouseDown={(e) => { e.preventDefault(); dismissForMileageDate(); }}>📅 Pick Date</button>
-                                )}
-                            </span>
+                            <button
+                                className="secondary-btn"
+                                style={{ padding: '10px 12px', fontSize: 13 }}
+                                onMouseDown={(e) => { e.preventDefault(); openDateSheetForMileage(); }}
+                            >
+                                📅 Pick Date
+                            </button>
                             <button
                                 className="secondary-btn"
                                 style={{ marginLeft: 'auto', padding: '10px 10px', fontSize: 12 }}
@@ -4359,6 +4299,14 @@
                             value={draft.background}
                             onChange={(v) => updateField('background', v)}
                             onClose={() => setShowBackgroundPicker(false)}
+                        />
+                    ) : null}
+
+                    {showDatePickerSheet ? (
+                        <CalendarPickerSheet
+                            background={draft.background}
+                            onPick={applyPickedDate}
+                            onClose={() => applyPickedDate(null)}
                         />
                     ) : null}
 
