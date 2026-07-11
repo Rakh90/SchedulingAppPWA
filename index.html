@@ -891,10 +891,6 @@
             cursor: pointer;
         }
 
-        .line-toolbar-date-input:disabled {
-            cursor: default;
-        }
-
         .list-item-marker {
             flex: 0 0 auto;
             width: 20px;
@@ -1857,7 +1853,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v67';
+        const APP_VERSION = 'v68';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3004,12 +3000,21 @@
                         <input> sits invisibly right on top of the visible
                         button instead, and the tap goes to it directly. */}
                     <span className="line-toolbar-date-wrap">
+                        {/* The decorative button carries the disabled *look*
+                            (dimmed when nothing's focused) — but the real
+                            input underneath must never actually be disabled.
+                            Tapping it blurs whatever was focused (title or
+                            the active line), and that blur synchronously
+                            flips dateAvailable false; a disabled input can't
+                            hold focus, so it would get kicked back out
+                            mid-gesture and silently abort the picker before
+                            it ever opens (observed: the tap just seems to
+                            "lose" the cursor with nothing else happening). */}
                         <button className="line-toolbar-btn" disabled={!dateAvailable} tabIndex={-1} aria-hidden="true">📅</button>
                         <input
                             type="date"
                             className="line-toolbar-date-input"
                             title="Insert date"
-                            disabled={!dateAvailable}
                             onPointerDown={(e) => { e.currentTarget.value = ''; onDatePointerDown(); }}
                             onChange={onDateChange}
                         />
@@ -3178,6 +3183,13 @@
             // another empty line, and a third gives up on the list entirely.
             // Reset (blockId: null) the moment anything else happens to it.
             const emptyEnterRef = useRef({ blockId: null, indented: false });
+            // Set when a mileage date is picked with no cell active and the
+            // note had no table yet — MileageTable only mounts once
+            // draft.table exists, so mileageTableRef.current is still null
+            // at the exact moment the new row's setDraft call is queued.
+            // The effect below waits for the table to actually show up
+            // before asking MileageTable to focus the new row.
+            const pendingMileageFocusRowIdRef = useRef(null);
 
             // Hardware/gesture back button: closes whichever sheet is open,
             // or — if nothing is — leaves the editor the same as tapping ←.
@@ -3312,23 +3324,20 @@
                 }
             };
 
-            // Mirrors the "Today" button: if a Date cell is currently focused,
-            // target it; otherwise add a fresh (empty) row first, the same
-            // way addMileageRowWithToday does, and target its Date cell.
+            // Mirrors the "Today" button: if a Date cell is currently
+            // focused, target it directly. Otherwise, DON'T create the new
+            // row here — a setDraft call synchronously inside the pointerdown
+            // that's opening the native picker was observed to abort the
+            // picker before it appeared (same "silently does nothing" class
+            // of bug as the disabled-input issue above: a state update that
+            // touches the DOM right as the browser is trying to focus/open
+            // the input on that same gesture disrupts it). Instead just flag
+            // "no row yet" and let handleDateChange create the row once a
+            // date is actually picked, well after the gesture has settled.
             const prepareDateTargetForMileage = () => {
                 const table = mileageTableRef.current;
                 const active = table && table.getActiveDateCell ? table.getActiveDateCell() : null;
-                if (active) {
-                    dateTargetRef.current = { kind: 'mileage', rowId: active.rowId };
-                    return;
-                }
-                const newRowId = makeId();
-                setDraft((d) => {
-                    const t = d.table || { columns: MILEAGE_COLUMNS, rows: [] };
-                    const newRow = { id: newRowId, cells: ['', '', '', ''] };
-                    return { ...d, table: { ...t, rows: [...t.rows, newRow] } };
-                });
-                dateTargetRef.current = { kind: 'mileage', rowId: newRowId };
+                dateTargetRef.current = { kind: 'mileage', rowId: active ? active.rowId : null };
             };
 
             // Applies the picked date to whichever target openDatePickerFor*
@@ -3389,13 +3398,31 @@
                 }
 
                 if (target.kind === 'mileage') {
-                    // Individual cell edits (typing, the Today button) aren't
-                    // part of the line-undo system either — stay consistent.
-                    updateMileageCell(target.rowId, 0, dateStr);
-                    // Same as the Today button: move on to the next cell.
-                    const rowIdx = draft.table ? draft.table.rows.findIndex(r => r.id === target.rowId) : -1;
-                    if (rowIdx !== -1 && mileageTableRef.current) {
-                        mileageTableRef.current.focusRowCell(rowIdx, 1);
+                    if (target.rowId) {
+                        // Individual cell edits (typing, the Today button)
+                        // aren't part of the line-undo system either — stay
+                        // consistent.
+                        updateMileageCell(target.rowId, 0, dateStr);
+                        const rowIdx = draft.table ? draft.table.rows.findIndex(r => r.id === target.rowId) : -1;
+                        if (rowIdx !== -1 && mileageTableRef.current) {
+                            mileageTableRef.current.focusRowCell(rowIdx, 1);
+                        }
+                    } else {
+                        // No cell was focused when the picker opened — add a
+                        // fresh row with the picked date already in it
+                        // (deferred until now, rather than at pointerdown
+                        // time — see prepareDateTargetForMileage). If this is
+                        // the note's first-ever mileage row, MileageTable
+                        // hasn't mounted yet (it only renders once
+                        // draft.table exists) — queue the focus request and
+                        // let the effect below resolve it once that happens.
+                        const newRowId = makeId();
+                        setDraft((d) => {
+                            const t = d.table || { columns: MILEAGE_COLUMNS, rows: [] };
+                            const newRow = { id: newRowId, cells: [dateStr, '', '', ''] };
+                            return { ...d, table: { ...t, rows: [...t.rows, newRow] } };
+                        });
+                        pendingMileageFocusRowIdRef.current = newRowId;
                     }
                 }
             };
@@ -3411,6 +3438,19 @@
                 if (el) setCaretCharOffset(el, pendingCaretOffsetRef.current);
                 pendingCaretOffsetRef.current = null;
             }, [editingBlockId]);
+
+            // Resolves a mileage focus-advance request queued against a row
+            // that didn't exist as a rendered cell yet at the time it was
+            // requested (see pendingMileageFocusRowIdRef) — runs again on
+            // every table change until the row (and MileageTable itself, if
+            // this was the first-ever row) actually shows up.
+            useEffect(() => {
+                if (!pendingMileageFocusRowIdRef.current || !mileageTableRef.current || !draft.table) return;
+                const rowIdx = draft.table.rows.findIndex(r => r.id === pendingMileageFocusRowIdRef.current);
+                if (rowIdx === -1) return;
+                mileageTableRef.current.focusRowCell(rowIdx, 1);
+                pendingMileageFocusRowIdRef.current = null;
+            }, [draft.table]);
 
             // Reads the live DOM (not stale React state) so a format toggle picks up
             // whatever was just typed, then writes the result straight back into the
