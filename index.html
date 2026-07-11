@@ -113,6 +113,17 @@
             align-items: center;
             justify-content: center;
             flex: 0 0 auto;
+            /* Without this, a real touchscreen treats a long-press-then-move on
+               these buttons as an attempted scroll/pan gesture and the browser
+               takes over the touch (often firing pointercancel), which is why
+               the drag-reorder logic in useIconReorder — built and verified
+               against Playwright's synthetic mouse-based pointer events, which
+               don't go through this native touch-gesture arbitration at all —
+               never actually saw a drag on a real phone. */
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
         }
 
         .icon-btn:active {
@@ -1949,7 +1960,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v70';
+        const APP_VERSION = 'v71';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3263,6 +3274,27 @@
             //   { kind: 'title', selStart, selEnd, value }
             //   { kind: 'mileage', rowId }
             const dateTargetRef = useRef(null);
+            // On iOS, tapping the date button while the title/a body line still
+            // has the on-screen keyboard up blurs that field as part of the same
+            // gesture that opens the picker. If that blur is allowed to flip
+            // editingBlockId to null (swapping the contentEditable block out for
+            // a plain display div) or titleFocused to false right then, the
+            // resulting DOM/layout change collides with the keyboard-dismiss +
+            // picker-open animations happening at the same moment on WebKit,
+            // and the picker was observed to flash open and immediately auto-
+            // close with today's date. Set true in the date input's own
+            // onPointerDown (which fires while the old field is still focused,
+            // before this blur happens) to suppress just that one blur's exit-
+            // edit-mode side effect; the block/title itself still visually and
+            // structurally stays exactly as it was while the picker is opening.
+            // The timeout is a safety net in case the expected blur never
+            // fires (e.g. the picker gesture gets cancelled) so this can't get
+            // stuck suppressing every blur from then on.
+            const suppressBlurExitRef = useRef(false);
+            const armSuppressBlurExit = () => {
+                suppressBlurExitRef.current = true;
+                setTimeout(() => { suppressBlurExitRef.current = false; }, 400);
+            };
             // Set right after inserting a date, so the follow-up effect that
             // re-enters edit mode on this block can land the caret just past the
             // inserted text instead of wherever placeCursorAtDeepestEnd puts it.
@@ -3417,8 +3449,10 @@
             const prepareDateTargetSmart = () => {
                 const active = document.activeElement;
                 if (active && active.classList && active.classList.contains('editor-title-input')) {
+                    armSuppressBlurExit();
                     prepareDateTargetForTitle();
                 } else if (editingBlockId) {
+                    armSuppressBlurExit();
                     prepareDateTargetForBlock();
                 }
             };
@@ -3983,7 +4017,10 @@
                                 value={draft.title}
                                 onChange={(e) => updateField('title', e.target.value)}
                                 onFocus={() => setTitleFocused(true)}
-                                onBlur={() => setTitleFocused(false)}
+                                onBlur={() => {
+                                    if (suppressBlurExitRef.current) { suppressBlurExitRef.current = false; return; }
+                                    setTitleFocused(false);
+                                }}
                                 autoFocus={note.title === ''}
                             />
                         </form>
@@ -4033,7 +4070,10 @@
                                     isDragging={draggingBlockId === block.id}
                                     listNumber={listNumbers[idx]}
                                     onStartEdit={() => setEditingBlockId(block.id)}
-                                    onExitEdit={(id) => setEditingBlockId((current) => current === id ? null : current)}
+                                    onExitEdit={(id) => {
+                                        if (suppressBlurExitRef.current) { suppressBlurExitRef.current = false; return; }
+                                        setEditingBlockId((current) => current === id ? null : current);
+                                    }}
                                     onCommit={commitBlockHtml}
                                     onEnter={handleEnter}
                                     onBackspaceEmpty={handleBackspaceEmpty}
