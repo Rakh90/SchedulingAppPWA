@@ -1422,7 +1422,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v38 (debug build)';
+        const APP_VERSION = 'v39 (debug build)';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1706,6 +1706,7 @@
                                 <span className="color-dot" style={{ background: cat.color, width: 12, height: 12 }}></span>
                                 <input
                                     type="text"
+                                    autoComplete="off"
                                     value={cat.name}
                                     onChange={(e) => onRename(cat.id, e.target.value)}
                                 />
@@ -1715,6 +1716,7 @@
                         <div className="add-category-form">
                             <input
                                 type="text"
+                                autoComplete="off"
                                 placeholder="New category name"
                                 value={newName}
                                 onChange={(e) => setNewName(e.target.value)}
@@ -1878,6 +1880,7 @@
                                             <td key={i}>
                                                 <input
                                                     className="mileage-cell-input"
+                                                    autoComplete="off"
                                                     value={cell}
                                                     inputMode={i === 3 ? 'decimal' : 'text'}
                                                     enterKeyHint={i === MILEAGE_COLUMNS.length - 1 ? 'done' : 'next'}
@@ -1942,6 +1945,7 @@
                         <div className="add-category-form">
                             <input
                                 type="text"
+                                autoComplete="off"
                                 placeholder="New category name"
                                 value={newName}
                                 onChange={(e) => setNewName(e.target.value)}
@@ -2392,6 +2396,7 @@
                     <div className="editor-body" style={resolvePageBackground(draft.background)}>
                         <input
                             className="editor-title-input"
+                            autoComplete="off"
                             placeholder="Title"
                             value={draft.title}
                             onChange={(e) => updateField('title', e.target.value)}
@@ -3015,6 +3020,7 @@
                                 <input
                                     type="text"
                                     className="search-input"
+                                    autoComplete="off"
                                     placeholder="Search notes..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
