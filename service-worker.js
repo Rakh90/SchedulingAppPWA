@@ -1,4 +1,4 @@
-const CACHE_NAME = 'notepad-app-v44';
+const CACHE_NAME = 'notepad-app-v45';
 const urlsToCache = [
   './',
   './index.html',
@@ -19,7 +19,17 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        // cache.addAll() uses a plain fetch() under the hood, which honors
+        // the browser's own HTTP cache — GitHub Pages sends a real
+        // Cache-Control max-age, so even a brand-new install (e.g. right
+        // after manually unregistering the old worker) could silently pull
+        // a stale copy of index.html straight out of HTTP cache instead of
+        // the network. {cache: 'reload'} forces every file here to be
+        // fetched fresh, so a new CACHE_NAME always means genuinely new
+        // content, not just a new wrapper around old content.
+        return Promise.all(urlsToCache.map((url) =>
+          fetch(url, { cache: 'reload' }).then((response) => cache.put(url, response))
+        ));
       })
   );
 });
