@@ -1571,7 +1571,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v53';
+        const APP_VERSION = 'v54';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1663,7 +1663,7 @@
             return isDark ? '#ffffff' : '#1a1a1a';
         }
 
-        function blankNote(categoryIds) {
+        function blankNote(categoryIds, background) {
             const now = Date.now();
             return {
                 id: makeId(),
@@ -1672,7 +1672,7 @@
                 blocks: [{ id: makeId(), type: 'text', html: '' }],
                 photos: [],
                 table: null,
-                background: '#ffffff',
+                background: background || '#ffffff',
                 order: now,
                 pinned: false,
                 deletedAt: null,
@@ -1863,7 +1863,7 @@
             );
         }
 
-        function CategoryManagerSheet({ background, categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError }) {
+        function CategoryManagerSheet({ background, categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
             const importInputRef = useRef(null);
@@ -1942,6 +1942,10 @@
                                 Add category
                             </button>
                         </div>
+
+                        <div className="settings-divider"></div>
+                        <div className="section-label">Default background for new notes</div>
+                        <BackgroundPicker value={defaultNoteBackground || '#ffffff'} onChange={onChangeDefaultNoteBackground} />
 
                         <div className="settings-divider"></div>
                         <div className="section-label">Backup</div>
@@ -2543,9 +2547,12 @@
             const updateField = (field, value) => setDraft((d) => ({ ...d, [field]: value }));
 
             // Call before applying a line-level change to snapshot what the note
-            // looked like just prior, so undoLastEdit can step back to it.
+            // looked like just prior, so undoLastEdit can step back to it. Title
+            // and background are included too since loadTemplateIntoDraft
+            // changes those alongside blocks/photos — every other call site
+            // leaves them untouched, so snapshotting them there is a no-op.
             const pushEditHistory = () => {
-                editHistoryRef.current.push({ blocks: draft.blocks, photos: draft.photos });
+                editHistoryRef.current.push({ title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background });
                 if (editHistoryRef.current.length > 25) editHistoryRef.current.shift();
                 setCanUndoEdit(true);
             };
@@ -2553,7 +2560,7 @@
             const undoLastEdit = () => {
                 const prev = editHistoryRef.current.pop();
                 if (!prev) return;
-                setDraft((d) => ({ ...d, blocks: prev.blocks, photos: prev.photos }));
+                setDraft((d) => ({ ...d, title: prev.title, blocks: prev.blocks, photos: prev.photos, background: prev.background }));
                 setEditingBlockId(null);
                 setCanUndoEdit(editHistoryRef.current.length > 0);
             };
@@ -3286,7 +3293,7 @@
                         const lines = bodyParts.filter(Boolean).join('\n').split('\n').filter(l => l.trim() !== '');
                         const titleFallback = sharedText.split('\n')[0] || sharedUrl || '';
                         const note = {
-                            ...blankNote([]),
+                            ...blankNote([], settingsRows[0] && settingsRows[0].defaultNoteBackground),
                             title: (sharedTitle || titleFallback).slice(0, 200),
                             blocks: lines.length > 0
                                 ? lines.map(line => ({ id: makeId(), type: 'text', html: escapeHtml(line) }))
@@ -3432,7 +3439,7 @@
 
             const createNote = () => {
                 const categoryId = filterCategory !== 'all' && filterCategory !== 'uncategorized' ? filterCategory : null;
-                const note = blankNote(categoryId ? [categoryId] : []);
+                const note = blankNote(categoryId ? [categoryId] : [], settings.defaultNoteBackground);
                 setNotes((prev) => [note, ...prev]);
                 if (db) idbPut(db, 'notes', note);
                 setActiveNoteId(note.id);
@@ -3579,13 +3586,27 @@
             };
 
             const updateDashboardBackground = (bg) => {
-                setSettings((s) => ({ ...s, dashboardBackground: bg }));
-                if (db) idbPut(db, 'settings', { id: 'app', dashboardBackground: bg });
+                // Persist the whole settings object (not just this field) — an
+                // idbPut with a partial object would otherwise silently drop
+                // defaultNoteBackground (or any future setting) from storage.
+                setSettings((s) => {
+                    const updated = { ...s, dashboardBackground: bg };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
                 if (bg) {
                     localStorage.setItem('dashboardBackground', bg);
                 } else {
                     localStorage.removeItem('dashboardBackground');
                 }
+            };
+
+            const updateDefaultNoteBackground = (bg) => {
+                setSettings((s) => {
+                    const updated = { ...s, defaultNoteBackground: bg };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
             };
 
             const exportAllData = () => {
@@ -3952,6 +3973,8 @@
                             onExport={exportAllData}
                             onImportFile={handleImportFile}
                             importError={importError}
+                            defaultNoteBackground={settings.defaultNoteBackground}
+                            onChangeDefaultNoteBackground={updateDefaultNoteBackground}
                         />
                     ) : null}
 
