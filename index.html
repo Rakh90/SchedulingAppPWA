@@ -127,6 +127,13 @@
             background: rgba(255,255,255,0.4);
         }
 
+        .icon-btn.dragging {
+            opacity: 0.5;
+            transform: scale(1.15);
+            z-index: 5;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+        }
+
         .search-bar {
             display: flex;
             align-items: center;
@@ -1847,13 +1854,102 @@
             }, [active]);
         }
 
+        const DEFAULT_DASHBOARD_ICON_ORDER = ['search', 'pinnedFilter', 'sort', 'trash', 'select', 'settings'];
+        const DEFAULT_EDITOR_ICON_ORDER = ['undo', 'background', 'copy', 'templates', 'pin', 'trash', 'lock'];
+
+        // A saved order might be missing ids a later update introduced, or
+        // carry ids that no longer exist — keeps whatever's still valid, in
+        // the user's chosen order, then appends any new ones at the end so
+        // they don't just silently vanish from the header.
+        function resolveIconOrder(saved, defaultOrder) {
+            if (!saved || !saved.length) return defaultOrder;
+            const known = new Set(defaultOrder);
+            const kept = saved.filter((id) => known.has(id));
+            defaultOrder.forEach((id) => { if (!kept.includes(id)) kept.push(id); });
+            return kept;
+        }
+
+        // Long-press-and-drag reorder for a row of icon buttons — same
+        // timer-based long-press-vs-tap trick used for dragging note cards,
+        // category rows, and checklist markers, so a quick tap still runs
+        // the button's own action instead of starting a drag. `order` is the
+        // current list of icon ids for this row; `onReorder` is called with
+        // the new order as the drag passes over another icon.
+        function useIconReorder(order, onReorder) {
+            const dragRef = useRef({ pointerId: null, id: null, timer: null, dragging: false, startX: 0, startY: 0 });
+            const [draggingId, setDraggingId] = useState(null);
+            const justDraggedRef = useRef(false);
+
+            const onPointerDown = (id) => (e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                dragRef.current = { pointerId: e.pointerId, id, timer: null, dragging: false, startX: e.clientX, startY: e.clientY };
+                dragRef.current.timer = setTimeout(() => {
+                    dragRef.current.dragging = true;
+                    setDraggingId(id);
+                    if (navigator.vibrate) navigator.vibrate(12);
+                }, 450);
+            };
+
+            const onPointerMove = (e) => {
+                if (dragRef.current.pointerId !== e.pointerId || !dragRef.current.id) return;
+                if (!dragRef.current.dragging) {
+                    const dx = Math.abs(e.clientX - dragRef.current.startX);
+                    const dy = Math.abs(e.clientY - dragRef.current.startY);
+                    if (dx > 14 || dy > 14) {
+                        clearTimeout(dragRef.current.timer);
+                        dragRef.current.id = null;
+                    }
+                    return;
+                }
+                e.preventDefault();
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                const targetEl = el && el.closest('[data-icon-id]');
+                const targetId = targetEl && targetEl.getAttribute('data-icon-id');
+                if (targetId && targetId !== dragRef.current.id) {
+                    const dragIdx = order.indexOf(dragRef.current.id);
+                    const targetIdx = order.indexOf(targetId);
+                    if (dragIdx !== -1 && targetIdx !== -1) {
+                        const reordered = [...order];
+                        const [moved] = reordered.splice(dragIdx, 1);
+                        reordered.splice(targetIdx, 0, moved);
+                        onReorder(reordered);
+                    }
+                }
+            };
+
+            const endDrag = () => {
+                clearTimeout(dragRef.current.timer);
+                if (dragRef.current.dragging) justDraggedRef.current = true;
+                dragRef.current = { pointerId: null, id: null, timer: null, dragging: false, startX: 0, startY: 0 };
+                setDraggingId(null);
+            };
+
+            // Wrap a button's real onClick with this so the click a completed
+            // drag's pointerup naturally fires afterward doesn't also trigger
+            // the button's normal action.
+            const wrapClick = (fn) => () => {
+                if (justDraggedRef.current) { justDraggedRef.current = false; return; }
+                fn();
+            };
+
+            const getDragProps = (id) => ({
+                'data-icon-id': id,
+                onPointerDown: onPointerDown(id),
+                onPointerMove,
+                onPointerUp: endDrag,
+                onPointerCancel: endDrag,
+            });
+
+            return { draggingId, getDragProps, wrapClick };
+        }
+
         const CATEGORY_COLORS = ['#667eea', '#e57373', '#f2a541', '#ffd54f', '#81c784', '#4dd0c9', '#4fc3f7', '#9575cd', '#f06292', '#a1887f'];
 
         // Bumped alongside service-worker.js's CACHE_NAME on every deploy so
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v69';
+        const APP_VERSION = 'v70';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3118,7 +3214,7 @@
             );
         }
 
-        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate, templates, isTemplate, hasPin, onSetPin }) {
+        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate, templates, isTemplate, hasPin, onSetPin, editorIconOrder, onChangeEditorIconOrder }) {
             const [draft, setDraft] = useState(note);
             const [editingBlockId, setEditingBlockId] = useState(null);
             const [confirmTrash, setConfirmTrash] = useState(false);
@@ -3203,6 +3299,9 @@
             useBackClose(showSaveTemplate, () => setShowSaveTemplate(false));
             useBackClose(confirmTrash, () => setConfirmTrash(false));
             useBackClose(showCategoryPicker, () => setShowCategoryPicker(false));
+
+            const resolvedEditorIconOrder = resolveIconOrder(editorIconOrder, DEFAULT_EDITOR_ICON_ORDER);
+            const editorIconDrag = useIconReorder(resolvedEditorIconOrder, (order) => onChangeEditorIconOrder && onChangeEditorIconOrder(order));
 
             useEffect(() => {
                 if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -3823,69 +3922,53 @@
                 : { b: false, i: false, u: false };
 
             const editorHeaderDark = isThemeDark(draft.background);
+            const editorDefaultBadgeStyle = { background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) };
+
+            // Long-press any icon below to drag it into a new position — the
+            // order is saved to settings, so it applies to every note.
+            const editorIconDefs = {
+                undo: canUndoEdit ? { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Undo last edit', onClick: undoLastEdit, content: '↩' } : null,
+                background: { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Background', onClick: () => setShowBackgroundPicker(true), content: '🎨' },
+                copy: { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Copy content', onClick: copyContent, content: copiedFlash ? '✓' : '📋' },
+                templates: isTemplate ? null : { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Templates', onClick: () => setShowTemplateMenu(true), content: '📑' },
+                pin: isTemplate ? null : {
+                    className: 'icon-btn' + (draft.pinned ? ' active' : ''),
+                    style: draft.pinned ? { background: 'rgba(102,126,234,0.85)', color: '#fff' } : editorDefaultBadgeStyle,
+                    title: draft.pinned ? 'Unpin' : 'Pin to top',
+                    onClick: () => updateField('pinned', !draft.pinned),
+                    content: '📌',
+                },
+                trash: { className: 'icon-btn', style: { background: headerBadgeBg(editorHeaderDark), color: '#c5221f' }, title: isTemplate ? 'Delete template' : 'Move to trash', onClick: () => setConfirmTrash(true), content: '🗑' },
+                lock: isTemplate ? null : {
+                    className: 'icon-btn' + (draft.locked ? ' active' : ''),
+                    style: draft.locked ? { background: 'rgba(102,126,234,0.85)', color: '#fff' } : editorDefaultBadgeStyle,
+                    title: draft.locked ? 'Unlock' : 'Lock',
+                    onClick: () => { if (hasPin) { updateField('locked', !draft.locked); } else { setShowPinSetup(true); } },
+                    content: draft.locked ? '🔒' : '🔓',
+                },
+            };
 
             return (
                 <div className={'editor-screen' + (editorHeaderDark ? ' dark-content' : '')} style={resolvePageBackground(draft.background)}>
                     <div className="editor-header" style={resolveHeaderBackground(draft.background)}>
                         <button className="icon-btn" style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }} onClick={handleBack}>←</button>
                         <div className="editor-header-actions">
-                            {canUndoEdit ? (
-                                <button
-                                    className="icon-btn"
-                                    style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
-                                    title="Undo last edit"
-                                    onClick={undoLastEdit}
-                                >
-                                    ↩
-                                </button>
-                            ) : null}
-                            <button
-                                className="icon-btn"
-                                style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
-                                title="Background"
-                                onClick={() => setShowBackgroundPicker(true)}
-                            >
-                                🎨
-                            </button>
-                            <button
-                                className="icon-btn"
-                                style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
-                                title="Copy content"
-                                onClick={copyContent}
-                            >
-                                {copiedFlash ? '✓' : '📋'}
-                            </button>
-                            {isTemplate ? null : (
-                                <button
-                                    className="icon-btn"
-                                    style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
-                                    title="Templates"
-                                    onClick={() => setShowTemplateMenu(true)}
-                                >
-                                    📑
-                                </button>
-                            )}
-                            {isTemplate ? null : (
-                                <button
-                                    className={'icon-btn' + (draft.pinned ? ' active' : '')}
-                                    style={draft.pinned ? { background: 'rgba(102,126,234,0.85)', color: '#fff' } : { background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
-                                    title={draft.pinned ? 'Unpin' : 'Pin to top'}
-                                    onClick={() => updateField('pinned', !draft.pinned)}
-                                >
-                                    📌
-                                </button>
-                            )}
-                            <button className="icon-btn" title={isTemplate ? 'Delete template' : 'Move to trash'} style={{ background: headerBadgeBg(editorHeaderDark), color: '#c5221f' }} onClick={() => setConfirmTrash(true)}>🗑</button>
-                            {isTemplate ? null : (
-                                <button
-                                    className={'icon-btn' + (draft.locked ? ' active' : '')}
-                                    style={draft.locked ? { background: 'rgba(102,126,234,0.85)', color: '#fff' } : { background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
-                                    title={draft.locked ? 'Unlock' : 'Lock'}
-                                    onClick={() => { if (hasPin) { updateField('locked', !draft.locked); } else { setShowPinSetup(true); } }}
-                                >
-                                    {draft.locked ? '🔒' : '🔓'}
-                                </button>
-                            )}
+                            {resolvedEditorIconOrder.map((id) => {
+                                const def = editorIconDefs[id];
+                                if (!def) return null;
+                                return (
+                                    <button
+                                        key={id}
+                                        className={def.className + (editorIconDrag.draggingId === id ? ' dragging' : '')}
+                                        style={def.style}
+                                        title={def.title}
+                                        onClick={editorIconDrag.wrapClick(def.onClick)}
+                                        {...editorIconDrag.getDragProps(id)}
+                                    >
+                                        {def.content}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                     <div className="editor-body" style={resolvePageBackground(draft.background)}>
@@ -4310,6 +4393,9 @@
             useBackClose(showSearch, () => { setShowSearch(false); setSearchQuery(''); });
             useBackClose(!!deleteCategoryId, () => setDeleteCategoryId(null));
             useBackClose(!!pendingImport, () => setPendingImport(null));
+
+            const dashboardIconOrder = resolveIconOrder(settings.dashboardIconOrder, DEFAULT_DASHBOARD_ICON_ORDER);
+            const dashboardIconDrag = useIconReorder(dashboardIconOrder, (order) => updateDashboardIconOrder(order));
 
             const dragRef = useRef({ pointerId: null, noteId: null, timer: null, dragging: false, startX: 0, startY: 0 });
             const justDraggedRef = useRef(false);
@@ -4763,6 +4849,22 @@
                 });
             };
 
+            const updateDashboardIconOrder = (order) => {
+                setSettings((s) => {
+                    const updated = { ...s, dashboardIconOrder: order };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+            };
+
+            const updateEditorIconOrder = (order) => {
+                setSettings((s) => {
+                    const updated = { ...s, editorIconOrder: order };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+            };
+
             const setAppPin = async (pin) => {
                 const pinHash = await hashPin(pin);
                 setSettings((s) => {
@@ -4961,6 +5063,8 @@
                         onTrash={deleteTemplate}
                         onAddCategory={addCategory}
                         isTemplate
+                        editorIconOrder={settings.editorIconOrder}
+                        onChangeEditorIconOrder={updateEditorIconOrder}
                     />
                 );
             }
@@ -4981,6 +5085,8 @@
                         templates={templates}
                         hasPin={!!settings.pinHash}
                         onSetPin={setAppPin}
+                        editorIconOrder={settings.editorIconOrder}
+                        onChangeEditorIconOrder={updateEditorIconOrder}
                     />
                 );
             }
@@ -4996,6 +5102,18 @@
                     if (s) setSearchQuery('');
                     return !s;
                 });
+            };
+
+            // Long-press any icon below to drag it into a new position — the
+            // order is saved to settings, so it applies everywhere, not just
+            // this session.
+            const dashboardIconDefs = {
+                search: { className: 'icon-btn' + (showSearch ? ' active' : ''), title: 'Search', onClick: toggleSearch, content: '🔍' },
+                pinnedFilter: { className: 'icon-btn' + (showPinnedOnly ? ' active' : ''), title: 'Show pinned only', onClick: () => setShowPinnedOnly((v) => !v), content: '📌' },
+                sort: { className: 'icon-btn' + (noteSortMode !== 'manual' ? ' active' : ''), title: 'Sort notes', onClick: () => setShowSortMenu(true), content: '↕' },
+                trash: { className: 'icon-btn', title: 'Trash', onClick: () => setView('trash'), content: '🗑' },
+                select: { className: 'icon-btn', title: 'Select notes', onClick: toggleSelectMode, content: '☑' },
+                settings: { className: 'icon-btn', title: 'Categories', onClick: () => setShowCategoryManager(true), content: '⚙' },
             };
 
             return (
@@ -5016,12 +5134,21 @@
                                 <React.Fragment>
                                     <h1>📓 Sly Notes</h1>
                                     <div className="header-actions">
-                                        <button className={'icon-btn' + (showSearch ? ' active' : '')} onClick={toggleSearch} title="Search">🔍</button>
-                                        <button className={'icon-btn' + (showPinnedOnly ? ' active' : '')} onClick={() => setShowPinnedOnly((v) => !v)} title="Show pinned only">📌</button>
-                                        <button className={'icon-btn' + (noteSortMode !== 'manual' ? ' active' : '')} onClick={() => setShowSortMenu(true)} title="Sort notes">↕</button>
-                                        <button className="icon-btn" onClick={() => setView('trash')} title="Trash">🗑</button>
-                                        <button className="icon-btn" onClick={toggleSelectMode} title="Select notes">☑</button>
-                                        <button className="icon-btn" onClick={() => setShowCategoryManager(true)} title="Categories">⚙</button>
+                                        {dashboardIconOrder.map((id) => {
+                                            const def = dashboardIconDefs[id];
+                                            if (!def) return null;
+                                            return (
+                                                <button
+                                                    key={id}
+                                                    className={def.className + (dashboardIconDrag.draggingId === id ? ' dragging' : '')}
+                                                    title={def.title}
+                                                    onClick={dashboardIconDrag.wrapClick(def.onClick)}
+                                                    {...dashboardIconDrag.getDragProps(id)}
+                                                >
+                                                    {def.content}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </React.Fragment>
                             )}
