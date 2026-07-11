@@ -1857,7 +1857,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v66';
+        const APP_VERSION = 'v67';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3588,9 +3588,39 @@
                 setEditingBlockId(newId);
             };
 
+            // Mirrors the Enter cycle in reverse for an indented, empty
+            // bulleted/numbered/checklist line: Backspace steps the indent
+            // down one level at a time; once it's back at 0, the next
+            // Backspace gives up on the list and converts it to plain text
+            // (matching the Enter cycle's own "give up" step) — only once
+            // it's a plain, unindented, empty text line does Backspace fall
+            // through to the original behavior of deleting the line and
+            // merging into the previous one.
             const handleBackspaceEmpty = (blockId) => {
-                if (draft.blocks.length <= 1) return;
+                const current = draft.blocks.find(b => b.id === blockId);
+                if (!current) return;
+                // Any Backspace on an empty line invalidates whatever the
+                // Enter cycle above was tracking for it — otherwise a stray
+                // stale "already indented this line" flag could make the
+                // *next* Enter press skip straight to converting to text
+                // instead of indenting again.
                 if (emptyEnterRef.current.blockId === blockId) emptyEnterRef.current = { blockId: null, indented: false };
+
+                const isListType = current.type === 'bulleted' || current.type === 'numbered' || current.type === 'checklist';
+                const indent = current.indent || 0;
+
+                if (isListType && indent > 0) {
+                    pushEditHistory();
+                    setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, indent: indent - 1 } : b) }));
+                    return;
+                }
+                if (isListType && indent === 0) {
+                    pushEditHistory();
+                    setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, type: 'text' } : b) }));
+                    return;
+                }
+
+                if (draft.blocks.length <= 1) return;
                 const idx = draft.blocks.findIndex(b => b.id === blockId);
                 const nextFocusId = draft.blocks[idx - 1] ? draft.blocks[idx - 1].id : (draft.blocks[idx + 1] ? draft.blocks[idx + 1].id : null);
                 pushEditHistory();
