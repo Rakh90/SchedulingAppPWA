@@ -1186,6 +1186,14 @@
             border-top-color: rgba(255,255,255,0.18);
         }
 
+        .dark-content .category-picker-name {
+            color: #f3f4f8;
+        }
+
+        .dark-content .category-picker-row.selected {
+            background: rgba(255,255,255,0.15);
+        }
+
         .sheet-muted-text {
             color: #8a8d99;
         }
@@ -1494,7 +1502,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v47';
+        const APP_VERSION = 'v48';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2025,16 +2033,17 @@
             );
         }
 
-        function CategoryPickerSheet({ categories, selectedIds, onToggle, onClose, onCreateCategory }) {
+        function CategoryPickerSheet({ background, categories, selectedIds, onToggle, onClose, onCreateCategory }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
+            const dark = isThemeDark(background);
 
             return (
                 <div className="sheet-backdrop" onClick={onClose}>
-                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                    <div className={'sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
                         <h2>Categories</h2>
                         {categories.length === 0 ? (
-                            <p style={{ fontSize: 13, color: '#8a8d99' }}>No categories yet. Add one below.</p>
+                            <p className="sheet-muted-text" style={{ fontSize: 13 }}>No categories yet. Add one below.</p>
                         ) : (
                             categories.map((cat) => {
                                 const selected = selectedIds.includes(cat.id);
@@ -2156,10 +2165,12 @@
                 if (!hasActiveLine) return;
                 onToggleAllFormats();
             };
+            // Pressing the already-active bullet/#/checkbox button again turns
+            // the line back into plain text instead of just re-applying itself.
             const runType = (type) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
-                onSetType(type);
+                onSetType(activeType === type && type !== 'text' ? 'text' : type);
             };
             const allActive = activeFormats.b && activeFormats.i && activeFormats.u;
             return (
@@ -2711,6 +2722,7 @@
 
                     {showCategoryPicker ? (
                         <CategoryPickerSheet
+                            background={draft.background}
                             categories={categories}
                             selectedIds={draft.categoryIds || []}
                             onToggle={toggleDraftCategory}
