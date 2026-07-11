@@ -1485,6 +1485,17 @@
         const DB_VERSION = 4;
         const TRASH_AUTO_PURGE_DAYS = 30;
 
+        // iPadOS 13+ reports itself as "MacIntel" in the UA string, so the
+        // classic /iPad|iPhone|iPod/ sniff alone misses iPads — the extra
+        // maxTouchPoints check catches those (a real Mac never reports touch
+        // points here). Used to scope the iOS-only keyboard-vs-date-picker
+        // workaround (see dateInputReady in NoteEditor) to iOS specifically —
+        // Android never needed it and was working with a plain single tap
+        // even while a field's keyboard was up since it was fixed for
+        // Android alone; applying the iOS workaround there too regressed it.
+        const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
         function openDatabase() {
             return new Promise((resolve, reject) => {
                 const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -1960,7 +1971,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v74';
+        const APP_VERSION = 'v75';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3464,22 +3475,36 @@
             // in on the next render once nothing is left focused.
             const anyFieldFocused = titleFocused || !!editingBlockId || mileageCellFocused;
 
-            // Guards against a race within the SAME physical tap: the moment
-            // anyFieldFocused flips false (a field just got dismissed), that
-            // very tap's own mouseup/click hasn't necessarily finished
-            // resolving yet. If the real date input swapped in immediately,
-            // that trailing mouseup/click could land on it — reopening (and,
-            // on iOS, instantly auto-closing with today's date) the picker
-            // as a side effect of the tap that was only ever supposed to
-            // dismiss the keyboard. This was observed on a real iPhone: the
-            // calendar would flash and self-select today's date every time,
-            // even with the structural swap in place. Delaying the swap
-            // well past any single tap's own event tail (a tap's mousedown
-            // -> mouseup -> click all resolve in well under 100ms) guarantees
-            // only a genuinely separate, later tap can ever reach the real
-            // input.
-            const [dateInputReady, setDateInputReady] = useState(!anyFieldFocused);
+            // This whole dismiss-button/real-input swap exists only to work
+            // around iOS Safari's keyboard-vs-date-picker conflict — Android
+            // never had that bug and was already working fine with the real
+            // <input type="date"> mounted unconditionally and a plain single
+            // tap, even while a field's keyboard was up (that was the
+            // original Android-specific fix). Scoping this to IS_IOS keeps
+            // that simple, always-working Android behavior intact instead of
+            // saddling it with an iOS-only workaround it was never broken
+            // enough to need — which is exactly what happened when this was
+            // applied unconditionally: Android went from "one tap always
+            // opens it" to "one tap only dismisses the keyboard," reading as
+            // completely broken.
+            //
+            // On iOS, guards against a race within the SAME physical tap:
+            // the moment anyFieldFocused flips false (a field just got
+            // dismissed), that very tap's own mouseup/click hasn't
+            // necessarily finished resolving yet. If the real date input
+            // swapped in immediately, that trailing mouseup/click could land
+            // on it — reopening (and instantly auto-closing with today's
+            // date) the picker as a side effect of the tap that was only
+            // ever supposed to dismiss the keyboard. This was observed on a
+            // real iPhone: the calendar would flash and self-select today's
+            // date every time, even with the structural swap in place.
+            // Delaying the swap well past any single tap's own event tail
+            // (a tap's mousedown -> mouseup -> click all resolve in well
+            // under 100ms) guarantees only a genuinely separate, later tap
+            // can ever reach the real input.
+            const [dateInputReady, setDateInputReady] = useState(!IS_IOS || !anyFieldFocused);
             useEffect(() => {
+                if (!IS_IOS) return undefined;
                 if (anyFieldFocused) {
                     setDateInputReady(false);
                     return undefined;
