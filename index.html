@@ -992,7 +992,7 @@
 
         .bg-swatch-row {
             display: flex;
-            gap: 10px;
+            gap: 6px;
             overflow-x: auto;
             padding-bottom: 4px;
         }
@@ -1074,8 +1074,8 @@
 
         .bg-swatch {
             flex: 0 0 auto;
-            width: 34px;
-            height: 34px;
+            width: 26px;
+            height: 26px;
             border-radius: 50%;
             border: 2px solid rgba(0,0,0,0.18);
             background-size: cover;
@@ -1083,7 +1083,7 @@
 
         .bg-swatch.selected {
             border: 2px solid #333;
-            box-shadow: 0 0 0 2px white inset;
+            box-shadow: 0 0 0 1.5px white inset;
         }
 
         .photo-preview-backdrop {
@@ -1571,7 +1571,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v56';
+        const APP_VERSION = 'v57';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
