@@ -1,4 +1,4 @@
-const CACHE_NAME = 'notepad-app-v45';
+const CACHE_NAME = 'notepad-app-v46';
 const urlsToCache = [
   './',
   './index.html',
@@ -54,8 +54,58 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// The Android share sheet (share_target in manifest.json) POSTs here as
+// multipart/form-data (needed to carry shared image files, not just text).
+// A static GitHub Pages host can't run a server-side handler for that POST,
+// so the service worker intercepts it directly: read the form fields/files,
+// stash them in IndexedDB for the page to pick up, then redirect to a plain
+// GET so the browser lands on the normal cached app shell.
+function openShareDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('notepad-db', 3);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('notes')) db.createObjectStore('notes', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('categories')) db.createObjectStore('categories', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('shareInbox')) db.createObjectStore('shareInbox', { keyPath: 'id' });
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function handleShareTargetPost(request) {
+  try {
+    const formData = await request.formData();
+    const files = formData.getAll('images').filter((f) => f instanceof File && f.size > 0);
+    const payload = {
+      id: 'pending',
+      title: formData.get('title') || '',
+      text: formData.get('text') || '',
+      url: formData.get('url') || '',
+      files,
+      createdAt: Date.now(),
+    };
+    const db = await openShareDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('shareInbox', 'readwrite');
+      tx.objectStore('shareInbox').put(payload);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.error('Share target handling failed:', err);
+  }
+  return Response.redirect('./', 303);
+}
+
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
+  if (event.request.method === 'POST') {
+    event.respondWith(handleShareTargetPost(event.request));
+    return;
+  }
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -63,11 +113,8 @@ self.addEventListener('fetch', (event) => {
         if (response) {
           return response;
         }
-        // The Android share sheet (share_target in manifest.json) navigates
-        // here with query params (?title=&text=&url=) that never match the
-        // plain './' cache entry above. Retry ignoring the query string
-        // before falling back to network, so sharing into the app still
-        // opens the cached shell while offline.
+        // Retry ignoring any query string before falling back to network, so
+        // a navigation with unexpected params still opens the cached shell.
         return caches.match(event.request, { ignoreSearch: true })
           .then((fallback) => fallback || fetch(event.request));
       }
