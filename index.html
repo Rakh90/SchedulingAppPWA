@@ -905,7 +905,18 @@
             margin: 0;
             padding: 0;
             border: none;
-            opacity: 0;
+            /* Not literally 0 — some recent iOS Safari versions appear to
+               distrust a fully-invisible interactive element enough to
+               auto-dismiss whatever native UI (like this date picker) it
+               triggers almost immediately, which matches this input's
+               observed real-device behavior exactly: the picker opens and
+               is gone before there's any chance to interact with it,
+               regardless of what triggered the tap or how much time had
+               passed since the last DOM change. A hair above zero keeps it
+               visually indistinguishable from fully invisible while
+               (hopefully) reading as "genuinely there" to whatever check
+               this is. */
+            opacity: 0.01;
             cursor: pointer;
         }
 
@@ -1193,7 +1204,18 @@
             margin: 0;
             padding: 0;
             border: none;
-            opacity: 0;
+            /* Not literally 0 — some recent iOS Safari versions appear to
+               distrust a fully-invisible interactive element enough to
+               auto-dismiss whatever native UI (like this date picker) it
+               triggers almost immediately, which matches this input's
+               observed real-device behavior exactly: the picker opens and
+               is gone before there's any chance to interact with it,
+               regardless of what triggered the tap or how much time had
+               passed since the last DOM change. A hair above zero keeps it
+               visually indistinguishable from fully invisible while
+               (hopefully) reading as "genuinely there" to whatever check
+               this is. */
+            opacity: 0.01;
             cursor: pointer;
         }
 
@@ -1971,7 +1993,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v75';
+        const APP_VERSION = 'v76';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
