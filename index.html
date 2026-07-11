@@ -1729,13 +1729,87 @@
             sel.addRange(range);
         }
 
+        // Catches Android's hardware/gesture back button before it exits the
+        // installed PWA, so it closes whatever's open (a sheet, the photo
+        // preview, the editor itself) one layer at a time instead.
+        //
+        // Deliberately does NOT try to keep a matching real history entry
+        // pushed per open layer. An earlier version did (push on open, call
+        // history.back() to "consume" the slot on any non-back close) — but
+        // history.back() fires its own popstate asynchronously, and if a new
+        // layer opens (its own pushState) before that stale event arrives,
+        // the event lands on the wrong, unrelated layer (observed bug:
+        // picking "Blank note" closes the template picker via a non-back
+        // path, which raced with the new note editor's own pushState and
+        // ended up immediately closing the editor it had just opened).
+        //
+        // Instead: one shared array tracks whichever layers are logically
+        // open, in nesting order, purely in memory — and at most one real
+        // history entry ("the guard") is ever pushed at a time, regardless of
+        // how many layers are stacked. A real back press pops the top layer,
+        // closes it, and — only if something's still open underneath —
+        // re-arms the guard for the next press. Closing a layer any other
+        // way (Cancel/Done tapped, programmatic navigation) just removes it
+        // from the array with no history call at all; the guard, if any, is
+        // left as-is and simply gets reused by whatever opens next, or
+        // harmlessly absorbs one future back press with no side effects if
+        // nothing ever does.
+        const backCloseStack = [];
+        let backCloseListenerAttached = false;
+        let backCloseGuardPushed = false;
+
+        function armBackCloseGuard() {
+            if (backCloseGuardPushed) return;
+            backCloseGuardPushed = true;
+            history.pushState({ __backClose: true }, '');
+        }
+
+        function ensureBackCloseListener() {
+            if (backCloseListenerAttached) return;
+            backCloseListenerAttached = true;
+            window.addEventListener('popstate', () => {
+                backCloseGuardPushed = false;
+                const top = backCloseStack.pop();
+                if (top) top.onClose();
+                // Something's still open underneath — re-arm so the *next*
+                // back press is caught too. If the stack is empty, don't: the
+                // next press should fall through to the browser/OS default
+                // (minimize or exit the app), same as standing on a normal
+                // "root" screen in a native app.
+                if (backCloseStack.length > 0) armBackCloseGuard();
+            });
+        }
+
+        // `active`: whether this layer is currently open. `onClose`: called
+        // when a hardware back press should close it. Pass `true` (never
+        // `false`) for something that should close for the component's whole
+        // lifetime (e.g. the note editor itself, closed via unmount) rather
+        // than a togglable sheet.
+        function useBackClose(active, onClose) {
+            const onCloseRef = useRef(onClose);
+            onCloseRef.current = onClose;
+
+            useEffect(() => { ensureBackCloseListener(); }, []);
+
+            useEffect(() => {
+                if (!active) return undefined;
+                const entry = { onClose: () => onCloseRef.current() };
+                backCloseStack.push(entry);
+                armBackCloseGuard();
+                return () => {
+                    const idx = backCloseStack.indexOf(entry);
+                    if (idx !== -1) backCloseStack.splice(idx, 1);
+                };
+            }, [active]);
+        }
+
         const CATEGORY_COLORS = ['#667eea', '#e57373', '#f2a541', '#ffd54f', '#81c784', '#4dd0c9', '#4fc3f7', '#9575cd', '#f06292', '#a1887f'];
 
         // Bumped alongside service-worker.js's CACHE_NAME on every deploy so
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v62';
+        const APP_VERSION = 'v63';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3018,6 +3092,19 @@
             const editHistoryRef = useRef([]);
             const [canUndoEdit, setCanUndoEdit] = useState(false);
 
+            // Hardware/gesture back button: closes whichever sheet is open,
+            // or — if nothing is — leaves the editor the same as tapping ←.
+            useBackClose(true, onBack);
+            useBackClose(confirmRemoveRow, () => setConfirmRemoveRow(false));
+            useBackClose(!!previewPhoto, () => setPreviewPhoto(null));
+            useBackClose(showBackgroundPicker, () => setShowBackgroundPicker(false));
+            useBackClose(!!textSizeMenuBlockId, () => setTextSizeMenuBlockId(null));
+            useBackClose(showPinSetup, () => setShowPinSetup(false));
+            useBackClose(showTemplateMenu, () => setShowTemplateMenu(false));
+            useBackClose(showSaveTemplate, () => setShowSaveTemplate(false));
+            useBackClose(confirmTrash, () => setConfirmTrash(false));
+            useBackClose(showCategoryPicker, () => setShowCategoryPicker(false));
+
             useEffect(() => {
                 if (saveTimer.current) clearTimeout(saveTimer.current);
                 saveTimer.current = setTimeout(() => {
@@ -3901,6 +3988,10 @@
             const [confirmDeleteId, setConfirmDeleteId] = useState(null);
             const trashHeaderDark = isThemeDark(background);
 
+            useBackClose(true, onBack);
+            useBackClose(confirmEmptyOpen, () => setConfirmEmptyOpen(false));
+            useBackClose(!!confirmDeleteId, () => setConfirmDeleteId(null));
+
             return (
                 <div className={'editor-screen' + (trashHeaderDark ? ' dark-content' : '')} style={resolvePageBackground(background)}>
                     <div className="editor-header" style={resolveHeaderBackground(background)}>
@@ -4001,6 +4092,23 @@
             const [pinFlow, setPinFlow] = useState(null);
             const [pendingImport, setPendingImport] = useState(null);
             const [importError, setImportError] = useState('');
+
+            // Hardware/gesture back button, for whichever of the dashboard's
+            // own sheets/modes is open. Declared unconditionally (same as any
+            // other hook) even though App has early returns further down for
+            // the Trash screen and the note editor — those screens manage
+            // their own back-closable layers themselves, and these ones are
+            // simply inactive (no-ops) while a different screen is showing.
+            useBackClose(showCategoryManager, () => { setShowCategoryManager(false); setImportError(''); });
+            useBackClose(showSortMenu, () => setShowSortMenu(false));
+            useBackClose(showBatchCategory, () => { setShowBatchCategory(false); setSelectedIds([]); setSelectMode(false); });
+            useBackClose(showTemplatePicker, () => setShowTemplatePicker(false));
+            useBackClose(!!pendingUnlockNoteId, () => setPendingUnlockNoteId(null));
+            useBackClose(!!pinFlow, () => setPinFlow(null));
+            useBackClose(selectMode, () => { setSelectMode(false); setSelectedIds([]); });
+            useBackClose(showSearch, () => { setShowSearch(false); setSearchQuery(''); });
+            useBackClose(!!deleteCategoryId, () => setDeleteCategoryId(null));
+            useBackClose(!!pendingImport, () => setPendingImport(null));
 
             const dragRef = useRef({ pointerId: null, noteId: null, timer: null, dragging: false, startX: 0, startY: 0 });
             const justDraggedRef = useRef(false);
