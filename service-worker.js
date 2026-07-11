@@ -1,4 +1,4 @@
-const CACHE_NAME = 'notepad-app-v43';
+const CACHE_NAME = 'notepad-app-v44';
 const urlsToCache = [
   './',
   './index.html',
@@ -53,7 +53,13 @@ self.addEventListener('fetch', (event) => {
         if (response) {
           return response;
         }
-        return fetch(event.request);
+        // The Android share sheet (share_target in manifest.json) navigates
+        // here with query params (?title=&text=&url=) that never match the
+        // plain './' cache entry above. Retry ignoring the query string
+        // before falling back to network, so sharing into the app still
+        // opens the cached shell while offline.
+        return caches.match(event.request, { ignoreSearch: true })
+          .then((fallback) => fallback || fetch(event.request));
       }
     )
   );
