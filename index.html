@@ -355,6 +355,16 @@
             max-height: 130px;
         }
 
+        .note-card-locked-hint {
+            font-size: 12px;
+            color: rgba(20,21,24,0.55);
+            letter-spacing: 0.02em;
+        }
+
+        .dark-content .note-card-locked-hint {
+            color: rgba(243,244,248,0.65);
+        }
+
         .note-card-list-item {
             display: flex;
             align-items: flex-start;
@@ -708,6 +718,15 @@
             gap: 6px;
         }
 
+        /* The editor header can carry up to 7 action icons (undo, background,
+           templates, pin, trash, lock) — shrink to match the same fix used
+           for the dashboard header so they don't overflow narrow phones. */
+        .editor-header-actions .icon-btn {
+            width: 32px;
+            height: 32px;
+            font-size: 15px;
+        }
+
         .editor-body {
             flex: 1 1 auto;
             overflow-y: auto;
@@ -927,6 +946,23 @@
         }
 
         .dark-content .csv-export-btn {
+            background: rgba(255,255,255,0.16);
+            color: #f3f4f8;
+        }
+
+        .uncheck-all-btn {
+            display: block;
+            margin: 0 0 8px auto;
+            background: #f1f1f4;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .dark-content .uncheck-all-btn {
             background: rgba(255,255,255,0.16);
             color: #f3f4f8;
         }
@@ -1309,6 +1345,7 @@
 
         const DB_NAME = 'notepad-db';
         const DB_VERSION = 4;
+        const TRASH_AUTO_PURGE_DAYS = 30;
 
         function openDatabase() {
             return new Promise((resolve, reject) => {
@@ -1368,6 +1405,16 @@
 
         function makeId() {
             return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+        }
+
+        // Only meant to keep a casual glance from someone else picking up the
+        // phone from seeing a note's content — not real security (anyone with
+        // the device could still open browser storage directly), so a plain
+        // unsalted hash is plenty here.
+        async function hashPin(pin) {
+            const bytes = new TextEncoder().encode(pin);
+            const digest = await crypto.subtle.digest('SHA-256', bytes);
+            return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
         function resizeImage(dataUrl, maxDim, quality) {
@@ -1571,7 +1618,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v57';
+        const APP_VERSION = 'v58';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1675,6 +1722,7 @@
                 background: background || '#ffffff',
                 order: now,
                 pinned: false,
+                locked: false,
                 deletedAt: null,
                 createdAt: now,
                 updatedAt: now,
@@ -1765,6 +1813,21 @@
             });
         }
 
+        function noteToPlainText(note) {
+            const numbers = computeListNumbers(note.blocks);
+            const lines = [];
+            if (note.title) lines.push(note.title);
+            note.blocks.forEach((b, idx) => {
+                const text = stripHtml(b.html || '').trim();
+                if (!text) return;
+                if (b.type === 'checklist') lines.push((b.checked ? '[x] ' : '[ ] ') + text);
+                else if (b.type === 'bulleted') lines.push('• ' + text);
+                else if (b.type === 'numbered') lines.push(numbers[idx] + '. ' + text);
+                else lines.push(text);
+            });
+            return lines.join('\n');
+        }
+
         function noteMatchesCategory(note, filterCategory) {
             if (filterCategory === 'all') return true;
             if (filterCategory === 'uncategorized') return !note.categoryIds || note.categoryIds.length === 0;
@@ -1775,15 +1838,54 @@
             const q = (query || '').trim().toLowerCase();
             if (!q) return true;
             if (note.title && note.title.toLowerCase().includes(q)) return true;
+            // Locked notes hide their body on the dashboard — matching search
+            // against that same body would defeat the point by surfacing it
+            // in results anyway, so only the (already-visible) title counts.
+            if (note.locked) return false;
             return (note.blocks || []).some(b => stripHtml(b.html).toLowerCase().includes(q));
         }
 
         // Pinned notes always float above unpinned ones; used consistently for
         // both the rendered list and the drag-reorder math so a drag never
         // computes a splice index that the very next render's sort undoes.
+        // This is also the "manual" sort mode — the only one where dragging
+        // to reorder makes sense, since every other mode would just snap a
+        // dragged card back to its sorted position on the next render.
         function noteSortCompare(a, b) {
             if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
             return (b.order || 0) - (a.order || 0);
+        }
+
+        const SORT_MODES = [
+            { id: 'manual', label: 'Manual (drag to reorder)' },
+            { id: 'edited', label: 'Last edited' },
+            { id: 'created', label: 'Date created' },
+            { id: 'alpha', label: 'Alphabetical (A-Z)' },
+            { id: 'category', label: 'Category' },
+        ];
+
+        function categorySortKey(note, categoryById) {
+            const firstId = note.categoryIds && note.categoryIds[0];
+            const cat = firstId && categoryById[firstId];
+            // Prefix so "Uncategorized" always sorts after every real category
+            // name, regardless of what those names happen to be.
+            return cat ? '0:' + cat.name.toLowerCase() : '1:uncategorized';
+        }
+
+        function makeNoteSortCompare(mode, categoryById) {
+            return (a, b) => {
+                if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+                if (mode === 'edited') return (b.updatedAt || 0) - (a.updatedAt || 0);
+                if (mode === 'created') return (b.createdAt || 0) - (a.createdAt || 0);
+                if (mode === 'alpha') return (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase());
+                if (mode === 'category') {
+                    const keyA = categorySortKey(a, categoryById);
+                    const keyB = categorySortKey(b, categoryById);
+                    if (keyA !== keyB) return keyA.localeCompare(keyB);
+                    return (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase());
+                }
+                return (b.order || 0) - (a.order || 0);
+            };
         }
 
         function NoteCard({ note, noteCategories, onOpen, onTrash, onTogglePin, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp, selectMode, selected, onToggleSelect }) {
@@ -1828,46 +1930,52 @@
                         </React.Fragment>
                     )}
                     {note.title ? <div className="note-card-title">{note.title}</div> : null}
-                    {note.photos && note.photos.length > 0 ? (
-                        <img className="note-card-thumb" src={note.photos[0].dataUrl} alt="" />
-                    ) : null}
-                    {previewBlocks.length > 0 ? (
-                        <div className="note-card-body">
-                            {previewBlocks.map((b) => {
-                                const idx = note.blocks.indexOf(b);
-                                return (
-                                    <div key={b.id} className={'note-card-list-item' + (b.type === 'checklist' && b.checked ? ' checked' : '')}>
-                                        <span className="marker">
-                                            {b.type === 'checklist' ? (b.checked ? '☑' : '☐') : b.type === 'numbered' ? (numbers[idx] + '.') : b.type === 'bulleted' ? '•' : ''}
-                                        </span>
-                                        <span dangerouslySetInnerHTML={{ __html: linkify(b.html) }}></span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : null}
-                    <div className="note-card-footer">
-                        {noteCategories && noteCategories.length > 0 ? (
-                            <span className="note-card-category-dots">
-                                {noteCategories.map((cat) => (
-                                    <span key={cat.id} className="color-dot" style={{ background: cat.color }} title={cat.name}></span>
-                                ))}
-                            </span>
-                        ) : <span></span>}
-                        <span style={{ display: 'flex', gap: 8 }}>
-                            {note.table && note.table.rows.length > 0 ? (
-                                <span className="note-card-photo-badge">📊 {note.table.rows.length}</span>
-                            ) : null}
+                    {note.locked ? (
+                        <div className="note-card-locked-hint">🔒 Locked</div>
+                    ) : (
+                        <React.Fragment>
                             {note.photos && note.photos.length > 0 ? (
-                                <span className="note-card-photo-badge">📷 {note.photos.length}</span>
+                                <img className="note-card-thumb" src={note.photos[0].dataUrl} alt="" />
                             ) : null}
-                        </span>
-                    </div>
+                            {previewBlocks.length > 0 ? (
+                                <div className="note-card-body">
+                                    {previewBlocks.map((b) => {
+                                        const idx = note.blocks.indexOf(b);
+                                        return (
+                                            <div key={b.id} className={'note-card-list-item' + (b.type === 'checklist' && b.checked ? ' checked' : '')}>
+                                                <span className="marker">
+                                                    {b.type === 'checklist' ? (b.checked ? '☑' : '☐') : b.type === 'numbered' ? (numbers[idx] + '.') : b.type === 'bulleted' ? '•' : ''}
+                                                </span>
+                                                <span dangerouslySetInnerHTML={{ __html: linkify(b.html) }}></span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : null}
+                            <div className="note-card-footer">
+                                {noteCategories && noteCategories.length > 0 ? (
+                                    <span className="note-card-category-dots">
+                                        {noteCategories.map((cat) => (
+                                            <span key={cat.id} className="color-dot" style={{ background: cat.color }} title={cat.name}></span>
+                                        ))}
+                                    </span>
+                                ) : <span></span>}
+                                <span style={{ display: 'flex', gap: 8 }}>
+                                    {note.table && note.table.rows.length > 0 ? (
+                                        <span className="note-card-photo-badge">📊 {note.table.rows.length}</span>
+                                    ) : null}
+                                    {note.photos && note.photos.length > 0 ? (
+                                        <span className="note-card-photo-badge">📷 {note.photos.length}</span>
+                                    ) : null}
+                                </span>
+                            </div>
+                        </React.Fragment>
+                    )}
                 </div>
             );
         }
 
-        function CategoryManagerSheet({ background, categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground, dashboardBackground, onChangeDashboardBackground }) {
+        function CategoryManagerSheet({ background, categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground, dashboardBackground, onChangeDashboardBackground, hasPin, onStartPinSetup, onStartPinChange, onStartPinRemove }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
             const importInputRef = useRef(null);
@@ -1953,6 +2061,18 @@
 
                         <div className="section-label">Dashboard background</div>
                         <BackgroundPicker value={dashboardBackground || '#f1f2f5'} onChange={onChangeDashboardBackground} />
+
+                        <div className="settings-divider"></div>
+                        <div className="section-label">App lock</div>
+                        {hasPin ? (
+                            <div className="btn-row">
+                                <button className="secondary-btn" onClick={onStartPinChange}>Change PIN</button>
+                                <button className="secondary-btn" onClick={onStartPinRemove}>Remove PIN</button>
+                            </div>
+                        ) : (
+                            <button className="secondary-btn" onClick={onStartPinSetup}>Set a PIN</button>
+                        )}
+                        <p className="sheet-muted-text" style={{ fontSize: 11, marginTop: 8 }}>Locking a note (🔒 in its editor) hides everything but its title on the dashboard until the PIN is entered.</p>
 
                         <div className="settings-divider"></div>
                         <div className="section-label">Backup</div>
@@ -2165,6 +2285,27 @@
             );
         }
 
+        function SortMenuSheet({ background, value, onChange, onClose }) {
+            const dark = isThemeDark(background);
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className={'sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
+                        <h2>Sort notes by</h2>
+                        {SORT_MODES.map((m) => (
+                            <button
+                                key={m.id}
+                                className={'category-picker-row' + (value === m.id ? ' selected' : '')}
+                                onClick={() => { onChange(m.id); onClose(); }}
+                            >
+                                <span className="category-picker-name">{m.label}</span>
+                                <span className="category-picker-check">{value === m.id ? '✓' : ''}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
         function CategoryPickerSheet({ background, categories, selectedIds, onToggle, onClose, onCreateCategory }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
@@ -2269,6 +2410,104 @@
                         <div className="btn-row">
                             <button className="secondary-btn" onClick={onCancel}>Cancel</button>
                             <button className="primary-btn" onClick={() => { if (value.trim()) onConfirm(value.trim()); }}>{confirmLabel}</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Used both for creating a brand-new PIN and for changing an existing
+        // one — always requires the PIN twice so a typo can't lock anyone out.
+        function PinSetupSheet({ title, onConfirm, onCancel }) {
+            const [pin, setPin] = useState('');
+            const [confirmPin, setConfirmPin] = useState('');
+            const [error, setError] = useState('');
+
+            const submit = () => {
+                if (pin.length < 4) { setError('PIN must be at least 4 digits.'); return; }
+                if (pin !== confirmPin) { setError("PINs don't match — try again."); setConfirmPin(''); return; }
+                onConfirm(pin);
+            };
+
+            return (
+                <div className="sheet-backdrop centered" onClick={onCancel}>
+                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                        <h2>{title || 'Set a PIN'}</h2>
+                        <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                            <input
+                                type="password"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                maxLength={8}
+                                autoComplete="new-password"
+                                data-lpignore="true"
+                                data-form-type="other"
+                                placeholder="Enter PIN"
+                                value={pin}
+                                onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setError(''); }}
+                                autoFocus
+                                style={{ width: '100%', border: '1px solid #e2e4e9', borderRadius: 10, padding: '10px 12px', fontSize: 16, marginBottom: 10, boxSizing: 'border-box', letterSpacing: 4 }}
+                            />
+                            <input
+                                type="password"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                maxLength={8}
+                                autoComplete="new-password"
+                                data-lpignore="true"
+                                data-form-type="other"
+                                placeholder="Confirm PIN"
+                                value={confirmPin}
+                                onChange={(e) => { setConfirmPin(e.target.value.replace(/\D/g, '')); setError(''); }}
+                                style={{ width: '100%', border: '1px solid #e2e4e9', borderRadius: 10, padding: '10px 12px', fontSize: 16, marginBottom: 10, boxSizing: 'border-box', letterSpacing: 4 }}
+                            />
+                        </form>
+                        {error ? <p style={{ fontSize: 12, color: '#d64545', marginBottom: 10 }}>{error}</p> : null}
+                        <div className="btn-row">
+                            <button className="secondary-btn" onClick={onCancel}>Cancel</button>
+                            <button className="primary-btn" onClick={submit}>Save</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Verifies an already-set PIN — used to unlock a locked note, and as
+        // the required first step before changing or removing the PIN.
+        function PinEntrySheet({ title, message, onConfirm, onCancel }) {
+            const [pin, setPin] = useState('');
+            const [error, setError] = useState('');
+
+            const submit = async () => {
+                const ok = await onConfirm(pin);
+                if (!ok) { setError('Incorrect PIN.'); setPin(''); }
+            };
+
+            return (
+                <div className="sheet-backdrop centered" onClick={onCancel}>
+                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                        <h2>{title || 'Enter PIN'}</h2>
+                        {message ? <p style={{ fontSize: 13, color: '#555' }}>{message}</p> : null}
+                        <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                            <input
+                                type="password"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                maxLength={8}
+                                autoComplete="current-password"
+                                data-lpignore="true"
+                                data-form-type="other"
+                                placeholder="PIN"
+                                value={pin}
+                                onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setError(''); }}
+                                autoFocus
+                                style={{ width: '100%', border: '1px solid #e2e4e9', borderRadius: 10, padding: '10px 12px', fontSize: 16, marginBottom: 10, boxSizing: 'border-box', letterSpacing: 4 }}
+                            />
+                        </form>
+                        {error ? <p style={{ fontSize: 12, color: '#d64545', marginBottom: 10 }}>{error}</p> : null}
+                        <div className="btn-row">
+                            <button className="secondary-btn" onClick={onCancel}>Cancel</button>
+                            <button className="primary-btn" onClick={submit}>Unlock</button>
                         </div>
                     </div>
                 </div>
@@ -2519,7 +2758,7 @@
             );
         }
 
-        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate, templates, isTemplate }) {
+        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate, templates, isTemplate, hasPin, onSetPin }) {
             const [draft, setDraft] = useState(note);
             const [editingBlockId, setEditingBlockId] = useState(null);
             const [confirmTrash, setConfirmTrash] = useState(false);
@@ -2532,6 +2771,9 @@
             const [showSaveTemplate, setShowSaveTemplate] = useState(false);
             const [showTemplateMenu, setShowTemplateMenu] = useState(false);
             const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
+            const [showPinSetup, setShowPinSetup] = useState(false);
+            const [copiedFlash, setCopiedFlash] = useState(false);
+            const copiedFlashTimer = useRef(null);
             const [draggingBlockId, setDraggingBlockId] = useState(null);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
@@ -2661,6 +2903,23 @@
                 }
                 pushEditHistory();
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, checked: !b.checked } : b) }));
+            };
+
+            const uncheckAll = () => {
+                pushEditHistory();
+                setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.type === 'checklist' && b.checked ? { ...b, checked: false } : b) }));
+            };
+
+            const copyContent = async () => {
+                try {
+                    await navigator.clipboard.writeText(noteToPlainText(draft));
+                    if (copiedFlashTimer.current) clearTimeout(copiedFlashTimer.current);
+                    setCopiedFlash(true);
+                    copiedFlashTimer.current = setTimeout(() => setCopiedFlash(false), 1500);
+                } catch (err) {
+                    // Clipboard permission denied or unavailable — nothing
+                    // useful to do beyond not pretending it worked.
+                }
             };
 
             const reorderBlocks = (blocks, draggedId, targetId) => {
@@ -2906,6 +3165,14 @@
                             >
                                 🎨
                             </button>
+                            <button
+                                className="icon-btn"
+                                style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
+                                title="Copy content"
+                                onClick={copyContent}
+                            >
+                                {copiedFlash ? '✓' : '📋'}
+                            </button>
                             {isTemplate ? null : (
                                 <button
                                     className="icon-btn"
@@ -2927,6 +3194,16 @@
                                 </button>
                             )}
                             <button className="icon-btn" title={isTemplate ? 'Delete template' : 'Move to trash'} style={{ background: headerBadgeBg(editorHeaderDark), color: '#c5221f' }} onClick={() => setConfirmTrash(true)}>🗑</button>
+                            {isTemplate ? null : (
+                                <button
+                                    className={'icon-btn' + (draft.locked ? ' active' : '')}
+                                    style={draft.locked ? { background: 'rgba(102,126,234,0.85)', color: '#fff' } : { background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
+                                    title={draft.locked ? 'Unlock' : 'Lock'}
+                                    onClick={() => { if (hasPin) { updateField('locked', !draft.locked); } else { setShowPinSetup(true); } }}
+                                >
+                                    {draft.locked ? '🔒' : '🔓'}
+                                </button>
+                            )}
                         </div>
                     </div>
                     <div className="editor-body" style={resolvePageBackground(draft.background)}>
@@ -2970,6 +3247,10 @@
                                 onSetType={(type) => setBlockType(editingBlockId, type)}
                             />
                         </div>
+
+                        {draft.blocks.some(b => b.type === 'checklist' && b.checked) ? (
+                            <button className="uncheck-all-btn" onClick={uncheckAll}>Uncheck all</button>
+                        ) : null}
 
                         <div className="list-items">
                             {draft.blocks.map((block, idx) => (
@@ -3129,6 +3410,18 @@
                         />
                     ) : null}
 
+                    {showPinSetup ? (
+                        <PinSetupSheet
+                            title="Set a PIN to lock notes"
+                            onConfirm={async (pin) => {
+                                await onSetPin(pin);
+                                updateField('locked', true);
+                                setShowPinSetup(false);
+                            }}
+                            onCancel={() => setShowPinSetup(false)}
+                        />
+                    ) : null}
+
                     {showTemplateMenu ? (
                         <TemplateMenuSheet
                             background={draft.background}
@@ -3200,15 +3493,18 @@
                                 <p>Trash is empty.</p>
                             </div>
                         ) : (
-                            notes.map((note) => (
-                                <div className="trash-row" key={note.id}>
-                                    <div className="trash-row-title">{note.title || 'Untitled note'}</div>
-                                    <div className="trash-row-actions">
-                                        <button className="secondary-btn" onClick={() => onRestore(note.id)}>Restore</button>
-                                        <button className="danger-btn" onClick={() => setConfirmDeleteId(note.id)}>Delete</button>
+                            <React.Fragment>
+                                <p className="sheet-muted-text" style={{ fontSize: 12, padding: '10px 16px 0' }}>Notes are permanently deleted after {TRASH_AUTO_PURGE_DAYS} days in the trash.</p>
+                                {notes.map((note) => (
+                                    <div className="trash-row" key={note.id}>
+                                        <div className="trash-row-title">{note.title || 'Untitled note'}</div>
+                                        <div className="trash-row-actions">
+                                            <button className="secondary-btn" onClick={() => onRestore(note.id)}>Restore</button>
+                                            <button className="danger-btn" onClick={() => setConfirmDeleteId(note.id)}>Delete</button>
+                                        </div>
                                     </div>
-                                </div>
-                            ))
+                                ))}
+                            </React.Fragment>
                         )}
                     </div>
 
@@ -3266,6 +3562,14 @@
             const [selectMode, setSelectMode] = useState(false);
             const [selectedIds, setSelectedIds] = useState([]);
             const [showBatchCategory, setShowBatchCategory] = useState(false);
+            const [showSortMenu, setShowSortMenu] = useState(false);
+            // In-memory only — verifying the PIN once unlocks every locked
+            // note for the rest of this session, rather than re-prompting per
+            // note (matches how phone lock screens behave).
+            const [pinUnlockedThisSession, setPinUnlockedThisSession] = useState(false);
+            const [pendingUnlockNoteId, setPendingUnlockNoteId] = useState(null);
+            // 'setup' | 'change-verify' | 'change-setup' | 'remove-verify'
+            const [pinFlow, setPinFlow] = useState(null);
             const [pendingImport, setPendingImport] = useState(null);
             const [importError, setImportError] = useState('');
 
@@ -3289,6 +3593,15 @@
                         if (!raw.blocks) idbPut(database, 'notes', m);
                         return m;
                     });
+                    // Quietly purge anything that's been sitting in the trash
+                    // longer than the retention window, so it doesn't pile up
+                    // forever if nobody remembers to empty it manually.
+                    const purgeBefore = Date.now() - TRASH_AUTO_PURGE_DAYS * 24 * 60 * 60 * 1000;
+                    const surviving = migrated.filter((n) => {
+                        const expired = n.deletedAt && n.deletedAt < purgeBefore;
+                        if (expired) idbDelete(database, 'notes', n.id);
+                        return !expired;
+                    });
                     // Older categories predate the `order` field used for
                     // manual drag-reordering — backfill using their existing
                     // alphabetical position so the first load doesn't jumble
@@ -3301,7 +3614,7 @@
                         return withOrder;
                     });
                     setCategories(catsWithOrder.sort((a, b) => a.order - b.order));
-                    setNotes(migrated);
+                    setNotes(surviving);
                     setSettings(settingsRows[0] || { id: 'app', dashboardBackground: localStorage.getItem('dashboardBackground') || null });
                     setLoading(false);
 
@@ -3655,6 +3968,38 @@
                 });
             };
 
+            const updateNoteSortMode = (mode) => {
+                setSettings((s) => {
+                    const updated = { ...s, noteSortMode: mode };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+            };
+
+            const setAppPin = async (pin) => {
+                const pinHash = await hashPin(pin);
+                setSettings((s) => {
+                    const updated = { ...s, pinHash };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+                setPinUnlockedThisSession(true);
+            };
+
+            const removeAppPin = () => {
+                setSettings((s) => {
+                    const updated = { ...s, pinHash: null };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+            };
+
+            const verifyPin = async (pin) => {
+                if (!settings.pinHash) return true;
+                const hash = await hashPin(pin);
+                return hash === settings.pinHash;
+            };
+
             const exportAllData = () => {
                 const payload = {
                     app: 'Sly Notes',
@@ -3794,6 +4139,11 @@
                     justDraggedRef.current = false;
                     return;
                 }
+                const note = notes.find(n => n.id === noteId);
+                if (note && note.locked && !pinUnlockedThisSession) {
+                    setPendingUnlockNoteId(noteId);
+                    return;
+                }
                 setActiveNoteId(noteId);
             };
 
@@ -3842,14 +4192,17 @@
                         onAddCategory={addCategory}
                         onSaveTemplate={saveTemplate}
                         templates={templates}
+                        hasPin={!!settings.pinHash}
+                        onSetPin={setAppPin}
                     />
                 );
             }
 
+            const noteSortMode = settings.noteSortMode || 'manual';
+            const categoryById = Object.fromEntries(categories.map(c => [c.id, c]));
             const visibleNotes = notes
                 .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory) && noteMatchesSearch(n, searchQuery) && (!showPinnedOnly || n.pinned))
-                .sort(noteSortCompare);
-            const categoryById = Object.fromEntries(categories.map(c => [c.id, c]));
+                .sort(makeNoteSortCompare(noteSortMode, categoryById));
 
             const toggleSearch = () => {
                 setShowSearch((s) => {
@@ -3878,6 +4231,7 @@
                                     <div className="header-actions">
                                         <button className={'icon-btn' + (showSearch ? ' active' : '')} onClick={toggleSearch} title="Search">🔍</button>
                                         <button className={'icon-btn' + (showPinnedOnly ? ' active' : '')} onClick={() => setShowPinnedOnly((v) => !v)} title="Show pinned only">📌</button>
+                                        <button className={'icon-btn' + (noteSortMode !== 'manual' ? ' active' : '')} onClick={() => setShowSortMenu(true)} title="Sort notes">↕</button>
                                         <button className="icon-btn" onClick={() => setView('trash')} title="Trash">🗑</button>
                                         <button className="icon-btn" onClick={toggleSelectMode} title="Select notes">☑</button>
                                         <button className="icon-btn" onClick={() => setShowCategoryManager(true)} title="Categories">⚙</button>
@@ -3954,7 +4308,7 @@
                                         onOpen={handleCardOpen}
                                         onTrash={trashNote}
                                         onTogglePin={togglePin}
-                                        dragEnabled={filterCategory === 'all' && !selectMode}
+                                        dragEnabled={filterCategory === 'all' && !selectMode && noteSortMode === 'manual'}
                                         isDragging={draggingId === note.id}
                                         onCardPointerDown={handleCardPointerDown}
                                         onCardPointerMove={handleCardPointerMove}
@@ -3996,6 +4350,73 @@
                         />
                     ) : null}
 
+                    {showSortMenu ? (
+                        <SortMenuSheet
+                            background={settings.dashboardBackground}
+                            value={noteSortMode}
+                            onChange={updateNoteSortMode}
+                            onClose={() => setShowSortMenu(false)}
+                        />
+                    ) : null}
+
+                    {pendingUnlockNoteId ? (
+                        <PinEntrySheet
+                            title="Enter PIN"
+                            message="This note is locked."
+                            onConfirm={async (pin) => {
+                                const ok = await verifyPin(pin);
+                                if (ok) {
+                                    setPinUnlockedThisSession(true);
+                                    setActiveNoteId(pendingUnlockNoteId);
+                                    setPendingUnlockNoteId(null);
+                                }
+                                return ok;
+                            }}
+                            onCancel={() => setPendingUnlockNoteId(null)}
+                        />
+                    ) : null}
+
+                    {pinFlow === 'setup' ? (
+                        <PinSetupSheet
+                            title="Set a PIN"
+                            onConfirm={async (pin) => { await setAppPin(pin); setPinFlow(null); }}
+                            onCancel={() => setPinFlow(null)}
+                        />
+                    ) : null}
+
+                    {pinFlow === 'change-verify' ? (
+                        <PinEntrySheet
+                            title="Enter current PIN"
+                            onConfirm={async (pin) => {
+                                const ok = await verifyPin(pin);
+                                if (ok) setPinFlow('change-setup');
+                                return ok;
+                            }}
+                            onCancel={() => setPinFlow(null)}
+                        />
+                    ) : null}
+
+                    {pinFlow === 'change-setup' ? (
+                        <PinSetupSheet
+                            title="Set a new PIN"
+                            onConfirm={async (pin) => { await setAppPin(pin); setPinFlow(null); }}
+                            onCancel={() => setPinFlow(null)}
+                        />
+                    ) : null}
+
+                    {pinFlow === 'remove-verify' ? (
+                        <PinEntrySheet
+                            title="Enter current PIN"
+                            message="Removing the PIN leaves any locked notes unlocked until a new one is set."
+                            onConfirm={async (pin) => {
+                                const ok = await verifyPin(pin);
+                                if (ok) { removeAppPin(); setPinFlow(null); }
+                                return ok;
+                            }}
+                            onCancel={() => setPinFlow(null)}
+                        />
+                    ) : null}
+
                     {trashToast ? (
                         <div className="undo-toast">
                             <span>Note moved to trash</span>
@@ -4022,6 +4443,10 @@
                             onChangeDefaultNoteBackground={updateDefaultNoteBackground}
                             dashboardBackground={settings.dashboardBackground}
                             onChangeDashboardBackground={updateDashboardBackground}
+                            hasPin={!!settings.pinHash}
+                            onStartPinSetup={() => { setShowCategoryManager(false); setPinFlow('setup'); }}
+                            onStartPinChange={() => { setShowCategoryManager(false); setPinFlow('change-verify'); }}
+                            onStartPinRemove={() => { setShowCategoryManager(false); setPinFlow('remove-verify'); }}
                         />
                     ) : null}
 
