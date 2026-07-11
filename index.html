@@ -486,6 +486,13 @@
             padding: 20px;
             max-height: 80vh;
             overflow-y: auto;
+            /* A held finger lingering on a row's text (e.g. right after a
+               long-press opens a sheet) can otherwise trigger Android's
+               native text-selection menu on top of our own UI. Text inputs
+               are unaffected — form controls handle their own selection
+               regardless of an ancestor's user-select. */
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         .sheet-backdrop.centered .sheet {
@@ -1564,7 +1571,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v52';
+        const APP_VERSION = 'v53';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2768,7 +2775,7 @@
                     ? { columns: template.table.columns, rows: template.table.rows.map((r) => ({ id: makeId(), cells: [...r.cells] })) }
                     : null;
                 const photos = (template.photos || []).map((p) => ({ id: makeId(), dataUrl: p.dataUrl }));
-                setDraft((d) => ({ ...d, blocks, table, photos, background: template.background || d.background }));
+                setDraft((d) => ({ ...d, title: template.name || d.title, blocks, table, photos, background: template.background || d.background }));
                 setEditingBlockId(null);
                 setShowTemplateMenu(false);
             };
@@ -3225,7 +3232,6 @@
             const justDraggedRef = useRef(false);
             const categoryDragRef = useRef({ pointerId: null, categoryId: null });
             const trashToastTimer = useRef(null);
-            const fabRef = useRef({ pointerId: null, timer: null, longPressed: false, startX: 0, startY: 0 });
 
             useEffect(() => {
                 openDatabase().then(async (database) => {
@@ -3482,38 +3488,10 @@
                 setEditingTemplateId((current) => current === id ? null : current);
             };
 
-            // A quick tap on the + button creates a blank note as always; holding
-            // it down opens the template picker instead — the same long-press
-            // trick used elsewhere, so the common "just make a note" path never
-            // gets slower or picks up an extra step.
-            const handleFabPointerDown = (e) => {
-                fabRef.current = { pointerId: e.pointerId, timer: null, longPressed: false, startX: e.clientX, startY: e.clientY };
-                fabRef.current.timer = setTimeout(() => {
-                    fabRef.current.longPressed = true;
-                    if (navigator.vibrate) navigator.vibrate(12);
-                    setShowTemplatePicker(true);
-                }, 450);
-            };
-
-            const handleFabPointerMove = (e) => {
-                if (fabRef.current.pointerId !== e.pointerId) return;
-                const dx = Math.abs(e.clientX - fabRef.current.startX);
-                const dy = Math.abs(e.clientY - fabRef.current.startY);
-                if (dx > 14 || dy > 14) clearTimeout(fabRef.current.timer);
-            };
-
-            const handleFabPointerUp = () => {
-                clearTimeout(fabRef.current.timer);
-                fabRef.current.pointerId = null;
-            };
-
-            const handleFabClick = () => {
-                if (fabRef.current.longPressed) {
-                    fabRef.current.longPressed = false;
-                    return;
-                }
-                createNote();
-            };
+            // A plain tap opens the Blank note / template picker — long-press
+            // used to trigger this instead, but holding the button down was
+            // prone to also kicking off Android's native text-selection menu.
+            const handleFabClick = () => setShowTemplatePicker(true);
 
             const addCategory = (name, color) => {
                 const id = makeId();
@@ -3927,10 +3905,6 @@
                     <button
                         className="fab"
                         onClick={handleFabClick}
-                        onPointerDown={handleFabPointerDown}
-                        onPointerMove={handleFabPointerMove}
-                        onPointerUp={handleFabPointerUp}
-                        onPointerCancel={handleFabPointerUp}
                         onContextMenu={(e) => e.preventDefault()}
                     >
                         +
