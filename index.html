@@ -1157,6 +1157,38 @@
     </style>
 </head>
 <body>
+    <!-- Runs before React/Babel (loaded from a CDN and transpiled in-browser,
+         which takes a visible moment) have even finished downloading, so the
+         page is never briefly the plain default color before jumping to the
+         real theme. Duplicates the id->pageCss lookup from THEME_BACKGROUNDS
+         below on purpose — this has to stay a plain, instantly-executable
+         script with no dependency on anything else having loaded yet. -->
+    <script>
+        (function () {
+            try {
+                var bg = localStorage.getItem('dashboardBackground');
+                if (!bg) return;
+                var gradients = {
+                    aurora: 'linear-gradient(135deg, #4f5fd1 0%, #7b4fc9 50%, #4fb8c9 100%)',
+                    neon: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0ea5e9 100%)',
+                    frost: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 50%, #f0fdfa 100%)',
+                    cyber: 'linear-gradient(135deg, #1e1b4b 0%, #7e22ce 50%, #ec4899 100%)',
+                    holo: 'linear-gradient(135deg, #fbcfe8 0%, #ddd6fe 50%, #a7f3d0 100%)',
+                    matrix: 'linear-gradient(135deg, #06130a 0%, #0d3b1f 55%, #00e676 100%)',
+                    synthwave: 'linear-gradient(135deg, #2b0b3f 0%, #a2246b 55%, #f6a821 100%)',
+                    plasma: 'linear-gradient(135deg, #3a0ca3 0%, #8e2de2 50%, #ff0080 100%)',
+                    quantum: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
+                    obsidian: 'linear-gradient(135deg, #000000 0%, #0a0a0d 55%, #16161f 100%)',
+                };
+                if (bg.indexOf('theme:') === 0) {
+                    var css = gradients[bg.slice(6)];
+                    if (css) document.body.style.backgroundImage = css;
+                } else {
+                    document.body.style.background = bg;
+                }
+            } catch (e) {}
+        })();
+    </script>
     <div id="root"></div>
 
     <script type="text/babel" data-presets="react">
@@ -1417,7 +1449,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v42';
+        const APP_VERSION = 'v43';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1699,27 +1731,31 @@
                                     onPointerCancel={onHandlePointerUp}
                                 >⠿</span>
                                 <span className="color-dot" style={{ background: cat.color, width: 12, height: 12 }}></span>
-                                <input
-                                    type="text"
-                                    autoComplete="category-name-nofill"
-                                    data-lpignore="true"
-                                    data-form-type="other"
-                                    value={cat.name}
-                                    onChange={(e) => onRename(cat.id, e.target.value)}
-                                />
+                                <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                                    <input
+                                        type="text"
+                                        autoComplete="category-name-nofill"
+                                        data-lpignore="true"
+                                        data-form-type="other"
+                                        value={cat.name}
+                                        onChange={(e) => onRename(cat.id, e.target.value)}
+                                    />
+                                </form>
                                 <button className="small-icon-btn" onClick={() => onDelete(cat.id)}>✕</button>
                             </div>
                         ))}
                         <div className="add-category-form">
-                            <input
-                                type="text"
-                                autoComplete="new-category-nofill"
-                                data-lpignore="true"
-                                data-form-type="other"
-                                placeholder="New category name"
-                                value={newName}
-                                onChange={(e) => setNewName(e.target.value)}
-                            />
+                            <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                                <input
+                                    type="text"
+                                    autoComplete="new-category-nofill"
+                                    data-lpignore="true"
+                                    data-form-type="other"
+                                    placeholder="New category name"
+                                    value={newName}
+                                    onChange={(e) => setNewName(e.target.value)}
+                                />
+                            </form>
                             <div className="swatch-row">
                                 {CATEGORY_COLORS.map((c) => (
                                     <button
@@ -1866,6 +1902,7 @@
             return (
                 <div className="mileage-table-container">
                     <div className="mileage-table-wrap">
+                        <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
                         <table className="mileage-table">
                             <thead>
                                 <tr>
@@ -1897,6 +1934,7 @@
                                 ))}
                             </tbody>
                         </table>
+                        </form>
                     </div>
                     <div className="mileage-total-bar">
                         <span className="mileage-total-label">Total Miles</span>
@@ -1944,15 +1982,17 @@
                             })
                         )}
                         <div className="add-category-form">
-                            <input
-                                type="text"
-                                autoComplete="new-category-nofill"
-                                data-lpignore="true"
-                                data-form-type="other"
-                                placeholder="New category name"
-                                value={newName}
-                                onChange={(e) => setNewName(e.target.value)}
-                            />
+                            <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                                <input
+                                    type="text"
+                                    autoComplete="new-category-nofill"
+                                    data-lpignore="true"
+                                    data-form-type="other"
+                                    placeholder="New category name"
+                                    value={newName}
+                                    onChange={(e) => setNewName(e.target.value)}
+                                />
+                            </form>
                             <div className="swatch-row">
                                 {CATEGORY_COLORS.map((c) => (
                                     <button
@@ -2397,16 +2437,18 @@
                         </div>
                     </div>
                     <div className="editor-body" style={resolvePageBackground(draft.background)}>
-                        <input
-                            className="editor-title-input"
-                            autoComplete="note-title-nofill"
-                            data-lpignore="true"
-                            data-form-type="other"
-                            placeholder="Title"
-                            value={draft.title}
-                            onChange={(e) => updateField('title', e.target.value)}
-                            autoFocus={note.title === ''}
-                        />
+                        <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                            <input
+                                className="editor-title-input"
+                                autoComplete="note-title-nofill"
+                                data-lpignore="true"
+                                data-form-type="other"
+                                placeholder="Title"
+                                value={draft.title}
+                                onChange={(e) => updateField('title', e.target.value)}
+                                autoFocus={note.title === ''}
+                            />
+                        </form>
 
                         <div className="editor-meta-row">
                             <button
@@ -3035,17 +3077,19 @@
                         </div>
                         {showSearch ? (
                             <div className="search-bar">
-                                <input
-                                    type="text"
-                                    className="search-input"
-                                    autoComplete="notes-search-nofill"
-                                    data-lpignore="true"
-                                    data-form-type="other"
-                                    placeholder="Search notes..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    autoFocus
-                                />
+                                <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                                    <input
+                                        type="text"
+                                        className="search-input"
+                                        autoComplete="notes-search-nofill"
+                                        data-lpignore="true"
+                                        data-form-type="other"
+                                        placeholder="Search notes..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        autoFocus
+                                    />
+                                </form>
                                 {searchQuery ? (
                                     <button className="search-clear-btn" onClick={() => setSearchQuery('')}>✕</button>
                                 ) : null}
