@@ -1571,7 +1571,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v55';
+        const APP_VERSION = 'v56';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1689,8 +1689,12 @@
             const table = template.table
                 ? { columns: template.table.columns, rows: template.table.rows.map((r) => ({ id: makeId(), cells: [...r.cells] })) }
                 : null;
+            // The template's own categories win when it has any set; the passed-in
+            // fallback only applies to templates that were saved before this
+            // feature existed (or were never given a category).
+            const resolvedCategoryIds = (template.categoryIds && template.categoryIds.length > 0) ? template.categoryIds : (categoryIds || []);
             return {
-                ...blankNote(categoryIds),
+                ...blankNote(resolvedCategoryIds),
                 title: template.name || '',
                 blocks,
                 photos: (template.photos || []).map((p) => ({ id: makeId(), dataUrl: p.dataUrl })),
@@ -2555,12 +2559,13 @@
             const updateField = (field, value) => setDraft((d) => ({ ...d, [field]: value }));
 
             // Call before applying a line-level change to snapshot what the note
-            // looked like just prior, so undoLastEdit can step back to it. Title
-            // and background are included too since loadTemplateIntoDraft
-            // changes those alongside blocks/photos — every other call site
-            // leaves them untouched, so snapshotting them there is a no-op.
+            // looked like just prior, so undoLastEdit can step back to it. Title,
+            // background, and categoryIds are included too since
+            // loadTemplateIntoDraft changes those alongside blocks/photos —
+            // every other call site leaves them untouched, so snapshotting
+            // them there is a no-op.
             const pushEditHistory = () => {
-                editHistoryRef.current.push({ title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background });
+                editHistoryRef.current.push({ title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds });
                 if (editHistoryRef.current.length > 25) editHistoryRef.current.shift();
                 setCanUndoEdit(true);
             };
@@ -2568,7 +2573,7 @@
             const undoLastEdit = () => {
                 const prev = editHistoryRef.current.pop();
                 if (!prev) return;
-                setDraft((d) => ({ ...d, title: prev.title, blocks: prev.blocks, photos: prev.photos, background: prev.background }));
+                setDraft((d) => ({ ...d, title: prev.title, blocks: prev.blocks, photos: prev.photos, background: prev.background, categoryIds: prev.categoryIds }));
                 setEditingBlockId(null);
                 setCanUndoEdit(editHistoryRef.current.length > 0);
             };
@@ -2790,7 +2795,15 @@
                     ? { columns: template.table.columns, rows: template.table.rows.map((r) => ({ id: makeId(), cells: [...r.cells] })) }
                     : null;
                 const photos = (template.photos || []).map((p) => ({ id: makeId(), dataUrl: p.dataUrl }));
-                setDraft((d) => ({ ...d, title: template.name || d.title, blocks, table, photos, background: template.background || d.background }));
+                setDraft((d) => ({
+                    ...d,
+                    title: template.name || d.title,
+                    blocks,
+                    table,
+                    photos,
+                    background: template.background || d.background,
+                    categoryIds: (template.categoryIds && template.categoryIds.length > 0) ? template.categoryIds : d.categoryIds,
+                }));
                 setEditingBlockId(null);
                 setShowTemplateMenu(false);
             };
@@ -2931,25 +2944,23 @@
                         </form>
 
                         <div className="editor-meta-row">
-                            {isTemplate ? null : (
-                                <button
-                                    type="button"
-                                    className="category-select"
-                                    onClick={() => setShowCategoryPicker(true)}
-                                >
-                                    {draft.categoryIds && draft.categoryIds.length > 0 ? (
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                            {draft.categoryIds.map((id) => {
-                                                const cat = categories.find(c => c.id === id);
-                                                return cat ? <span key={id} className="color-dot" style={{ background: cat.color }}></span> : null;
-                                            })}
-                                            {draft.categoryIds.length === 1
-                                                ? (categories.find(c => c.id === draft.categoryIds[0]) || {}).name
-                                                : draft.categoryIds.length + ' categories'}
-                                        </span>
-                                    ) : 'Uncategorized'}
-                                </button>
-                            )}
+                            <button
+                                type="button"
+                                className="category-select"
+                                onClick={() => setShowCategoryPicker(true)}
+                            >
+                                {draft.categoryIds && draft.categoryIds.length > 0 ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                        {draft.categoryIds.map((id) => {
+                                            const cat = categories.find(c => c.id === id);
+                                            return cat ? <span key={id} className="color-dot" style={{ background: cat.color }}></span> : null;
+                                        })}
+                                        {draft.categoryIds.length === 1
+                                            ? (categories.find(c => c.id === draft.categoryIds[0]) || {}).name
+                                            : draft.categoryIds.length + ' categories'}
+                                    </span>
+                                ) : 'Uncategorized'}
+                            </button>
                             <LineToolbar
                                 hasActiveLine={!!editingBlockId}
                                 activeType={activeBlock ? activeBlock.type : null}
@@ -3482,6 +3493,7 @@
                 const tmpl = {
                     id: makeId(),
                     name,
+                    categoryIds: sourceNote.categoryIds || [],
                     blocks: sourceNote.blocks.map((b) => ({ type: b.type, html: b.html })),
                     photos: (sourceNote.photos || []).map((p) => ({ dataUrl: p.dataUrl })),
                     table: sourceNote.table
@@ -3500,6 +3512,7 @@
                     const updated = {
                         ...t,
                         name: updatedDraft.title || t.name,
+                        categoryIds: updatedDraft.categoryIds || [],
                         blocks: updatedDraft.blocks.map((b) => ({ type: b.type, html: b.html })),
                         photos: (updatedDraft.photos || []).map((p) => ({ dataUrl: p.dataUrl })),
                         table: updatedDraft.table
@@ -3603,6 +3616,16 @@
                     setNotes((prev) => prev.map(n => (n.categoryIds && n.categoryIds.includes(id))
                         ? { ...n, categoryIds: n.categoryIds.filter(cid => cid !== id) }
                         : n));
+                }
+                const affectedTemplates = templates.filter(t => t.categoryIds && t.categoryIds.includes(id));
+                affectedTemplates.forEach((t) => {
+                    const updated = { ...t, categoryIds: t.categoryIds.filter(cid => cid !== id) };
+                    if (db) idbPut(db, 'templates', updated);
+                });
+                if (affectedTemplates.length > 0) {
+                    setTemplates((prev) => prev.map(t => (t.categoryIds && t.categoryIds.includes(id))
+                        ? { ...t, categoryIds: t.categoryIds.filter(cid => cid !== id) }
+                        : t));
                 }
                 if (filterCategory === id) setFilterCategory('all');
                 setDeleteCategoryId(null);
@@ -3795,11 +3818,11 @@
                     <NoteEditor
                         key={editingTemplate.id}
                         note={templateToNoteDraft(editingTemplate)}
-                        categories={[]}
+                        categories={categories}
                         onBack={() => setEditingTemplateId(null)}
                         onSave={updateTemplateContent}
                         onTrash={deleteTemplate}
-                        onAddCategory={() => null}
+                        onAddCategory={addCategory}
                         isTemplate
                     />
                 );
