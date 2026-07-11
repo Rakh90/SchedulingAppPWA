@@ -1960,7 +1960,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v71';
+        const APP_VERSION = 'v72';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3274,27 +3274,6 @@
             //   { kind: 'title', selStart, selEnd, value }
             //   { kind: 'mileage', rowId }
             const dateTargetRef = useRef(null);
-            // On iOS, tapping the date button while the title/a body line still
-            // has the on-screen keyboard up blurs that field as part of the same
-            // gesture that opens the picker. If that blur is allowed to flip
-            // editingBlockId to null (swapping the contentEditable block out for
-            // a plain display div) or titleFocused to false right then, the
-            // resulting DOM/layout change collides with the keyboard-dismiss +
-            // picker-open animations happening at the same moment on WebKit,
-            // and the picker was observed to flash open and immediately auto-
-            // close with today's date. Set true in the date input's own
-            // onPointerDown (which fires while the old field is still focused,
-            // before this blur happens) to suppress just that one blur's exit-
-            // edit-mode side effect; the block/title itself still visually and
-            // structurally stays exactly as it was while the picker is opening.
-            // The timeout is a safety net in case the expected blur never
-            // fires (e.g. the picker gesture gets cancelled) so this can't get
-            // stuck suppressing every blur from then on.
-            const suppressBlurExitRef = useRef(false);
-            const armSuppressBlurExit = () => {
-                suppressBlurExitRef.current = true;
-                setTimeout(() => { suppressBlurExitRef.current = false; }, 400);
-            };
             // Set right after inserting a date, so the follow-up effect that
             // re-enters edit mode on this block can land the caret just past the
             // inserted text instead of wherever placeCursorAtDeepestEnd puts it.
@@ -3440,21 +3419,51 @@
                 };
             };
 
+            // On iOS, if a text field or contentEditable line still has the
+            // on-screen keyboard up, tapping the date button can't cleanly
+            // swap straight from that keyboard to this input's own date-
+            // wheel picker within a single tap — observed as the picker
+            // flashing open and immediately auto-closing with today's date,
+            // seemingly racing the keyboard's own dismiss animation (this
+            // was tried and did NOT fix it: merely keeping the field's own
+            // React state from changing during that blur, since the
+            // conflict is with the keyboard's native dismiss animation
+            // itself, not anything our own re-renders were doing). So this
+            // first tap is used purely to dismiss the keyboard — the caller
+            // must already have stashed where the date should land before
+            // calling this — and the browser's default action (shifting
+            // focus onto this date input) is blocked so nothing tries to
+            // open its picker yet. iOS Pointer Events suppresses the
+            // compatibility mousedown/click (and so the focus that would
+            // normally follow it) for the rest of this gesture once
+            // pointerdown's preventDefault() is called. The very next tap on
+            // this same button, with nothing left focused, opens the picker
+            // cleanly with nothing competing against it. Returns true if it
+            // intercepted the tap this way.
+            const dismissKeyboardFirst = (e) => {
+                const active = document.activeElement;
+                if (!active || active === document.body) return false;
+                const isTextField = active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable;
+                if (!isTextField) return false;
+                e.preventDefault();
+                active.blur();
+                return true;
+            };
+
             // One button (in the line toolbar) serves both the title field and
             // body lines. This runs on the overlay input's pointerdown, which
             // fires before the browser shifts focus to it — so whichever of
             // the two was actually focused a moment ago is still
             // document.activeElement right now, reliably saying which one to
             // target.
-            const prepareDateTargetSmart = () => {
+            const prepareDateTargetSmart = (e) => {
                 const active = document.activeElement;
                 if (active && active.classList && active.classList.contains('editor-title-input')) {
-                    armSuppressBlurExit();
                     prepareDateTargetForTitle();
                 } else if (editingBlockId) {
-                    armSuppressBlurExit();
                     prepareDateTargetForBlock();
                 }
+                dismissKeyboardFirst(e);
             };
 
             // Mirrors the "Today" button: if a Date cell is currently
@@ -3467,10 +3476,11 @@
             // the input on that same gesture disrupts it). Instead just flag
             // "no row yet" and let handleDateChange create the row once a
             // date is actually picked, well after the gesture has settled.
-            const prepareDateTargetForMileage = () => {
+            const prepareDateTargetForMileage = (e) => {
                 const table = mileageTableRef.current;
                 const active = table && table.getActiveDateCell ? table.getActiveDateCell() : null;
                 dateTargetRef.current = { kind: 'mileage', rowId: active ? active.rowId : null };
+                dismissKeyboardFirst(e);
             };
 
             // Applies the picked date to whichever target openDatePickerFor*
@@ -4017,10 +4027,7 @@
                                 value={draft.title}
                                 onChange={(e) => updateField('title', e.target.value)}
                                 onFocus={() => setTitleFocused(true)}
-                                onBlur={() => {
-                                    if (suppressBlurExitRef.current) { suppressBlurExitRef.current = false; return; }
-                                    setTitleFocused(false);
-                                }}
+                                onBlur={() => setTitleFocused(false)}
                                 autoFocus={note.title === ''}
                             />
                         </form>
@@ -4070,10 +4077,7 @@
                                     isDragging={draggingBlockId === block.id}
                                     listNumber={listNumbers[idx]}
                                     onStartEdit={() => setEditingBlockId(block.id)}
-                                    onExitEdit={(id) => {
-                                        if (suppressBlurExitRef.current) { suppressBlurExitRef.current = false; return; }
-                                        setEditingBlockId((current) => current === id ? null : current);
-                                    }}
+                                    onExitEdit={(id) => setEditingBlockId((current) => current === id ? null : current)}
                                     onCommit={commitBlockHtml}
                                     onEnter={handleEnter}
                                     onBackspaceEmpty={handleBackspaceEmpty}
