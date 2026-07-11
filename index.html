@@ -58,11 +58,11 @@
         }
 
         .app-header h1 {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 700;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .header-row {
@@ -73,7 +73,28 @@
 
         .header-actions {
             display: flex;
-            gap: 8px;
+            gap: 6px;
+        }
+
+        /* The dashboard header can carry up to 6 icons (5 plus Select) —
+           slightly smaller than the shared .icon-btn default so they don't
+           wrap "Sly Notes" onto a second line on narrow phones. */
+        .header-actions .icon-btn {
+            width: 32px;
+            height: 32px;
+            font-size: 15px;
+        }
+
+        .select-toolbar {
+            flex: 1;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .select-count {
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
         }
 
         .icon-btn {
@@ -297,6 +318,33 @@
 
         .note-card.pinned {
             box-shadow: 0 0 0 2px #667eea, 0 4px 14px rgba(0,0,0,0.14);
+        }
+
+        .note-card.selected {
+            box-shadow: 0 0 0 2px #667eea, 0 4px 14px rgba(0,0,0,0.14);
+        }
+
+        .note-card-select-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid rgba(0,0,0,0.35);
+            background: rgba(255,255,255,0.85);
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+
+        .note-card-select-badge.checked {
+            background: #667eea;
+            border-color: #667eea;
         }
 
         .note-card-body {
@@ -697,6 +745,14 @@
             align-items: flex-start;
             gap: 6px;
             padding: 4px 0;
+        }
+
+        .block-row.dragging {
+            opacity: 0.9;
+            background: rgba(102,126,234,0.08);
+            border-radius: 8px;
+            position: relative;
+            z-index: 5;
         }
 
         .line-toolbar {
@@ -1242,7 +1298,7 @@
         const { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } = React;
 
         const DB_NAME = 'notepad-db';
-        const DB_VERSION = 3;
+        const DB_VERSION = 4;
 
         function openDatabase() {
             return new Promise((resolve, reject) => {
@@ -1263,6 +1319,9 @@
                     // shared title/text/url/photos payload for the page to consume.
                     if (!db.objectStoreNames.contains('shareInbox')) {
                         db.createObjectStore('shareInbox', { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains('templates')) {
+                        db.createObjectStore('templates', { keyPath: 'id' });
                     }
                 };
                 req.onsuccess = (e) => resolve(e.target.result);
@@ -1502,7 +1561,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v48';
+        const APP_VERSION = 'v50';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -1612,6 +1671,30 @@
             };
         }
 
+        // Always-available starter template, shown alongside any user-saved ones
+        // in the long-press template picker off the + button. Not stored in
+        // IndexedDB — it's just a fixed shape a new note gets seeded from.
+        const BUILT_IN_TEMPLATES = [
+            { id: 'builtin-grocery-list', name: 'Grocery List', builtIn: true, title: 'Grocery List', blocks: [{ type: 'checklist', html: '' }], table: null, background: '#ffffff' },
+        ];
+
+        // Regenerates ids for every block/row so instantiating the same template
+        // twice never lets two notes share a block id.
+        function noteFromTemplate(template, categoryIds) {
+            const blocks = (template.blocks && template.blocks.length > 0 ? template.blocks : [{ type: 'text', html: '' }])
+                .map((b) => ({ id: makeId(), type: b.type, html: b.html || '', checked: false }));
+            const table = template.table
+                ? { columns: template.table.columns, rows: template.table.rows.map((r) => ({ id: makeId(), cells: [...r.cells] })) }
+                : null;
+            return {
+                ...blankNote(categoryIds),
+                title: template.title || '',
+                blocks,
+                table,
+                background: template.background || '#ffffff',
+            };
+        }
+
         // Legacy notes (single type + items/textContent, no blocks) get folded into
         // the block model on load so notes created before this update aren't lost.
         function migrateNote(raw) {
@@ -1684,37 +1767,47 @@
             return (b.order || 0) - (a.order || 0);
         }
 
-        function NoteCard({ note, noteCategories, onOpen, onTrash, onTogglePin, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp }) {
+        function NoteCard({ note, noteCategories, onOpen, onTrash, onTogglePin, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp, selectMode, selected, onToggleSelect }) {
             const numbers = computeListNumbers(note.blocks);
             const previewBlocks = note.blocks.filter(b => b.html && stripHtml(b.html).trim()).slice(0, 4);
 
             return (
                 <div
-                    className={'note-card' + (isDragging ? ' dragging' : '') + (note.pinned ? ' pinned' : '') + (isThemeDark(note.background) ? ' dark-content' : '')}
+                    className={'note-card' + (isDragging ? ' dragging' : '') + (note.pinned ? ' pinned' : '') + (selected ? ' selected' : '') + (isThemeDark(note.background) ? ' dark-content' : '')}
                     style={{ ...resolveCardBackground(note.background), touchAction: dragEnabled ? 'none' : 'auto' }}
                     data-note-id={note.id}
                     onPointerDown={dragEnabled ? (e) => onCardPointerDown(e, note.id) : undefined}
                     onPointerMove={dragEnabled ? onCardPointerMove : undefined}
                     onPointerUp={dragEnabled ? onCardPointerUp : undefined}
                     onPointerCancel={dragEnabled ? onCardPointerUp : undefined}
-                    onClick={(e) => { if (e.target.tagName === 'A') return; onOpen(note.id); }}
+                    onClick={(e) => {
+                        if (selectMode) { onToggleSelect(note.id); return; }
+                        if (e.target.tagName === 'A') return;
+                        onOpen(note.id);
+                    }}
                 >
-                    <button
-                        className={'note-card-pin-btn' + (note.pinned ? ' pinned' : '')}
-                        title={note.pinned ? 'Unpin' : 'Pin to top'}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
-                    >
-                        📌
-                    </button>
-                    <button
-                        className="note-card-trash-btn"
-                        title="Move to trash"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => { e.stopPropagation(); onTrash(note.id); }}
-                    >
-                        🗑
-                    </button>
+                    {selectMode ? (
+                        <span className={'note-card-select-badge' + (selected ? ' checked' : '')}>{selected ? '✓' : ''}</span>
+                    ) : (
+                        <React.Fragment>
+                            <button
+                                className={'note-card-pin-btn' + (note.pinned ? ' pinned' : '')}
+                                title={note.pinned ? 'Unpin' : 'Pin to top'}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
+                            >
+                                📌
+                            </button>
+                            <button
+                                className="note-card-trash-btn"
+                                title="Move to trash"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => { e.stopPropagation(); onTrash(note.id); }}
+                            >
+                                🗑
+                            </button>
+                        </React.Fragment>
+                    )}
                     {note.title ? <div className="note-card-title">{note.title}</div> : null}
                     {note.photos && note.photos.length > 0 ? (
                         <img className="note-card-thumb" src={note.photos[0].dataUrl} alt="" />
@@ -2033,6 +2126,30 @@
             );
         }
 
+        function BatchCategorySheet({ background, categories, onAddCategory, onClose }) {
+            const dark = isThemeDark(background);
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className={'sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
+                        <h2>Add category to selected</h2>
+                        {categories.length === 0 ? (
+                            <p className="sheet-muted-text" style={{ fontSize: 13 }}>No categories yet.</p>
+                        ) : (
+                            categories.map((cat) => (
+                                <button key={cat.id} className="category-picker-row" onClick={() => onAddCategory(cat.id)}>
+                                    <span className="color-dot" style={{ background: cat.color, width: 12, height: 12 }}></span>
+                                    <span className="category-picker-name">{cat.name}</span>
+                                </button>
+                            ))
+                        )}
+                        <div className="btn-row" style={{ marginTop: 14 }}>
+                            <button className="primary-btn" style={{ flex: 1 }} onClick={onClose}>Done</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         function CategoryPickerSheet({ background, categories, selectedIds, onToggle, onClose, onCreateCategory }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
@@ -2110,6 +2227,68 @@
                             <button className="secondary-btn" onClick={onCancel}>Cancel</button>
                             <button className="danger-btn" onClick={onConfirm}>{confirmLabel}</button>
                         </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function PromptSheet({ title, placeholder, defaultValue, confirmLabel, onConfirm, onCancel }) {
+            const [value, setValue] = useState(defaultValue || '');
+            return (
+                <div className="sheet-backdrop centered" onClick={onCancel}>
+                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                        <h2>{title}</h2>
+                        <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                            <input
+                                type="text"
+                                autoComplete="prompt-sheet-nofill"
+                                data-lpignore="true"
+                                data-form-type="other"
+                                placeholder={placeholder}
+                                value={value}
+                                onChange={(e) => setValue(e.target.value)}
+                                autoFocus
+                                style={{ width: '100%', border: '1px solid #e2e4e9', borderRadius: 10, padding: '10px 12px', fontSize: 14, marginBottom: 16, boxSizing: 'border-box' }}
+                            />
+                        </form>
+                        <div className="btn-row">
+                            <button className="secondary-btn" onClick={onCancel}>Cancel</button>
+                            <button className="primary-btn" onClick={() => { if (value.trim()) onConfirm(value.trim()); }}>{confirmLabel}</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function TemplatePickerSheet({ background, templates, onPick, onDeleteTemplate, onClose }) {
+            const dark = isThemeDark(background);
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className={'sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
+                        <h2>New note</h2>
+                        <button className="category-picker-row" onClick={() => onPick(null)}>
+                            <span className="category-picker-name">📝 Blank note</span>
+                        </button>
+                        {BUILT_IN_TEMPLATES.map((t) => (
+                            <button key={t.id} className="category-picker-row" onClick={() => onPick(t)}>
+                                <span className="category-picker-name">🧾 {t.name}</span>
+                            </button>
+                        ))}
+                        {templates.map((t) => (
+                            <div className="category-manager-row" key={t.id}>
+                                <button
+                                    type="button"
+                                    onClick={() => onPick(t)}
+                                    style={{ flex: 1, textAlign: 'left', background: 'transparent', border: 'none', font: 'inherit', color: 'inherit', padding: '4px 0' }}
+                                >
+                                    📄 {t.name}
+                                </button>
+                                <button className="small-icon-btn" onClick={() => onDeleteTemplate(t.id)}>✕</button>
+                            </div>
+                        ))}
+                        {templates.length === 0 ? (
+                            <p className="sheet-muted-text" style={{ fontSize: 12, marginTop: 10 }}>Save any note as a template (see the Templates section inside a note) to see it here.</p>
+                        ) : null}
                     </div>
                 </div>
             );
@@ -2195,7 +2374,7 @@
             );
         }
 
-        function BlockLine({ block, isEditing, listNumber, onStartEdit, onExitEdit, onCommit, onEnter, onBackspaceEmpty, onToggleChecked }) {
+        function BlockLine({ block, isEditing, listNumber, isDragging, onStartEdit, onExitEdit, onCommit, onEnter, onBackspaceEmpty, onToggleChecked, onMarkerPointerDown, onMarkerPointerMove, onMarkerPointerUp }) {
             const editableRef = useRef(null);
 
             // Re-seed the contentEditable's DOM content every time this block enters
@@ -2232,24 +2411,37 @@
                 }
             };
 
+            // A press-and-hold on the marker (checkbox/bullet/number) reorders the
+            // line, exactly like a quick tap still toggles the checkbox — the same
+            // long-press-vs-tap trick used for dragging note cards and category
+            // rows. This keeps the text itself untouched by drag handling entirely.
+            const markerDragProps = {
+                style: { touchAction: 'none' },
+                onPointerDown: (e) => onMarkerPointerDown(e, block.id),
+                onPointerMove: onMarkerPointerMove,
+                onPointerUp: onMarkerPointerUp,
+                onPointerCancel: onMarkerPointerUp,
+            };
+
             const marker = block.type === 'checklist' ? (
                 <button
                     className={'checkbox-marker' + (block.checked ? ' checked' : '')}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => onToggleChecked(block.id)}
+                    {...markerDragProps}
                 >
                     {block.checked ? '✓' : ''}
                 </button>
             ) : block.type === 'numbered' ? (
-                <span className="list-item-marker">{listNumber}.</span>
+                <span className="list-item-marker" {...markerDragProps}>{listNumber}.</span>
             ) : block.type === 'bulleted' ? (
-                <span className="list-item-marker">•</span>
+                <span className="list-item-marker" {...markerDragProps}>•</span>
             ) : (
-                <span className="list-item-marker"></span>
+                <span className="list-item-marker" {...markerDragProps}></span>
             );
 
             return (
-                <div className="block-row">
+                <div className={'block-row' + (isDragging ? ' dragging' : '')} data-block-id={block.id}>
                     {marker}
                     {isEditing ? (
                         <div
@@ -2272,7 +2464,7 @@
             );
         }
 
-        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory }) {
+        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate }) {
             const [draft, setDraft] = useState(note);
             const [editingBlockId, setEditingBlockId] = useState(null);
             const [confirmTrash, setConfirmTrash] = useState(false);
@@ -2282,12 +2474,22 @@
             const [confirmRemoveRow, setConfirmRemoveRow] = useState(false);
             const [removedRowToast, setRemovedRowToast] = useState(null);
             const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+            const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+            const [draggingBlockId, setDraggingBlockId] = useState(null);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
             const filesInputRef = useRef(null);
             const mileageTableRef = useRef(null);
             const saveTimer = useRef(null);
             const removedRowToastTimer = useRef(null);
+            const blockDragRef = useRef({ pointerId: null, blockId: null, timer: null, dragging: false, startX: 0, startY: 0 });
+            const justDraggedBlockRef = useRef(false);
+            // In-memory-only undo stack for this editing session (not persisted) —
+            // one snapshot per line-level action (a line committed, added, removed,
+            // retyped, reformatted, checked, reordered, or a photo added/removed),
+            // not per keystroke.
+            const editHistoryRef = useRef([]);
+            const [canUndoEdit, setCanUndoEdit] = useState(false);
 
             useEffect(() => {
                 if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -2298,6 +2500,22 @@
             }, [draft]);
 
             const updateField = (field, value) => setDraft((d) => ({ ...d, [field]: value }));
+
+            // Call before applying a line-level change to snapshot what the note
+            // looked like just prior, so undoLastEdit can step back to it.
+            const pushEditHistory = () => {
+                editHistoryRef.current.push({ blocks: draft.blocks, photos: draft.photos });
+                if (editHistoryRef.current.length > 25) editHistoryRef.current.shift();
+                setCanUndoEdit(true);
+            };
+
+            const undoLastEdit = () => {
+                const prev = editHistoryRef.current.pop();
+                if (!prev) return;
+                setDraft((d) => ({ ...d, blocks: prev.blocks, photos: prev.photos }));
+                setEditingBlockId(null);
+                setCanUndoEdit(editHistoryRef.current.length > 0);
+            };
 
             const toggleDraftCategory = (id) => {
                 setDraft((d) => {
@@ -2314,10 +2532,16 @@
 
             const commitBlockHtml = (blockId, rawHtml) => {
                 const clean = stripZeroWidthSpace(sanitizeInlineHtml(rawHtml));
+                const current = draft.blocks.find(b => b.id === blockId);
+                if (current && current.html === clean) return;
+                pushEditHistory();
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: clean } : b) }));
             };
 
             const setBlockType = (blockId, type) => {
+                const current = draft.blocks.find(b => b.id === blockId);
+                if (current && current.type === type) return;
+                pushEditHistory();
                 setDraft((d) => ({
                     ...d,
                     blocks: d.blocks.map((b) => b.id === blockId
@@ -2339,6 +2563,7 @@
                 el.focus();
                 placeCursorAtDeepestEnd(el);
                 const blockId = editingBlockId;
+                pushEditHistory();
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: newHtml } : b) }));
             };
 
@@ -2361,15 +2586,79 @@
                 el.focus();
                 placeCursorAtDeepestEnd(el);
                 const blockId = editingBlockId;
+                pushEditHistory();
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: newHtml } : b) }));
             };
 
             const toggleChecked = (blockId) => {
+                // A drag release fires a synthetic click right after — swallow that
+                // one so picking a checklist item up and dropping it never also
+                // flips its checked state.
+                if (justDraggedBlockRef.current) {
+                    justDraggedBlockRef.current = false;
+                    return;
+                }
+                pushEditHistory();
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, checked: !b.checked } : b) }));
+            };
+
+            const reorderBlocks = (blocks, draggedId, targetId) => {
+                const dragIdx = blocks.findIndex(b => b.id === draggedId);
+                const targetIdx = blocks.findIndex(b => b.id === targetId);
+                if (dragIdx === -1 || targetIdx === -1) return blocks;
+                const reordered = [...blocks];
+                const [moved] = reordered.splice(dragIdx, 1);
+                reordered.splice(targetIdx, 0, moved);
+                return reordered;
+            };
+
+            // Long-press-and-drag on a line's marker (checkbox/bullet/number)
+            // reorders it — the same timer-based long-press-vs-tap trick used for
+            // dragging note cards and category rows, so a quick tap still just
+            // toggles the checkbox instead of starting a drag.
+            const handleMarkerPointerDown = (e, blockId) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                blockDragRef.current = { pointerId: e.pointerId, blockId, timer: null, dragging: false, startX: e.clientX, startY: e.clientY };
+                blockDragRef.current.timer = setTimeout(() => {
+                    blockDragRef.current.dragging = true;
+                    setDraggingBlockId(blockId);
+                    pushEditHistory();
+                    if (navigator.vibrate) navigator.vibrate(12);
+                }, 450);
+            };
+
+            const handleMarkerPointerMove = (e) => {
+                if (blockDragRef.current.pointerId !== e.pointerId || !blockDragRef.current.blockId) return;
+                if (!blockDragRef.current.dragging) {
+                    const dx = Math.abs(e.clientX - blockDragRef.current.startX);
+                    const dy = Math.abs(e.clientY - blockDragRef.current.startY);
+                    if (dx > 14 || dy > 14) {
+                        clearTimeout(blockDragRef.current.timer);
+                        blockDragRef.current.blockId = null;
+                    }
+                    return;
+                }
+                e.preventDefault();
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                const rowEl = el && el.closest('[data-block-id]');
+                const targetId = rowEl && rowEl.getAttribute('data-block-id');
+                if (targetId && targetId !== blockDragRef.current.blockId) {
+                    setDraft((d) => ({ ...d, blocks: reorderBlocks(d.blocks, blockDragRef.current.blockId, targetId) }));
+                }
+            };
+
+            const handleMarkerPointerUp = () => {
+                clearTimeout(blockDragRef.current.timer);
+                if (blockDragRef.current.dragging) {
+                    justDraggedBlockRef.current = true;
+                }
+                blockDragRef.current = { pointerId: null, blockId: null, timer: null, dragging: false, startX: 0, startY: 0 };
+                setDraggingBlockId(null);
             };
 
             const handleEnter = (blockId) => {
                 const newId = makeId();
+                pushEditHistory();
                 setDraft((d) => {
                     const idx = d.blocks.findIndex(b => b.id === blockId);
                     const current = d.blocks[idx];
@@ -2386,6 +2675,7 @@
                 if (draft.blocks.length <= 1) return;
                 const idx = draft.blocks.findIndex(b => b.id === blockId);
                 const nextFocusId = draft.blocks[idx - 1] ? draft.blocks[idx - 1].id : (draft.blocks[idx + 1] ? draft.blocks[idx + 1].id : null);
+                pushEditHistory();
                 setDraft((d) => ({ ...d, blocks: d.blocks.filter(b => b.id !== blockId) }));
                 setEditingBlockId(nextFocusId);
             };
@@ -2410,6 +2700,7 @@
                 // of documents — filter those out instead of trying to render them.
                 const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
                 if (files.length === 0) return;
+                pushEditHistory();
                 setUploading(true);
                 try {
                     const newPhotos = [];
@@ -2428,6 +2719,7 @@
             };
 
             const removePhoto = (id) => {
+                pushEditHistory();
                 setDraft((d) => ({ ...d, photos: d.photos.filter(p => p.id !== id) }));
             };
 
@@ -2511,6 +2803,16 @@
                     <div className="editor-header" style={resolveHeaderBackground(draft.background)}>
                         <button className="icon-btn" style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }} onClick={handleBack}>←</button>
                         <div className="editor-header-actions">
+                            {canUndoEdit ? (
+                                <button
+                                    className="icon-btn"
+                                    style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
+                                    title="Undo last edit"
+                                    onClick={undoLastEdit}
+                                >
+                                    ↩
+                                </button>
+                            ) : null}
                             <button
                                 className={'icon-btn' + (draft.pinned ? ' active' : '')}
                                 style={draft.pinned ? { background: 'rgba(102,126,234,0.85)', color: '#fff' } : { background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }}
@@ -2570,6 +2872,7 @@
                                     key={block.id}
                                     block={block}
                                     isEditing={editingBlockId === block.id}
+                                    isDragging={draggingBlockId === block.id}
                                     listNumber={listNumbers[idx]}
                                     onStartEdit={() => setEditingBlockId(block.id)}
                                     onExitEdit={(id) => setEditingBlockId((current) => current === id ? null : current)}
@@ -2577,6 +2880,9 @@
                                     onEnter={handleEnter}
                                     onBackspaceEmpty={handleBackspaceEmpty}
                                     onToggleChecked={toggleChecked}
+                                    onMarkerPointerDown={handleMarkerPointerDown}
+                                    onMarkerPointerMove={handleMarkerPointerMove}
+                                    onMarkerPointerUp={handleMarkerPointerUp}
                                 />
                             ))}
                         </div>
@@ -2701,6 +3007,9 @@
 
                         <div className="section-label">Background</div>
                         <BackgroundPicker value={draft.background} onChange={(v) => updateField('background', v)} />
+
+                        <div className="section-label">Templates</div>
+                        <button className="secondary-btn" onClick={() => setShowSaveTemplate(true)}>💾 Save as Template</button>
                     </div>
 
                     {previewPhoto ? (
@@ -2708,6 +3017,17 @@
                             <button className="photo-preview-close" onClick={() => setPreviewPhoto(null)}>✕</button>
                             <img src={previewPhoto} alt="" />
                         </div>
+                    ) : null}
+
+                    {showSaveTemplate ? (
+                        <PromptSheet
+                            title="Save as template"
+                            placeholder="Template name"
+                            defaultValue={draft.title || 'Untitled template'}
+                            confirmLabel="Save"
+                            onCancel={() => setShowSaveTemplate(false)}
+                            onConfirm={(name) => { onSaveTemplate(name, draft); setShowSaveTemplate(false); }}
+                        />
                     ) : null}
 
                     {confirmTrash ? (
@@ -2800,6 +3120,8 @@
             const [loading, setLoading] = useState(true);
             const [categories, setCategories] = useState([]);
             const [notes, setNotes] = useState([]);
+            const [templates, setTemplates] = useState([]);
+            const [showTemplatePicker, setShowTemplatePicker] = useState(false);
             // IndexedDB reads are always async, so settings.dashboardBackground
             // would briefly be null on first paint (flashing the default
             // purple header before the real theme loads a moment later).
@@ -2821,6 +3143,9 @@
             const [searchQuery, setSearchQuery] = useState('');
             const [showPinnedOnly, setShowPinnedOnly] = useState(false);
             const [trashToast, setTrashToast] = useState(null);
+            const [selectMode, setSelectMode] = useState(false);
+            const [selectedIds, setSelectedIds] = useState([]);
+            const [showBatchCategory, setShowBatchCategory] = useState(false);
             const [pendingImport, setPendingImport] = useState(null);
             const [importError, setImportError] = useState('');
 
@@ -2828,15 +3153,18 @@
             const justDraggedRef = useRef(false);
             const categoryDragRef = useRef({ pointerId: null, categoryId: null });
             const trashToastTimer = useRef(null);
+            const fabRef = useRef({ pointerId: null, timer: null, longPressed: false, startX: 0, startY: 0 });
 
             useEffect(() => {
                 openDatabase().then(async (database) => {
                     setDb(database);
-                    const [cats, rawNotes, settingsRows] = await Promise.all([
+                    const [cats, rawNotes, settingsRows, templateRows] = await Promise.all([
                         idbGetAll(database, 'categories'),
                         idbGetAll(database, 'notes'),
                         idbGetAll(database, 'settings'),
+                        idbGetAll(database, 'templates'),
                     ]);
+                    setTemplates(templateRows);
                     const migrated = rawNotes.map((raw) => {
                         const m = migrateNote(raw);
                         if (!raw.blocks) idbPut(database, 'notes', m);
@@ -2956,6 +3284,53 @@
                 }));
             }, [db]);
 
+            const toggleSelectMode = () => {
+                setSelectMode((v) => !v);
+                setSelectedIds([]);
+            };
+
+            const toggleSelected = (id) => {
+                setSelectedIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+            };
+
+            const batchTrashSelected = () => {
+                const ids = selectedIds;
+                setNotes((prev) => prev.map((n) => {
+                    if (!ids.includes(n.id)) return n;
+                    const updated = { ...n, deletedAt: Date.now(), updatedAt: Date.now() };
+                    if (db) idbPut(db, 'notes', updated);
+                    return updated;
+                }));
+                setSelectedIds([]);
+                setSelectMode(false);
+            };
+
+            // Mirrors the "toggle all formats" convention used for line
+            // formatting: if every selected note is already pinned, unpin them
+            // all; otherwise pin whichever aren't pinned yet.
+            const batchTogglePinSelected = () => {
+                const ids = selectedIds;
+                const allPinned = notes.filter(n => ids.includes(n.id)).every(n => n.pinned);
+                setNotes((prev) => prev.map((n) => {
+                    if (!ids.includes(n.id)) return n;
+                    const updated = { ...n, pinned: !allPinned };
+                    if (db) idbPut(db, 'notes', updated);
+                    return updated;
+                }));
+                setSelectedIds([]);
+                setSelectMode(false);
+            };
+
+            const batchAddCategoryToSelected = (categoryId) => {
+                const ids = selectedIds;
+                setNotes((prev) => prev.map((n) => {
+                    if (!ids.includes(n.id) || (n.categoryIds && n.categoryIds.includes(categoryId))) return n;
+                    const updated = { ...n, categoryIds: [...(n.categoryIds || []), categoryId] };
+                    if (db) idbPut(db, 'notes', updated);
+                    return updated;
+                }));
+            };
+
             const restoreNote = useCallback((id) => {
                 setNotes((prev) => prev.map((n) => {
                     if (n.id !== id) return n;
@@ -2983,6 +3358,70 @@
                 setNotes((prev) => [note, ...prev]);
                 if (db) idbPut(db, 'notes', note);
                 setActiveNoteId(note.id);
+            };
+
+            const createNoteFromTemplate = (template) => {
+                setShowTemplatePicker(false);
+                if (!template) { createNote(); return; }
+                const categoryId = filterCategory !== 'all' && filterCategory !== 'uncategorized' ? filterCategory : null;
+                const note = noteFromTemplate(template, categoryId ? [categoryId] : []);
+                setNotes((prev) => [note, ...prev]);
+                if (db) idbPut(db, 'notes', note);
+                setActiveNoteId(note.id);
+            };
+
+            const saveTemplate = (name, sourceNote) => {
+                const tmpl = {
+                    id: makeId(),
+                    name,
+                    title: sourceNote.title,
+                    blocks: sourceNote.blocks.map((b) => ({ type: b.type, html: b.html })),
+                    table: sourceNote.table
+                        ? { columns: sourceNote.table.columns, rows: sourceNote.table.rows.map((r) => ({ cells: [...r.cells] })) }
+                        : null,
+                    background: sourceNote.background,
+                    createdAt: Date.now(),
+                };
+                setTemplates((prev) => [...prev, tmpl]);
+                if (db) idbPut(db, 'templates', tmpl);
+            };
+
+            const deleteTemplate = (id) => {
+                setTemplates((prev) => prev.filter(t => t.id !== id));
+                if (db) idbDelete(db, 'templates', id);
+            };
+
+            // A quick tap on the + button creates a blank note as always; holding
+            // it down opens the template picker instead — the same long-press
+            // trick used elsewhere, so the common "just make a note" path never
+            // gets slower or picks up an extra step.
+            const handleFabPointerDown = (e) => {
+                fabRef.current = { pointerId: e.pointerId, timer: null, longPressed: false, startX: e.clientX, startY: e.clientY };
+                fabRef.current.timer = setTimeout(() => {
+                    fabRef.current.longPressed = true;
+                    if (navigator.vibrate) navigator.vibrate(12);
+                    setShowTemplatePicker(true);
+                }, 450);
+            };
+
+            const handleFabPointerMove = (e) => {
+                if (fabRef.current.pointerId !== e.pointerId) return;
+                const dx = Math.abs(e.clientX - fabRef.current.startX);
+                const dy = Math.abs(e.clientY - fabRef.current.startY);
+                if (dx > 14 || dy > 14) clearTimeout(fabRef.current.timer);
+            };
+
+            const handleFabPointerUp = () => {
+                clearTimeout(fabRef.current.timer);
+                fabRef.current.pointerId = null;
+            };
+
+            const handleFabClick = () => {
+                if (fabRef.current.longPressed) {
+                    fabRef.current.longPressed = false;
+                    return;
+                }
+                createNote();
             };
 
             const addCategory = (name, color) => {
@@ -3248,6 +3687,7 @@
                         onSave={persistNote}
                         onTrash={trashNote}
                         onAddCategory={addCategory}
+                        onSaveTemplate={saveTemplate}
                     />
                 );
             }
@@ -3268,14 +3708,29 @@
                 <div className="home-screen">
                     <div className="app-header" style={resolveHeaderBackground(settings.dashboardBackground)}>
                         <div className="header-row">
-                            <h1>📓 Sly Notes</h1>
-                            <div className="header-actions">
-                                <button className={'icon-btn' + (showSearch ? ' active' : '')} onClick={toggleSearch} title="Search">🔍</button>
-                                <button className={'icon-btn' + (showPinnedOnly ? ' active' : '')} onClick={() => setShowPinnedOnly((v) => !v)} title="Show pinned only">📌</button>
-                                <button className="icon-btn" onClick={() => setShowDashboardBg(true)} title="Dashboard background">🎨</button>
-                                <button className="icon-btn" onClick={() => setView('trash')} title="Trash">🗑</button>
-                                <button className="icon-btn" onClick={() => setShowCategoryManager(true)} title="Categories">⚙</button>
-                            </div>
+                            {selectMode ? (
+                                <React.Fragment>
+                                    <button className="icon-btn" onClick={toggleSelectMode} title="Cancel selection">✕</button>
+                                    <div className="header-actions select-toolbar">
+                                        <span className="select-count">{selectedIds.length} selected</span>
+                                        <button className="icon-btn" disabled={selectedIds.length === 0} onClick={batchTogglePinSelected} title="Pin/unpin selected">📌</button>
+                                        <button className="icon-btn" disabled={selectedIds.length === 0} onClick={() => setShowBatchCategory(true)} title="Add category to selected">🏷</button>
+                                        <button className="icon-btn" disabled={selectedIds.length === 0} onClick={batchTrashSelected} title="Trash selected">🗑</button>
+                                    </div>
+                                </React.Fragment>
+                            ) : (
+                                <React.Fragment>
+                                    <h1>📓 Sly Notes</h1>
+                                    <div className="header-actions">
+                                        <button className={'icon-btn' + (showSearch ? ' active' : '')} onClick={toggleSearch} title="Search">🔍</button>
+                                        <button className={'icon-btn' + (showPinnedOnly ? ' active' : '')} onClick={() => setShowPinnedOnly((v) => !v)} title="Show pinned only">📌</button>
+                                        <button className="icon-btn" onClick={() => setShowDashboardBg(true)} title="Dashboard background">🎨</button>
+                                        <button className="icon-btn" onClick={() => setView('trash')} title="Trash">🗑</button>
+                                        <button className="icon-btn" onClick={toggleSelectMode} title="Select notes">☑</button>
+                                        <button className="icon-btn" onClick={() => setShowCategoryManager(true)} title="Categories">⚙</button>
+                                    </div>
+                                </React.Fragment>
+                            )}
                         </div>
                         {showSearch ? (
                             <div className="search-bar">
@@ -3346,18 +3801,49 @@
                                         onOpen={handleCardOpen}
                                         onTrash={trashNote}
                                         onTogglePin={togglePin}
-                                        dragEnabled={filterCategory === 'all'}
+                                        dragEnabled={filterCategory === 'all' && !selectMode}
                                         isDragging={draggingId === note.id}
                                         onCardPointerDown={handleCardPointerDown}
                                         onCardPointerMove={handleCardPointerMove}
                                         onCardPointerUp={handleCardPointerUp}
+                                        selectMode={selectMode}
+                                        selected={selectedIds.includes(note.id)}
+                                        onToggleSelect={toggleSelected}
                                     />
                                 ))}
                             </div>
                         )}
                     </div>
 
-                    <button className="fab" onClick={createNote}>+</button>
+                    <button
+                        className="fab"
+                        onClick={handleFabClick}
+                        onPointerDown={handleFabPointerDown}
+                        onPointerMove={handleFabPointerMove}
+                        onPointerUp={handleFabPointerUp}
+                        onPointerCancel={handleFabPointerUp}
+                    >
+                        +
+                    </button>
+
+                    {showTemplatePicker ? (
+                        <TemplatePickerSheet
+                            background={settings.dashboardBackground}
+                            templates={templates}
+                            onPick={createNoteFromTemplate}
+                            onDeleteTemplate={deleteTemplate}
+                            onClose={() => setShowTemplatePicker(false)}
+                        />
+                    ) : null}
+
+                    {showBatchCategory ? (
+                        <BatchCategorySheet
+                            background={settings.dashboardBackground}
+                            categories={categories}
+                            onAddCategory={batchAddCategoryToSelected}
+                            onClose={() => { setShowBatchCategory(false); setSelectedIds([]); setSelectMode(false); }}
+                        />
+                    ) : null}
 
                     {trashToast ? (
                         <div className="undo-toast">
