@@ -1853,7 +1853,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v68';
+        const APP_VERSION = 'v69';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3015,7 +3015,7 @@
                             type="date"
                             className="line-toolbar-date-input"
                             title="Insert date"
-                            onPointerDown={(e) => { e.currentTarget.value = ''; onDatePointerDown(); }}
+                            onPointerDown={onDatePointerDown}
                             onChange={onDateChange}
                         />
                     </span>
@@ -3348,6 +3348,20 @@
             // field, or a mileage table date cell.
             const handleDateChange = (e) => {
                 const val = e.target.value;
+                // Clearing this here (once the picker has already produced a
+                // real value), rather than proactively on pointerdown right
+                // before the picker opens, matters on iOS specifically:
+                // mutating the input's value synchronously in that same
+                // pointerdown was observed to make Safari's date picker open
+                // and immediately auto-close with today's date populated,
+                // without waiting for the user to actually pick anything —
+                // the same "don't touch the DOM mid-gesture" lesson as the
+                // Android disabled-input/setDraft bugs, just a different
+                // mutation tripping it up on a different engine. Resetting
+                // here instead still guarantees picking the same date twice
+                // in a row fires a real change event next time (value goes
+                // ''->date again, not date->date).
+                e.target.value = '';
                 const target = dateTargetRef.current;
                 dateTargetRef.current = null;
                 if (!val || !target) return;
@@ -3969,7 +3983,10 @@
                             />
                         ) : null}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10, marginTop: 10 }}>
-                            <button className="secondary-btn" style={{ padding: '10px 12px', fontSize: 13 }} onClick={addMileageRow}>+ Add Mileage Row</button>
+                            {/* "Today" and "Pick Date" both already add a row
+                                on their own when nothing's selected, making a
+                                separate blank "+ Add Mileage Row" button
+                                redundant — removed per feedback. */}
                             <button
                                 className="secondary-btn"
                                 style={{ padding: '10px 12px', fontSize: 13 }}
@@ -3989,7 +4006,7 @@
                                 <input
                                     type="date"
                                     className="mileage-date-btn-input"
-                                    onPointerDown={(e) => { e.currentTarget.value = ''; prepareDateTargetForMileage(); }}
+                                    onPointerDown={prepareDateTargetForMileage}
                                     onChange={handleDateChange}
                                 />
                             </span>
