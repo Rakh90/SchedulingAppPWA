@@ -948,6 +948,26 @@
             z-index: 5;
         }
 
+        .block-row.line-selected {
+            background: rgba(102,126,234,0.18);
+            border-radius: 8px;
+        }
+
+        .dark-content .block-row.line-selected {
+            background: rgba(255,255,255,0.22);
+        }
+
+        .selection-count-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            white-space: nowrap;
+        }
+
+        .dark-content .selection-count-label {
+            color: #f3f4f8;
+        }
+
         .line-toolbar {
             display: flex;
             align-items: center;
@@ -1986,7 +2006,7 @@
         }
 
         const DEFAULT_DASHBOARD_ICON_ORDER = ['search', 'pinnedFilter', 'sort', 'trash', 'select', 'settings'];
-        const DEFAULT_EDITOR_ICON_ORDER = ['undo', 'background', 'copy', 'templates', 'pin', 'trash', 'lock'];
+        const DEFAULT_EDITOR_ICON_ORDER = ['undo', 'selectLines', 'background', 'copy', 'templates', 'pin', 'trash', 'lock'];
 
         // A saved order might be missing ids a later update introduced, or
         // carry ids that no longer exist — keeps whatever's still valid, in
@@ -2082,7 +2102,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v83';
+        const APP_VERSION = 'v84';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2098,7 +2118,7 @@
         // hue as a tie-break, with Rainbow itself first (it spans every hue)
         // and the hue-less blacks/neutrals (Obsidian) last.
         const THEME_BACKGROUNDS = [
-            { id: 'rainbow', label: 'Rainbow', pageCss: 'linear-gradient(135deg, #ff3b30 0%, #ff9500 16%, #ffe066 33%, #34c759 50%, #0a84ff 66%, #5e5ce6 83%, #ff2d78 100%)', cardCss: 'linear-gradient(135deg, rgba(255,59,48,0.3), rgba(94,92,230,0.3))', dark: true, rainbow: true, accent: '#7b2ff7' },
+            { id: 'rainbow', label: 'Rainbow', pageCss: 'linear-gradient(135deg, #ff3b30 0%, #ff9500 16%, #ffe066 33%, #34c759 50%, #0a84ff 66%, #5e5ce6 83%, #ff2d78 100%)', cardCss: 'linear-gradient(135deg, rgba(255,59,48,0.4) 0%, rgba(255,149,0,0.4) 16%, rgba(255,224,102,0.4) 33%, rgba(52,199,89,0.4) 50%, rgba(10,132,255,0.4) 66%, rgba(94,92,230,0.4) 83%, rgba(255,45,120,0.4) 100%)', dark: true, rainbow: true, accent: '#7b2ff7' },
             { id: 'inferno', label: 'Inferno', pageCss: 'linear-gradient(135deg, #1a0000 0%, #7a0c0c 55%, #ff2d1f 100%)', cardCss: 'linear-gradient(135deg, rgba(40,3,3,0.92), rgba(150,15,15,0.8))', dark: true, accent: '#7a0c0c' },
             { id: 'amber', label: 'Amber', pageCss: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 50%, #ffe0b2 100%)', cardCss: 'linear-gradient(135deg, rgba(255,152,0,0.35), rgba(255,224,178,0.35))', dark: false, accent: '#ff9800' },
             { id: 'citrine', label: 'Citrine', pageCss: 'linear-gradient(135deg, #fbc02d 0%, #ffee58 50%, #fff9c4 100%)', cardCss: 'linear-gradient(135deg, rgba(251,192,45,0.35), rgba(255,249,196,0.35))', dark: false, accent: '#fbc02d' },
@@ -2123,18 +2143,20 @@
             { id: 'editing', title: 'Creating & editing notes', icon: '📝', body: 'Tap the + button on the dashboard to start a new note, or tap any existing note to open it. Tap the title to rename it, or tap anywhere in the body to start typing. Notes save automatically as you type — there\'s no separate save button.' },
             { id: 'formatting', title: 'Formatting text', icon: 'B', body: 'Tap into any line of text to bring up the formatting toolbar above it. Bold, italic, and underline apply to the whole line at once — tap the same button again to remove it. The "Aa" button changes text size, and the calendar button inserts today\'s date (or lets you pick another one) right where your cursor was.' },
             { id: 'lists', title: 'Checklists & lists', icon: '☑', body: 'The T • # ▢ buttons switch a line between plain text, a bullet, a numbered item, or a checkbox. Press Enter on an empty list line to indent it one level; press it again to outdent, and a third time to drop back to plain text. Backspace at the start of an indented line outdents it the same way. Long-press a line\'s marker to drag and reorder it.' },
-            { id: 'categories', title: 'Categories', icon: '🏷', body: 'Tap "Uncategorized" (or a note\'s existing categories) near the top of a note to assign one or more categories, or create a new one on the spot with its own color. Category chips at the top of the dashboard let you filter to just that category. Manage, rename, recolor, or delete categories any time from Settings.' },
+            { id: 'selectLines', title: 'Select & bulk-edit lines', icon: '☑', body: 'Tap the ☑ button in a note\'s editor to turn on line selection. Press and hold any line, then drag up or down to highlight a range — dragging past the top or bottom edge scrolls the note for you. The toolbar that appears works on every highlighted line at once: switch them all to bulleted/numbered/checklist/plain text, toggle bold/italic/underline, or delete them entirely. Tap ✕ (or the ☑ button again) to exit.' },
+            { id: 'categories', title: 'Categories', icon: '🏷', body: 'Tap "Uncategorized" (or a note\'s existing categories) near the top of a note to assign one or more categories, or create a new one on the spot with its own color. Category chips at the top of the dashboard let you filter to just that category. Manage, rename, recolor, or delete categories any time from Settings — drag a category\'s ⠿ handle there to reorder it.' },
             { id: 'backgrounds', title: 'Backgrounds & themes', icon: '🎨', body: 'Every note can have its own background — tap the 🎨 button in its editor. Choose from solid colors or the animated gradient themes, including Rainbow, which uses white text so it stays readable over every color in the gradient. You can also set a default background for new notes and a separate background for the dashboard itself, both in Settings.' },
-            { id: 'lock', title: 'Note lock (PIN)', icon: '🔒', body: 'Set a PIN in Settings, then lock any individual note from its editor (🔒 button). A locked note shows only its title on the dashboard until the PIN is entered — once unlocked, it stays unlocked for the rest of your session. Change or remove your PIN any time from Settings.' },
+            { id: 'lock', title: 'Note lock (PIN)', icon: '🔒', body: 'Set a PIN in Settings, then lock any individual note from its editor (🔒 button). A locked note shows only its title on the dashboard until the PIN is entered — once unlocked, it stays unlocked for the rest of your session. Change or remove your PIN any time from Settings. If you forget your PIN, open Settings and tap "Change PIN" or "Remove PIN" — a small hidden button in the corner of that screen reveals a "Forgot your PIN?" option that removes it immediately, no confirmation needed, so don\'t tap it by accident.' },
             { id: 'templates', title: 'Templates', icon: '📄', body: 'Save any note as a reusable template from its editor menu (📑 button), then start new notes from it via the "New note" screen. Templates carry over their body text, background, and categories, so you don\'t have to rebuild a note from scratch each time.' },
-            { id: 'mileage', title: 'Mileage table', icon: '📊', body: 'Every note includes an optional mileage table for logging trips — tap a date cell and use "Today" or "Pick Date" to fill it quickly. Add rows as needed, and the total at the bottom keeps a running sum. Export just the mileage data to CSV from a note\'s editor menu.' },
+            { id: 'mileage', title: 'Mileage table', icon: '📊', body: 'Every note includes an optional mileage table for logging trips. Tap "Today" or "Pick Date" with no cell selected to add a new row already filled in with that date; tap a date cell first to fill that specific cell instead. Pressing Enter moves to the next cell, and pressing Enter in the very last cell of the last row adds a fresh row automatically. The total at the bottom keeps a running sum, and you can export just the mileage data to CSV from a note\'s editor menu.' },
             { id: 'photos', title: 'Photos', icon: '📷', body: 'Add photos to a note with the Camera, Gallery, or Files buttons at the bottom of its editor. The first photo shows as a thumbnail on the note\'s dashboard card, and a badge shows how many photos a note has.' },
             { id: 'calendar', title: 'Calendar date picker', icon: '📅', body: 'The calendar button in a note\'s formatting toolbar opens a built-in date picker, so there\'s no fighting with your device\'s native one. Browse up to 5 years in either direction and tap a day to insert that date wherever your cursor was.' },
             { id: 'undo', title: 'Undo', icon: '↩', body: 'The undo button (↩, appears once you\'ve made a change) reverts the most recent edit to a note — text, title, category, background, or an inserted date. It only covers the current editing session and isn\'t a full history, so it\'s meant for quickly reverting a mistake, not stepping back through every change ever made.' },
             { id: 'batch', title: 'Multi-select & batch categories', icon: '☑', body: 'Tap the select icon on the dashboard, then tap notes to select several at once. From there you can move them all to trash, pin/unpin them together, or open the category tool to add or remove a category across every selected note at once — tap a category again to toggle it back off.' },
-            { id: 'search', title: 'Search, sort & pinned notes', icon: '🔍', body: 'The search icon filters notes by title or body text as you type. The sort icon reorders the dashboard by last edited, date created, title, or category. Pin any note (📌 in its editor, or from multi-select) to keep it at the top of the dashboard regardless of sort order.' },
+            { id: 'search', title: 'Search, sort & pinned notes', icon: '🔍', body: 'The search icon filters notes by title or body text as you type. The sort icon reorders the dashboard by last edited, date created, title, or category. Pin any note to keep it at the top of the dashboard regardless of sort order — tap the 📌 directly on its dashboard card, tap 📌 in its editor, or pin several at once from multi-select.' },
             { id: 'trash', title: 'Trash & recovery', icon: '🗑', body: 'Deleting a note moves it to Trash instead of removing it right away — open Trash from the dashboard to restore a note or delete it permanently. Anything left in Trash for 30 days is removed automatically.' },
             { id: 'backup', title: 'Backup (export/import)', icon: '⬇', body: 'Export saves every note and category to a single file you can keep as a backup or move to another device. Import reads one of those files back in, adding its notes and categories alongside whatever you already have. Both are in Settings, under Backup.' },
+            { id: 'reordering', title: 'Reordering things by dragging', icon: '⠿', body: 'Several things in the app can be long-pressed and dragged to reorder: notes on the dashboard (when sorted "Manually"), the header icons on both the dashboard and the note editor, categories in Settings (drag their ⠿ handle), and list lines in a note (drag their bullet/number/checkbox marker). Hold for about half a second without moving until it "picks up," then drag it where you want.' },
         ];
 
         // Matches the header's own dark(0.32)-over-gradient overlay so the
@@ -3412,7 +3434,40 @@
             );
         }
 
-        function BlockLine({ block, isEditing, listNumber, isDragging, onStartEdit, onExitEdit, onCommit, onEnter, onBackspaceEmpty, onToggleChecked, onMarkerPointerDown, onMarkerPointerMove, onMarkerPointerUp }) {
+        // Replaces the category chip + LineToolbar in .editor-meta-row while
+        // a press-and-drag line selection is active — same row, same button
+        // styling, different job: acts on every highlighted line at once
+        // instead of whichever single line has editing focus.
+        function LineSelectionToolbar({ count, uniformType, onSetType, onFormat, onDelete, onDone }) {
+            const hasSelection = count > 0;
+            const run = (fn) => (e) => { e.preventDefault(); if (hasSelection) fn(); };
+            return (
+                <div className="line-toolbar">
+                    <span className="selection-count-label">{hasSelection ? count + ' selected' : 'Press & drag a line'}</span>
+                    <span className="line-toolbar-divider"></span>
+                    <button className="line-toolbar-btn" disabled={!hasSelection} onMouseDown={run(() => onFormat('b'))} title="Bold"><b>B</b></button>
+                    <button className="line-toolbar-btn" disabled={!hasSelection} onMouseDown={run(() => onFormat('i'))} title="Italic"><i>I</i></button>
+                    <button className="line-toolbar-btn" disabled={!hasSelection} onMouseDown={run(() => onFormat('u'))} title="Underline"><u>U</u></button>
+                    <span className="line-toolbar-divider"></span>
+                    {LINE_TYPE_ICONS.map(({ type, icon }) => (
+                        <button
+                            key={type}
+                            className={'line-toolbar-btn' + (uniformType === type ? ' active' : '')}
+                            disabled={!hasSelection}
+                            onMouseDown={run(() => onSetType(type))}
+                            title={type}
+                        >
+                            {icon}
+                        </button>
+                    ))}
+                    <span className="line-toolbar-divider"></span>
+                    <button className="line-toolbar-btn" disabled={!hasSelection} onMouseDown={run(onDelete)} title="Delete selected lines">🗑</button>
+                    <button className="line-toolbar-btn" onMouseDown={(e) => { e.preventDefault(); onDone(); }} title="Done">✕</button>
+                </div>
+            );
+        }
+
+        function BlockLine({ block, idx, isEditing, listNumber, isDragging, onStartEdit, onExitEdit, onCommit, onEnter, onBackspaceEmpty, onToggleChecked, onMarkerPointerDown, onMarkerPointerMove, onMarkerPointerUp, selectMode, isSelected, onLineSelectPointerDown, onLineSelectPointerMove, onLineSelectPointerUp }) {
             const editableRef = useRef(null);
 
             // Re-seed the contentEditable's DOM content every time this block enters
@@ -3453,7 +3508,10 @@
             // line, exactly like a quick tap still toggles the checkbox — the same
             // long-press-vs-tap trick used for dragging note cards and category
             // rows. This keeps the text itself untouched by drag handling entirely.
-            const markerDragProps = {
+            // Disabled while selectMode is active — the whole row becomes the
+            // press-and-drag surface for highlighting a range then instead (see
+            // the row's own pointer props below).
+            const markerDragProps = selectMode ? {} : {
                 style: { touchAction: 'none' },
                 onPointerDown: (e) => onMarkerPointerDown(e, block.id),
                 onPointerMove: onMarkerPointerMove,
@@ -3465,7 +3523,8 @@
                 <button
                     className={'checkbox-marker' + (block.checked ? ' checked' : '')}
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => onToggleChecked(block.id)}
+                    onClick={selectMode ? undefined : () => onToggleChecked(block.id)}
+                    disabled={selectMode}
                     {...markerDragProps}
                 >
                     {block.checked ? '✓' : ''}
@@ -3479,11 +3538,24 @@
             );
 
             const sizeClass = ' block-size-' + (block.size || 'medium');
+            // In selectMode, the whole row is the press-and-drag highlight
+            // surface (touch-action:none only applies here, so normal
+            // scrolling by touching a line's text is completely unaffected
+            // outside of selectMode).
+            const rowSelectProps = selectMode ? {
+                style: { marginLeft: (block.indent || 0) * LINE_INDENT_PX, touchAction: 'none' },
+                onPointerDown: (e) => onLineSelectPointerDown(e, idx),
+                onPointerMove: onLineSelectPointerMove,
+                onPointerUp: onLineSelectPointerUp,
+                onPointerCancel: onLineSelectPointerUp,
+            } : {
+                style: { marginLeft: (block.indent || 0) * LINE_INDENT_PX },
+            };
             return (
                 <div
-                    className={'block-row' + (isDragging ? ' dragging' : '')}
+                    className={'block-row' + (isDragging ? ' dragging' : '') + (isSelected ? ' line-selected' : '')}
                     data-block-id={block.id}
-                    style={{ marginLeft: (block.indent || 0) * LINE_INDENT_PX }}
+                    {...rowSelectProps}
                 >
                     {marker}
                     {isEditing ? (
@@ -3499,7 +3571,7 @@
                     ) : (
                         <div
                             className={'block-display' + sizeClass + (block.type === 'checklist' && block.checked ? ' checked' : '')}
-                            onClick={(e) => { if (e.target.tagName === 'A') return; onStartEdit(); }}
+                            onClick={(e) => { if (e.target.tagName === 'A') return; if (selectMode) return; onStartEdit(); }}
                             dangerouslySetInnerHTML={{ __html: stripHtml(block.html).trim() ? linkify(block.html) : '<span class="block-placeholder">...</span>' }}
                         />
                     )}
@@ -3537,6 +3609,15 @@
             const [copiedFlash, setCopiedFlash] = useState(false);
             const copiedFlashTimer = useRef(null);
             const [draggingBlockId, setDraggingBlockId] = useState(null);
+            // Press-and-drag range highlighting for bulk reformat/delete, gated
+            // behind an explicit toggle (rather than always-on from any
+            // long-press) so normal touch-scrolling through a note's text is
+            // never affected — see handleLineSelectPointerDown below for why.
+            const [lineSelectMode, setLineSelectMode] = useState(false);
+            const [lineSelection, setLineSelection] = useState(null); // { anchorIdx, endIdx } | null
+            const lineSelectDragRef = useRef({ pointerId: null, active: false, timer: null, startX: 0, startY: 0, anchorIdx: null });
+            const lineAutoScrollRef = useRef(null);
+            const editorBodyRef = useRef(null);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
             const filesInputRef = useRef(null);
@@ -3603,6 +3684,7 @@
             useBackClose(confirmClearAll, () => setConfirmClearAll(false));
             useBackClose(showCategoryPicker, () => setShowCategoryPicker(false));
             useBackClose(showDatePickerSheet, () => setShowDatePickerSheet(false));
+            useBackClose(lineSelectMode, () => { setLineSelectMode(false); setLineSelection(null); });
 
             const resolvedEditorIconOrder = resolveIconOrder(editorIconOrder, DEFAULT_EDITOR_ICON_ORDER);
             const editorIconDrag = useIconReorder(resolvedEditorIconOrder, (order) => onChangeEditorIconOrder && onChangeEditorIconOrder(order));
@@ -3978,6 +4060,125 @@
                 setDraggingBlockId(null);
             };
 
+            // Press-and-hold a line then drag up/down to highlight a
+            // contiguous range for bulk reformatting or deletion. Same
+            // timer-based long-press-vs-tap trick as the marker drag above,
+            // but only live while lineSelectMode is on (see the state
+            // declaration for why: touch-action:none has to be set from the
+            // very start of the touch to reliably win the drag-vs-scroll
+            // arbitration on a real touchscreen — this project already hit
+            // that the hard way with note cards and line markers — so making
+            // every line's full row always draggable like this would disable
+            // normal scroll-by-touching-the-text everywhere in every note).
+            const stopLineAutoScroll = () => {
+                if (lineAutoScrollRef.current) {
+                    clearInterval(lineAutoScrollRef.current);
+                    lineAutoScrollRef.current = null;
+                }
+            };
+
+            // Keeps whichever line the drag is currently over scrolled into
+            // view — without this, dragging past the top or bottom edge of
+            // the note while highlighting a range would just stop, with no
+            // way to reach further lines without lifting your finger and
+            // starting a new selection.
+            const updateLineAutoScroll = (clientY) => {
+                const body = editorBodyRef.current;
+                if (!body) return;
+                const rect = body.getBoundingClientRect();
+                const EDGE = 56;
+                const SPEED = 10;
+                if (clientY < rect.top + EDGE) {
+                    if (!lineAutoScrollRef.current) lineAutoScrollRef.current = setInterval(() => { body.scrollTop -= SPEED; }, 16);
+                } else if (clientY > rect.bottom - EDGE) {
+                    if (!lineAutoScrollRef.current) lineAutoScrollRef.current = setInterval(() => { body.scrollTop += SPEED; }, 16);
+                } else {
+                    stopLineAutoScroll();
+                }
+            };
+
+            const handleLineSelectPointerDown = (e, idx) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                lineSelectDragRef.current = { pointerId: e.pointerId, active: false, timer: null, startX: e.clientX, startY: e.clientY, anchorIdx: idx };
+                lineSelectDragRef.current.timer = setTimeout(() => {
+                    lineSelectDragRef.current.active = true;
+                    setLineSelection({ anchorIdx: idx, endIdx: idx });
+                    if (navigator.vibrate) navigator.vibrate(12);
+                }, 350);
+            };
+
+            const handleLineSelectPointerMove = (e) => {
+                if (lineSelectDragRef.current.pointerId !== e.pointerId || lineSelectDragRef.current.anchorIdx === null) return;
+                if (!lineSelectDragRef.current.active) {
+                    const dx = Math.abs(e.clientX - lineSelectDragRef.current.startX);
+                    const dy = Math.abs(e.clientY - lineSelectDragRef.current.startY);
+                    if (dx > 14 || dy > 14) {
+                        clearTimeout(lineSelectDragRef.current.timer);
+                        lineSelectDragRef.current.anchorIdx = null;
+                    }
+                    return;
+                }
+                e.preventDefault();
+                updateLineAutoScroll(e.clientY);
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                const rowEl = el && el.closest('[data-block-id]');
+                const targetId = rowEl && rowEl.getAttribute('data-block-id');
+                if (targetId) {
+                    const idx = draft.blocks.findIndex((b) => b.id === targetId);
+                    if (idx !== -1) setLineSelection((sel) => sel ? { ...sel, endIdx: idx } : sel);
+                }
+            };
+
+            const handleLineSelectPointerUp = () => {
+                clearTimeout(lineSelectDragRef.current.timer);
+                stopLineAutoScroll();
+                lineSelectDragRef.current = { pointerId: null, active: false, timer: null, startX: 0, startY: 0, anchorIdx: null };
+            };
+
+            const lineSelectionRange = lineSelection ? [Math.min(lineSelection.anchorIdx, lineSelection.endIdx), Math.max(lineSelection.anchorIdx, lineSelection.endIdx)] : null;
+            const selectedLineIds = lineSelectionRange ? draft.blocks.slice(lineSelectionRange[0], lineSelectionRange[1] + 1).map((b) => b.id) : [];
+
+            const applyTypeToSelection = (type) => {
+                if (!selectedLineIds.length) return;
+                pushEditHistory();
+                setDraft((d) => ({
+                    ...d,
+                    blocks: d.blocks.map((b) => selectedLineIds.includes(b.id) ? { ...b, type, checked: type === 'checklist' ? !!b.checked : false } : b),
+                }));
+            };
+
+            // Mirrors toggleAllFormats' logic for a single line: if every
+            // selected line already has the tag, remove it from all of them;
+            // otherwise add it to whichever ones don't have it yet, so one
+            // tap always ends with the whole selection in a consistent state.
+            const applyFormatToSelection = (tag) => {
+                if (!selectedLineIds.length) return;
+                const targets = draft.blocks.filter((b) => selectedLineIds.includes(b.id));
+                const allActive = targets.every((b) => hasWholeLineTag(b.html, tag));
+                pushEditHistory();
+                setDraft((d) => ({
+                    ...d,
+                    blocks: d.blocks.map((b) => {
+                        if (!selectedLineIds.includes(b.id)) return b;
+                        const has = hasWholeLineTag(b.html, tag);
+                        if (allActive !== has) return b;
+                        return { ...b, html: sanitizeInlineHtml(toggleWholeLineFormat(b.html, tag)) };
+                    }),
+                }));
+            };
+
+            const deleteSelectedLines = () => {
+                if (!selectedLineIds.length) return;
+                pushEditHistory();
+                setDraft((d) => {
+                    const remaining = d.blocks.filter((b) => !selectedLineIds.includes(b.id));
+                    return { ...d, blocks: remaining.length > 0 ? remaining : [{ id: makeId(), type: 'text', html: '' }] };
+                });
+                setLineSelection(null);
+                setLineSelectMode(false);
+                setEditingBlockId(null);
+            };
+
             // Bulleted/numbered/checklist lines get a 3-stage Enter cycle on
             // an EMPTY line: 1st Enter (line has content) — normal, moves to
             // a new line of the same type/indent. 2nd Enter (that new line
@@ -4219,6 +4420,13 @@
             // order is saved to settings, so it applies to every note.
             const editorIconDefs = {
                 undo: canUndoEdit ? { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Undo last edit', onClick: undoLastEdit, content: '↩' } : null,
+                selectLines: {
+                    className: 'icon-btn' + (lineSelectMode ? ' active' : ''),
+                    style: lineSelectMode ? { background: 'rgba(102,126,234,0.85)', color: '#fff' } : editorDefaultBadgeStyle,
+                    title: lineSelectMode ? 'Exit line selection' : 'Select lines',
+                    onClick: () => { setLineSelectMode((v) => !v); setLineSelection(null); setEditingBlockId(null); },
+                    content: '☑',
+                },
                 background: { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Background', onClick: () => setShowBackgroundPicker(true), content: '🎨' },
                 copy: { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Copy content', onClick: copyContent, content: copiedFlash ? '✓' : '📋' },
                 templates: isTemplate ? null : { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Templates', onClick: () => setShowTemplateMenu(true), content: '📑' },
@@ -4262,7 +4470,7 @@
                             })}
                         </div>
                     </div>
-                    <div className="editor-body" style={resolvePageBackground(draft.background)}>
+                    <div className="editor-body" ref={editorBodyRef} style={resolvePageBackground(draft.background)}>
                         <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
                             <input
                                 ref={titleInputRef}
@@ -4292,34 +4500,51 @@
                         </form>
 
                         <div className="editor-meta-row">
-                            <button
-                                type="button"
-                                className="category-select"
-                                onClick={() => setShowCategoryPicker(true)}
-                            >
-                                {draft.categoryIds && draft.categoryIds.length > 0 ? (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                        {draft.categoryIds.map((id) => {
-                                            const cat = categories.find(c => c.id === id);
-                                            return cat ? <span key={id} className="color-dot" style={{ background: cat.color }}></span> : null;
-                                        })}
-                                        {draft.categoryIds.length === 1
-                                            ? (categories.find(c => c.id === draft.categoryIds[0]) || {}).name
-                                            : draft.categoryIds.length + ' categories'}
-                                    </span>
-                                ) : 'Uncategorized'}
-                            </button>
-                            <LineToolbar
-                                hasActiveLine={!!editingBlockId}
-                                dateAvailable={!!editingBlockId || titleFocused}
-                                activeType={activeBlock ? activeBlock.type : null}
-                                activeFormats={activeFormats}
-                                onFormat={toggleLineFormat}
-                                onToggleAllFormats={toggleAllFormats}
-                                onSetType={(type) => setBlockType(editingBlockId, type)}
-                                onOpenSizeMenu={() => setTextSizeMenuBlockId(editingBlockId)}
-                                onOpenDatePicker={openDateSheetSmart}
-                            />
+                            {lineSelectMode ? (
+                                <LineSelectionToolbar
+                                    count={selectedLineIds.length}
+                                    uniformType={(() => {
+                                        if (!selectedLineIds.length) return null;
+                                        const selBlocks = draft.blocks.filter((b) => selectedLineIds.includes(b.id));
+                                        return selBlocks.every((b) => b.type === selBlocks[0].type) ? selBlocks[0].type : null;
+                                    })()}
+                                    onSetType={applyTypeToSelection}
+                                    onFormat={applyFormatToSelection}
+                                    onDelete={deleteSelectedLines}
+                                    onDone={() => { setLineSelectMode(false); setLineSelection(null); }}
+                                />
+                            ) : (
+                                <React.Fragment>
+                                    <button
+                                        type="button"
+                                        className="category-select"
+                                        onClick={() => setShowCategoryPicker(true)}
+                                    >
+                                        {draft.categoryIds && draft.categoryIds.length > 0 ? (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                {draft.categoryIds.map((id) => {
+                                                    const cat = categories.find(c => c.id === id);
+                                                    return cat ? <span key={id} className="color-dot" style={{ background: cat.color }}></span> : null;
+                                                })}
+                                                {draft.categoryIds.length === 1
+                                                    ? (categories.find(c => c.id === draft.categoryIds[0]) || {}).name
+                                                    : draft.categoryIds.length + ' categories'}
+                                            </span>
+                                        ) : 'Uncategorized'}
+                                    </button>
+                                    <LineToolbar
+                                        hasActiveLine={!!editingBlockId}
+                                        dateAvailable={!!editingBlockId || titleFocused}
+                                        activeType={activeBlock ? activeBlock.type : null}
+                                        activeFormats={activeFormats}
+                                        onFormat={toggleLineFormat}
+                                        onToggleAllFormats={toggleAllFormats}
+                                        onSetType={(type) => setBlockType(editingBlockId, type)}
+                                        onOpenSizeMenu={() => setTextSizeMenuBlockId(editingBlockId)}
+                                        onOpenDatePicker={openDateSheetSmart}
+                                    />
+                                </React.Fragment>
+                            )}
                         </div>
 
                         {draft.blocks.some(b => stripHtml(b.html).trim()) ? (
@@ -4331,6 +4556,7 @@
                                 <BlockLine
                                     key={block.id}
                                     block={block}
+                                    idx={idx}
                                     isEditing={editingBlockId === block.id}
                                     isDragging={draggingBlockId === block.id}
                                     listNumber={listNumbers[idx]}
@@ -4343,6 +4569,11 @@
                                     onMarkerPointerDown={handleMarkerPointerDown}
                                     onMarkerPointerMove={handleMarkerPointerMove}
                                     onMarkerPointerUp={handleMarkerPointerUp}
+                                    selectMode={lineSelectMode}
+                                    isSelected={lineSelectionRange ? idx >= lineSelectionRange[0] && idx <= lineSelectionRange[1] : false}
+                                    onLineSelectPointerDown={handleLineSelectPointerDown}
+                                    onLineSelectPointerMove={handleLineSelectPointerMove}
+                                    onLineSelectPointerUp={handleLineSelectPointerUp}
                                 />
                             ))}
                         </div>
