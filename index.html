@@ -2289,14 +2289,13 @@
         // options are in-app-only alternates.
         const APP_IDENTITY_OPTIONS = [
             { id: 'den', label: 'Den Notes', img: 'icons/app-identity-den.png' },
-            { id: 'classic', label: 'Sly Notes', emoji: '📓' },
         ];
 
         // Bumped alongside service-worker.js's CACHE_NAME on every deploy so
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v92';
+        const APP_VERSION = 'v93';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2340,7 +2339,7 @@
             { id: 'selectLines', title: 'Select & bulk-edit lines', icon: '☑', body: 'Tap the ☑ button in a note\'s formatting toolbar to turn on line selection. Press and hold any line, then drag up or down to highlight a range — dragging past the top or bottom edge scrolls the note for you. The toolbar swaps to show actions for every highlighted line at once: switch them all to bulleted/numbered/checklist/plain text, toggle bold/italic/underline, or delete them entirely. Tap ✕ (or the ☑ button again) to exit.' },
             { id: 'categories', title: 'Categories', icon: '🏷', body: 'Tap "Uncategorized" (or a note\'s existing categories) near the top of a note to assign one or more categories, or create a new one on the spot with its own color. Category chips at the top of the dashboard let you filter to just that category. Manage, rename, recolor, or delete categories any time from Settings — drag a category\'s ⠿ handle there to reorder it.' },
             { id: 'folderView', title: 'Folder view', icon: '📁', body: 'Tap the 📁 icon on the dashboard to switch the category chips into a grid of folder tiles instead, each showing how many notes it holds. Unlike the chip row, folder view starts with nothing selected — tap a folder to see its notes, and tap that same folder again to hide them. Switching back to chips always shows "All" again. Your choice of chips or folders is remembered the next time you open the app. Pick a different folder icon style — Classic or one of 9 illustrated options — from "Folder icon theme" in Settings.' },
-            { id: 'backgrounds', title: 'Backgrounds & themes', icon: '🎨', body: 'Every note can have its own background — tap the 🎨 button in its editor. Choose from solid colors or the animated gradient themes, including Rainbow, which uses white text so it stays readable over every color in the gradient. You can also set a default background for new notes and a separate background for the dashboard itself, both in Settings. "App name & icon" in Settings switches the name and icon shown in the app header itself — note that it can\'t change the actual home-screen icon, since that\'s set when the app was installed.' },
+            { id: 'backgrounds', title: 'Backgrounds & themes', icon: '🎨', body: 'Every note can have its own background — tap the 🎨 button in its editor. Choose from solid colors or the animated gradient themes, including Rainbow, which uses white text so it stays readable over every color in the gradient. You can also set a default background for new notes and a separate background for the dashboard itself, both in Settings.' },
             { id: 'lock', title: 'Note lock (PIN)', icon: '🔒', body: 'Set a PIN in Settings, then lock any individual note from its editor (🔒 button). A locked note shows only its title on the dashboard until the PIN is entered — once unlocked, it stays unlocked for the rest of your session. Change or remove your PIN any time from Settings. If you forget your PIN, open Settings and tap "Change PIN" or "Remove PIN" — a small hidden button in the corner of that screen reveals a "Forgot your PIN?" option that removes it immediately, no confirmation needed, so don\'t tap it by accident.' },
             { id: 'templates', title: 'Templates', icon: '📄', body: 'Save any note as a reusable template from its editor menu (📑 button), then start new notes from it via the "New note" screen. Templates carry over their body text, background, and categories, so you don\'t have to rebuild a note from scratch each time.' },
             { id: 'mileage', title: 'Mileage table', icon: '📊', body: 'Every note includes an optional mileage table for logging trips. Tap "Today" or "Pick Date" with no cell selected to add a new row already filled in with that date; tap a date cell first to fill that specific cell instead. Pressing Enter moves to the next cell, and pressing Enter in the very last cell of the last row adds a fresh row automatically. The total at the bottom keeps a running sum. Tap the ▾ next to "Mileage Table" to minimize the whole section — handy for a note that doesn\'t need it in the way, or one whose mileage data is already finished — it stays minimized the next time you open that note. Export just the mileage data to CSV from the button next to the section label (hidden while minimized).' },
@@ -2816,26 +2815,30 @@
                         </div>
                         <p className="sheet-muted-text" style={{ fontSize: 11, marginTop: 4 }}>Only applies when the dashboard is in folder view (📁 icon on the dashboard).</p>
 
-                        <div className="settings-divider"></div>
-                        <div className="section-label">App name &amp; icon</div>
-                        <div className="folder-theme-row app-identity-row">
-                            {APP_IDENTITY_OPTIONS.map((o) => (
-                                <button
-                                    key={o.id}
-                                    className={'folder-theme-swatch' + (appIdentity.id === o.id ? ' selected' : '')}
-                                    onClick={() => onChangeAppIdentity(o.id)}
-                                    title={o.label}
-                                >
-                                    {o.img ? (
-                                        <img className="folder-theme-swatch-img" src={o.img} alt="" aria-hidden="true" />
-                                    ) : (
-                                        <span aria-hidden="true">{o.emoji}</span>
-                                    )}
-                                    <span className="folder-theme-swatch-label">{o.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                        <p className="sheet-muted-text" style={{ fontSize: 11, marginTop: 4 }}>Changes the name and icon shown in the app header. The actual home-screen icon comes from how the app was installed and won't update until you remove and re-add it.</p>
+                        {APP_IDENTITY_OPTIONS.length > 1 ? (
+                            <React.Fragment>
+                                <div className="settings-divider"></div>
+                                <div className="section-label">App name &amp; icon</div>
+                                <div className="folder-theme-row app-identity-row">
+                                    {APP_IDENTITY_OPTIONS.map((o) => (
+                                        <button
+                                            key={o.id}
+                                            className={'folder-theme-swatch' + (appIdentity.id === o.id ? ' selected' : '')}
+                                            onClick={() => onChangeAppIdentity(o.id)}
+                                            title={o.label}
+                                        >
+                                            {o.img ? (
+                                                <img className="folder-theme-swatch-img" src={o.img} alt="" aria-hidden="true" />
+                                            ) : (
+                                                <span aria-hidden="true">{o.emoji}</span>
+                                            )}
+                                            <span className="folder-theme-swatch-label">{o.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="sheet-muted-text" style={{ fontSize: 11, marginTop: 4 }}>Changes the name and icon shown in the app header. The actual home-screen icon comes from how the app was installed and won't update until you remove and re-add it.</p>
+                            </React.Fragment>
+                        ) : null}
 
                         <div className="settings-divider"></div>
                         <div className="section-label">Note lock</div>
