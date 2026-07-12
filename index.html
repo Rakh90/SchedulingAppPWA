@@ -229,6 +229,63 @@
             font-weight: 600;
         }
 
+        /* Alternate "folder" presentation of the exact same category filter
+           (see dashboardViewMode) — a wrapping grid of tiles instead of a
+           horizontally-scrolling row of pills. Tapping one filters the note
+           grid below exactly like a pill does; there's no separate screen. */
+        .folder-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .folder-tile {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            width: 72px;
+            padding: 8px 4px 6px;
+            border-radius: 12px;
+            border: none;
+            background: rgba(255,255,255,0.16);
+            color: white;
+            font-size: 11px;
+        }
+
+        .folder-tile.active {
+            background: white;
+            color: #4c3d94;
+            font-weight: 600;
+        }
+
+        .folder-tile-icon {
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        .folder-tile-name {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .folder-tile-count {
+            font-size: 10px;
+            opacity: 0.75;
+        }
+
+        .folder-tile-add {
+            justify-content: center;
+        }
+
+        .folder-tile-add .folder-tile-icon {
+            font-size: 18px;
+        }
+
         .color-dot {
             width: 9px;
             height: 9px;
@@ -1127,6 +1184,34 @@
             margin: 20px 0 10px;
         }
 
+        .section-collapse-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+
+        .section-collapse-btn .section-label {
+            margin: 0;
+        }
+
+        .section-collapse-chevron {
+            display: inline-block;
+            color: #5f6470;
+            font-size: 12px;
+            transition: transform 0.15s ease;
+        }
+
+        .section-collapse-chevron.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .dark-content .section-collapse-chevron {
+            color: #c7c9d4;
+        }
+
         .csv-export-btn {
             flex: 0 0 auto;
             background: #f1f1f4;
@@ -2005,8 +2090,8 @@
             }, [active]);
         }
 
-        const DEFAULT_DASHBOARD_ICON_ORDER = ['search', 'pinnedFilter', 'sort', 'trash', 'select', 'settings'];
-        const DEFAULT_EDITOR_ICON_ORDER = ['undo', 'selectLines', 'background', 'copy', 'templates', 'pin', 'trash', 'lock'];
+        const DEFAULT_DASHBOARD_ICON_ORDER = ['search', 'pinnedFilter', 'sort', 'folderView', 'trash', 'select', 'settings'];
+        const DEFAULT_EDITOR_ICON_ORDER = ['undo', 'background', 'copy', 'templates', 'pin', 'trash', 'lock'];
 
         // A saved order might be missing ids a later update introduced, or
         // carry ids that no longer exist — keeps whatever's still valid, in
@@ -2102,7 +2187,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v84';
+        const APP_VERSION = 'v85';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2242,6 +2327,7 @@
                 blocks: [{ id: makeId(), type: 'text', html: '' }],
                 photos: [],
                 table: null,
+                mileageCollapsed: false,
                 background: background || '#ffffff',
                 order: now,
                 pinned: false,
@@ -3371,7 +3457,7 @@
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, dateAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker }) {
+        function LineToolbar({ hasActiveLine, dateAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker, onEnterSelectMode, onDismissKeyboard }) {
             const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
@@ -3430,6 +3516,25 @@
                         onMouseDown={(e) => { e.preventDefault(); if (dateAvailable) onOpenDatePicker(); }}
                         title="Insert date"
                     >📅</button>
+                    <span className="line-toolbar-divider"></span>
+                    <button
+                        className="line-toolbar-btn"
+                        onMouseDown={(e) => { e.preventDefault(); onEnterSelectMode(); }}
+                        title="Select lines"
+                    >☑</button>
+                    {/* Blurs whatever field currently has focus (title, a
+                        body line, or a mileage cell) — the field itself may
+                        not be this button's sibling, so this just targets
+                        document.activeElement directly rather than needing
+                        each caller to track which input is focused. iOS in
+                        particular has no reliable built-in way to dismiss the
+                        keyboard short of tapping the field closed yourself,
+                        which isn't always obvious is possible. */}
+                    <button
+                        className="line-toolbar-btn"
+                        onMouseDown={(e) => { e.preventDefault(); onDismissKeyboard(); }}
+                        title="Hide keyboard"
+                    >⌄</button>
                 </div>
             );
         }
@@ -4420,13 +4525,6 @@
             // order is saved to settings, so it applies to every note.
             const editorIconDefs = {
                 undo: canUndoEdit ? { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Undo last edit', onClick: undoLastEdit, content: '↩' } : null,
-                selectLines: {
-                    className: 'icon-btn' + (lineSelectMode ? ' active' : ''),
-                    style: lineSelectMode ? { background: 'rgba(102,126,234,0.85)', color: '#fff' } : editorDefaultBadgeStyle,
-                    title: lineSelectMode ? 'Exit line selection' : 'Select lines',
-                    onClick: () => { setLineSelectMode((v) => !v); setLineSelection(null); setEditingBlockId(null); },
-                    content: '☑',
-                },
                 background: { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Background', onClick: () => setShowBackgroundPicker(true), content: '🎨' },
                 copy: { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Copy content', onClick: copyContent, content: copiedFlash ? '✓' : '📋' },
                 templates: isTemplate ? null : { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Templates', onClick: () => setShowTemplateMenu(true), content: '📑' },
@@ -4542,6 +4640,8 @@
                                         onSetType={(type) => setBlockType(editingBlockId, type)}
                                         onOpenSizeMenu={() => setTextSizeMenuBlockId(editingBlockId)}
                                         onOpenDatePicker={openDateSheetSmart}
+                                        onEnterSelectMode={() => { setLineSelectMode(true); setLineSelection(null); setEditingBlockId(null); }}
+                                        onDismissKeyboard={() => { if (document.activeElement) document.activeElement.blur(); }}
                                     />
                                 </React.Fragment>
                             )}
@@ -4579,7 +4679,15 @@
                         </div>
 
                         <div className="section-label-row">
-                            <div className="section-label" style={{ margin: 0 }}>Mileage Table</div>
+                            <button
+                                type="button"
+                                className="section-collapse-btn"
+                                onClick={() => updateField('mileageCollapsed', !draft.mileageCollapsed)}
+                                title={draft.mileageCollapsed ? 'Expand mileage table' : 'Minimize mileage table'}
+                            >
+                                <span className={'section-collapse-chevron' + (draft.mileageCollapsed ? ' collapsed' : '')}>▾</span>
+                                <span className="section-label" style={{ margin: 0 }}>Mileage Table</span>
+                            </button>
                             {draft.table && draft.table.rows.length > 0 ? (
                                 <button
                                     className="csv-export-btn"
@@ -4589,50 +4697,54 @@
                                 </button>
                             ) : null}
                         </div>
-                        {draft.table ? (
-                            <MileageTable
-                                ref={mileageTableRef}
-                                table={draft.table}
-                                onUpdateCell={updateMileageCell}
-                                onAddRow={addMileageRow}
-                                onActiveDateCellChange={setDateCellActive}
-                            />
-                        ) : null}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10, marginTop: 10 }}>
-                            {/* "Today" and "Pick Date" both already add a row
-                                on their own when nothing's selected, making a
-                                separate blank "+ Add Mileage Row" button
-                                redundant — removed per feedback. */}
-                            <button
-                                className="secondary-btn"
-                                style={{ padding: '10px 12px', fontSize: 13 }}
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => {
-                                    if (dateCellActive && mileageTableRef.current) {
-                                        mileageTableRef.current.fillActiveDateCellWithToday();
-                                    } else {
-                                        addMileageRowWithToday();
-                                    }
-                                }}
-                            >
-                                📅 Today
-                            </button>
-                            <button
-                                className="secondary-btn"
-                                style={{ padding: '10px 12px', fontSize: 13 }}
-                                onMouseDown={(e) => { e.preventDefault(); openDateSheetForMileage(); }}
-                            >
-                                📅 Pick Date
-                            </button>
-                            <button
-                                className="secondary-btn"
-                                style={{ marginLeft: 'auto', padding: '10px 10px', fontSize: 12 }}
-                                disabled={!draft.table || draft.table.rows.length === 0}
-                                onClick={() => setConfirmRemoveRow(true)}
-                            >
-                                🗑 Remove Row
-                            </button>
-                        </div>
+                        {draft.mileageCollapsed ? null : (
+                            <React.Fragment>
+                                {draft.table ? (
+                                    <MileageTable
+                                        ref={mileageTableRef}
+                                        table={draft.table}
+                                        onUpdateCell={updateMileageCell}
+                                        onAddRow={addMileageRow}
+                                        onActiveDateCellChange={setDateCellActive}
+                                    />
+                                ) : null}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10, marginTop: 10 }}>
+                                    {/* "Today" and "Pick Date" both already add a row
+                                        on their own when nothing's selected, making a
+                                        separate blank "+ Add Mileage Row" button
+                                        redundant — removed per feedback. */}
+                                    <button
+                                        className="secondary-btn"
+                                        style={{ padding: '10px 12px', fontSize: 13 }}
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => {
+                                            if (dateCellActive && mileageTableRef.current) {
+                                                mileageTableRef.current.fillActiveDateCellWithToday();
+                                            } else {
+                                                addMileageRowWithToday();
+                                            }
+                                        }}
+                                    >
+                                        📅 Today
+                                    </button>
+                                    <button
+                                        className="secondary-btn"
+                                        style={{ padding: '10px 12px', fontSize: 13 }}
+                                        onMouseDown={(e) => { e.preventDefault(); openDateSheetForMileage(); }}
+                                    >
+                                        📅 Pick Date
+                                    </button>
+                                    <button
+                                        className="secondary-btn"
+                                        style={{ marginLeft: 'auto', padding: '10px 10px', fontSize: 12 }}
+                                        disabled={!draft.table || draft.table.rows.length === 0}
+                                        onClick={() => setConfirmRemoveRow(true)}
+                                    >
+                                        🗑 Remove Row
+                                    </button>
+                                </div>
+                            </React.Fragment>
+                        )}
 
                         {confirmRemoveRow ? (
                             <ConfirmSheet
@@ -5451,6 +5563,14 @@
                 });
             };
 
+            const updateDashboardViewMode = (mode) => {
+                setSettings((s) => {
+                    const updated = { ...s, dashboardViewMode: mode };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+            };
+
             const updateDashboardIconOrder = (order) => {
                 setSettings((s) => {
                     const updated = { ...s, dashboardIconOrder: order };
@@ -5694,6 +5814,7 @@
             }
 
             const noteSortMode = settings.noteSortMode || 'manual';
+            const dashboardViewMode = settings.dashboardViewMode || 'pills';
             const categoryById = Object.fromEntries(categories.map(c => [c.id, c]));
             const visibleNotes = notes
                 .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory) && noteMatchesSearch(n, searchQuery) && (!showPinnedOnly || n.pinned))
@@ -5713,6 +5834,12 @@
                 search: { className: 'icon-btn' + (showSearch ? ' active' : ''), title: 'Search', onClick: toggleSearch, content: '🔍' },
                 pinnedFilter: { className: 'icon-btn' + (showPinnedOnly ? ' active' : ''), title: 'Show pinned only', onClick: () => setShowPinnedOnly((v) => !v), content: '📌' },
                 sort: { className: 'icon-btn' + (noteSortMode !== 'manual' ? ' active' : ''), title: 'Sort notes', onClick: () => setShowSortMenu(true), content: '↕' },
+                folderView: {
+                    className: 'icon-btn' + (dashboardViewMode === 'folders' ? ' active' : ''),
+                    title: dashboardViewMode === 'folders' ? 'Switch to category tabs' : 'Switch to folder view',
+                    onClick: () => updateDashboardViewMode(dashboardViewMode === 'folders' ? 'pills' : 'folders'),
+                    content: '📁',
+                },
                 trash: { className: 'icon-btn', title: 'Trash', onClick: () => setView('trash'), content: '🗑' },
                 select: { className: 'icon-btn', title: 'Select notes', onClick: toggleSelectMode, content: '☑' },
                 settings: { className: 'icon-btn', title: 'Categories', onClick: () => setShowCategoryManager(true), content: '⚙' },
@@ -5775,31 +5902,67 @@
                                 ) : null}
                             </div>
                         ) : null}
-                        <div className="category-tabs">
-                            <button
-                                className={'category-pill' + (filterCategory === 'all' ? ' active' : '')}
-                                onClick={() => setFilterCategory('all')}
-                            >
-                                All
-                            </button>
-                            <button
-                                className={'category-pill' + (filterCategory === 'uncategorized' ? ' active' : '')}
-                                onClick={() => setFilterCategory('uncategorized')}
-                            >
-                                Uncategorized
-                            </button>
-                            {categories.map((cat) => (
+                        {dashboardViewMode === 'folders' ? (
+                            <div className="folder-tabs">
                                 <button
-                                    key={cat.id}
-                                    className={'category-pill' + (filterCategory === cat.id ? ' active' : '')}
-                                    onClick={() => setFilterCategory(cat.id)}
+                                    className={'folder-tile' + (filterCategory === 'all' ? ' active' : '')}
+                                    onClick={() => setFilterCategory('all')}
                                 >
-                                    <span className="color-dot" style={{ background: cat.color }}></span>
-                                    {cat.name}
+                                    <span className="folder-tile-icon" aria-hidden="true">🗂</span>
+                                    <span className="folder-tile-name">All</span>
+                                    <span className="folder-tile-count">{notes.filter(n => !n.deletedAt).length}</span>
                                 </button>
-                            ))}
-                            <button className="category-pill add-pill" onClick={() => setShowCategoryManager(true)}>+</button>
-                        </div>
+                                <button
+                                    className={'folder-tile' + (filterCategory === 'uncategorized' ? ' active' : '')}
+                                    onClick={() => setFilterCategory('uncategorized')}
+                                >
+                                    <span className="folder-tile-icon" aria-hidden="true">📁</span>
+                                    <span className="folder-tile-name">Uncategorized</span>
+                                    <span className="folder-tile-count">{notes.filter(n => !n.deletedAt && noteMatchesCategory(n, 'uncategorized')).length}</span>
+                                </button>
+                                {categories.map((cat) => (
+                                    <button
+                                        key={cat.id}
+                                        className={'folder-tile' + (filterCategory === cat.id ? ' active' : '')}
+                                        onClick={() => setFilterCategory(cat.id)}
+                                    >
+                                        <span className="folder-tile-icon" style={{ color: cat.color }} aria-hidden="true">📁</span>
+                                        <span className="folder-tile-name">{cat.name}</span>
+                                        <span className="folder-tile-count">{notes.filter(n => !n.deletedAt && noteMatchesCategory(n, cat.id)).length}</span>
+                                    </button>
+                                ))}
+                                <button className="folder-tile folder-tile-add" onClick={() => setShowCategoryManager(true)}>
+                                    <span className="folder-tile-icon" aria-hidden="true">+</span>
+                                    <span className="folder-tile-name">Add</span>
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="category-tabs">
+                                <button
+                                    className={'category-pill' + (filterCategory === 'all' ? ' active' : '')}
+                                    onClick={() => setFilterCategory('all')}
+                                >
+                                    All
+                                </button>
+                                <button
+                                    className={'category-pill' + (filterCategory === 'uncategorized' ? ' active' : '')}
+                                    onClick={() => setFilterCategory('uncategorized')}
+                                >
+                                    Uncategorized
+                                </button>
+                                {categories.map((cat) => (
+                                    <button
+                                        key={cat.id}
+                                        className={'category-pill' + (filterCategory === cat.id ? ' active' : '')}
+                                        onClick={() => setFilterCategory(cat.id)}
+                                    >
+                                        <span className="color-dot" style={{ background: cat.color }}></span>
+                                        {cat.name}
+                                    </button>
+                                ))}
+                                <button className="category-pill add-pill" onClick={() => setShowCategoryManager(true)}>+</button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="notes-area" style={resolvePageBackground(settings.dashboardBackground)}>
