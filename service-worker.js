@@ -1,4 +1,4 @@
-const CACHE_NAME = 'notepad-app-v91';
+const CACHE_NAME = 'notepad-app-v92';
 const urlsToCache = [
   './',
   './index.html',
@@ -14,7 +14,8 @@ const urlsToCache = [
   './icons/folder-robot.png',
   './icons/folder-network.png',
   './icons/folder-spark.png',
-  './icons/folder-dna.png'
+  './icons/folder-dna.png',
+  './icons/app-identity-den.png'
 ];
 
 // Install event - cache files

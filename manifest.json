@@ -1,6 +1,6 @@
 {
-  "name": "Sly Notes",
-  "short_name": "Sly Notes",
+  "name": "Den Notes",
+  "short_name": "Den Notes",
   "description": "Create notes, checklists, and lists organized by category",
   "start_url": "./",
   "scope": "./",
