@@ -2091,7 +2091,7 @@
         }
 
         const DEFAULT_DASHBOARD_ICON_ORDER = ['search', 'pinnedFilter', 'sort', 'folderView', 'trash', 'select', 'settings'];
-        const DEFAULT_EDITOR_ICON_ORDER = ['undo', 'background', 'copy', 'templates', 'pin', 'trash', 'lock'];
+        const DEFAULT_EDITOR_ICON_ORDER = ['background', 'copy', 'templates', 'pin', 'trash', 'lock'];
 
         // A saved order might be missing ids a later update introduced, or
         // carry ids that no longer exist — keeps whatever's still valid, in
@@ -2187,7 +2187,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v85';
+        const APP_VERSION = 'v86';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3457,7 +3457,7 @@
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, dateAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker, onEnterSelectMode, onDismissKeyboard }) {
+        function LineToolbar({ hasActiveLine, dateAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker, onEnterSelectMode, onDismissKeyboard, canUndo, onUndo }) {
             const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
@@ -3488,6 +3488,8 @@
                     <button className={'line-toolbar-btn' + (activeFormats.u ? ' active' : '')} disabled={!hasActiveLine} onMouseDown={runFormat('u')} title="Underline"><u>U</u></button>
                     <button className={'line-toolbar-btn line-toolbar-btn-all' + (allActive ? ' active' : '')} disabled={!hasActiveLine} onMouseDown={runToggleAll} title="Toggle all formats">BIU</button>
                     <span className="line-toolbar-divider"></span>
+                    <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runSizeMenu} title="Text size">Aa</button>
+                    <span className="line-toolbar-divider"></span>
                     {LINE_TYPE_ICONS.map(({ type, icon }) => (
                         <button
                             key={type}
@@ -3500,7 +3502,8 @@
                         </button>
                     ))}
                     <span className="line-toolbar-divider"></span>
-                    <button className="line-toolbar-btn" disabled={!hasActiveLine} onMouseDown={runSizeMenu} title="Text size">Aa</button>
+                    <button className="line-toolbar-btn" disabled={!canUndo} onMouseDown={(e) => { e.preventDefault(); if (canUndo) onUndo(); }} title="Undo last edit">↩</button>
+                    <span className="line-toolbar-divider"></span>
                     {/* This used to overlay a real, invisible <input
                         type="date"> here to trigger iOS/Android's native
                         date picker — abandoned after several rounds of
@@ -4524,7 +4527,6 @@
             // Long-press any icon below to drag it into a new position — the
             // order is saved to settings, so it applies to every note.
             const editorIconDefs = {
-                undo: canUndoEdit ? { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Undo last edit', onClick: undoLastEdit, content: '↩' } : null,
                 background: { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Background', onClick: () => setShowBackgroundPicker(true), content: '🎨' },
                 copy: { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Copy content', onClick: copyContent, content: copiedFlash ? '✓' : '📋' },
                 templates: isTemplate ? null : { className: 'icon-btn', style: editorDefaultBadgeStyle, title: 'Templates', onClick: () => setShowTemplateMenu(true), content: '📑' },
@@ -4642,6 +4644,8 @@
                                         onOpenDatePicker={openDateSheetSmart}
                                         onEnterSelectMode={() => { setLineSelectMode(true); setLineSelection(null); setEditingBlockId(null); }}
                                         onDismissKeyboard={() => { if (document.activeElement) document.activeElement.blur(); }}
+                                        canUndo={canUndoEdit}
+                                        onUndo={undoLastEdit}
                                     />
                                 </React.Fragment>
                             )}
@@ -4688,7 +4692,7 @@
                                 <span className={'section-collapse-chevron' + (draft.mileageCollapsed ? ' collapsed' : '')}>▾</span>
                                 <span className="section-label" style={{ margin: 0 }}>Mileage Table</span>
                             </button>
-                            {draft.table && draft.table.rows.length > 0 ? (
+                            {!draft.mileageCollapsed && draft.table && draft.table.rows.length > 0 ? (
                                 <button
                                     className="csv-export-btn"
                                     onClick={() => downloadMileageCsv(draft.table, draft.title)}
@@ -5758,6 +5762,27 @@
                 setActiveNoteId(noteId);
             };
 
+            // Declared here (before the Trash-screen early return below) so
+            // this hook always runs, regardless of which view is showing —
+            // React requires every hook to run on every render, in the same
+            // order, or it throws (error #300).
+            const dashboardViewMode = settings.dashboardViewMode || 'pills';
+            // Folder view starts with nothing selected (no notes shown) and
+            // tapping the already-active folder deselects it, rather than
+            // always showing "All" the way the pill row does — switching
+            // back to pills falls back to "All" so that view still always
+            // shows something, matching its existing behavior.
+            const prevDashboardViewModeRef = useRef(dashboardViewMode);
+            useEffect(() => {
+                const prev = prevDashboardViewModeRef.current;
+                if (dashboardViewMode === 'folders' && prev !== 'folders') {
+                    setFilterCategory(null);
+                } else if (dashboardViewMode !== 'folders' && prev === 'folders' && filterCategory === null) {
+                    setFilterCategory('all');
+                }
+                prevDashboardViewModeRef.current = dashboardViewMode;
+            }, [dashboardViewMode]);
+
             if (view === 'trash') {
                 const trashedNotes = notes.filter(n => n.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt);
                 return (
@@ -5814,11 +5839,12 @@
             }
 
             const noteSortMode = settings.noteSortMode || 'manual';
-            const dashboardViewMode = settings.dashboardViewMode || 'pills';
             const categoryById = Object.fromEntries(categories.map(c => [c.id, c]));
             const visibleNotes = notes
                 .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory) && noteMatchesSearch(n, searchQuery) && (!showPinnedOnly || n.pinned))
                 .sort(makeNoteSortCompare(noteSortMode, categoryById));
+
+            const toggleFolder = (id) => setFilterCategory((current) => current === id ? null : id);
 
             const toggleSearch = () => {
                 setShowSearch((s) => {
@@ -5906,7 +5932,7 @@
                             <div className="folder-tabs">
                                 <button
                                     className={'folder-tile' + (filterCategory === 'all' ? ' active' : '')}
-                                    onClick={() => setFilterCategory('all')}
+                                    onClick={() => toggleFolder('all')}
                                 >
                                     <span className="folder-tile-icon" aria-hidden="true">🗂</span>
                                     <span className="folder-tile-name">All</span>
@@ -5914,7 +5940,7 @@
                                 </button>
                                 <button
                                     className={'folder-tile' + (filterCategory === 'uncategorized' ? ' active' : '')}
-                                    onClick={() => setFilterCategory('uncategorized')}
+                                    onClick={() => toggleFolder('uncategorized')}
                                 >
                                     <span className="folder-tile-icon" aria-hidden="true">📁</span>
                                     <span className="folder-tile-name">Uncategorized</span>
@@ -5924,7 +5950,7 @@
                                     <button
                                         key={cat.id}
                                         className={'folder-tile' + (filterCategory === cat.id ? ' active' : '')}
-                                        onClick={() => setFilterCategory(cat.id)}
+                                        onClick={() => toggleFolder(cat.id)}
                                     >
                                         <span className="folder-tile-icon" style={{ color: cat.color }} aria-hidden="true">📁</span>
                                         <span className="folder-tile-name">{cat.name}</span>
@@ -5968,8 +5994,10 @@
                     <div className="notes-area" style={resolvePageBackground(settings.dashboardBackground)}>
                         {loading ? null : visibleNotes.length === 0 ? (
                             <div className="empty-state">
-                                <div className="emoji">{searchQuery.trim() ? '🔍' : showPinnedOnly ? '📌' : '🗒️'}</div>
-                                {searchQuery.trim() ? (
+                                <div className="emoji">{dashboardViewMode === 'folders' && filterCategory === null ? '📁' : searchQuery.trim() ? '🔍' : showPinnedOnly ? '📌' : '🗒️'}</div>
+                                {dashboardViewMode === 'folders' && filterCategory === null ? (
+                                    <p>Select a folder above to view its notes.</p>
+                                ) : searchQuery.trim() ? (
                                     <p>No notes match "{searchQuery.trim()}".</p>
                                 ) : showPinnedOnly ? (
                                     <p>No pinned notes yet.<br/>Tap 📌 on a note to pin it.</p>
