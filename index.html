@@ -871,8 +871,20 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-bottom: 16px;
+            margin: -6px 0 16px;
+            padding: 6px 0;
             flex-wrap: wrap;
+            /* Stays reachable on long notes instead of scrolling away with
+               the body — a blurred translucent backdrop (rather than trying
+               to exactly continue the page's own gradient/color, which would
+               visibly seam at this box's own edges) keeps it legible over
+               whatever's scrolling underneath, on any background. */
+            position: sticky;
+            top: 0;
+            z-index: 3;
+            background: rgba(255,255,255,0.82);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
 
         .category-select {
@@ -1079,7 +1091,7 @@
             color: #f3f4f8;
         }
 
-        .uncheck-all-btn {
+        .clear-body-btn {
             display: block;
             margin: 0 0 16px auto;
             background: #f1f1f4;
@@ -1091,7 +1103,7 @@
             font-weight: 600;
         }
 
-        .dark-content .uncheck-all-btn {
+        .dark-content .clear-body-btn {
             background: rgba(255,255,255,0.16);
             color: #f3f4f8;
         }
@@ -1354,6 +1366,28 @@
             border-bottom-color: rgba(255,255,255,0.16);
         }
 
+        /* Rainbow's gradient runs through every hue, so plain white text isn't
+           guaranteed to read on it either — outline each letter in black
+           instead of just swapping to white like the rest of dark-content.
+           Compound .dark-content.theme-rainbow (theme-rainbow always implies
+           dark-content) outranks the plain .dark-content rules above/below
+           regardless of source order. */
+        .dark-content.theme-rainbow .note-card-title,
+        .dark-content.theme-rainbow .note-card-body,
+        .dark-content.theme-rainbow .note-card-list-item,
+        .dark-content.theme-rainbow .block-editable,
+        .dark-content.theme-rainbow .block-display,
+        .dark-content.theme-rainbow .editor-title-input,
+        .dark-content.theme-rainbow .editor-header-title {
+            color: #ffffff;
+            -webkit-text-stroke: 0.6px #000000;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+
+        .dark-content.theme-rainbow .editor-title-input::placeholder {
+            color: rgba(255,255,255,0.75);
+        }
+
         .dark-content .note-card-photo-badge {
             color: rgba(243,244,248,0.85);
         }
@@ -1373,6 +1407,10 @@
 
         .dark-content .editor-title-input::placeholder {
             color: #c7c9d4;
+        }
+
+        .dark-content .editor-meta-row {
+            background: rgba(20,20,26,0.72);
         }
 
         .dark-content .checkbox-marker {
@@ -2001,13 +2039,13 @@
             return { draggingId, getDragProps, wrapClick };
         }
 
-        const CATEGORY_COLORS = ['#667eea', '#e57373', '#f2a541', '#ffd54f', '#81c784', '#4dd0c9', '#4fc3f7', '#9575cd', '#f06292', '#a1887f'];
+        const CATEGORY_COLORS = ['#667eea', '#e57373', '#f2a541', '#ffd54f', '#81c784', '#4dd0c9', '#4fc3f7', '#9575cd', '#f06292', '#a1887f', '#ffb300', '#43a047', '#5c6bc0', '#78909c'];
 
         // Bumped alongside service-worker.js's CACHE_NAME on every deploy so
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v79';
+        const APP_VERSION = 'v80';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2019,18 +2057,24 @@
         // ones — their card-level gradients are dark/medium enough that dark text
         // loses contrast. The palette is fixed and small enough to just flag each
         // one by hand rather than computing contrast at runtime.
+        // Ordered in rainbow hue order (ROYGBIV), lightest-to-darkest within a
+        // hue as a tie-break, with Rainbow itself first (it spans every hue)
+        // and the hue-less blacks/neutrals (Obsidian) last.
         const THEME_BACKGROUNDS = [
-            { id: 'aurora', label: 'Aurora', pageCss: 'linear-gradient(135deg, #4f5fd1 0%, #7b4fc9 50%, #4fb8c9 100%)', cardCss: 'linear-gradient(135deg, rgba(102,126,234,0.35), rgba(118,75,162,0.35))', dark: false, accent: '#4f5fd1' },
-            { id: 'neon', label: 'Neon Grid', pageCss: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0ea5e9 100%)', cardCss: 'linear-gradient(135deg, rgba(15,23,42,0.45), rgba(14,165,233,0.35))', dark: true, accent: '#0f172a' },
-            { id: 'frost', label: 'Frost', pageCss: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 50%, #f0fdfa 100%)', cardCss: 'linear-gradient(135deg, rgba(255,255,255,0.45), rgba(191,219,254,0.35))', dark: false, accent: '#dbeafe' },
-            { id: 'cyber', label: 'Cyber', pageCss: 'linear-gradient(135deg, #1e1b4b 0%, #7e22ce 50%, #ec4899 100%)', cardCss: 'linear-gradient(135deg, rgba(236,72,153,0.35), rgba(59,130,246,0.35))', dark: true, accent: '#1e1b4b' },
-            { id: 'holo', label: 'Holo', pageCss: 'linear-gradient(135deg, #fbcfe8 0%, #ddd6fe 50%, #a7f3d0 100%)', cardCss: 'linear-gradient(135deg, rgba(253,207,232,0.4), rgba(167,255,235,0.4))', dark: false, accent: '#fbcfe8' },
-            { id: 'matrix', label: 'Matrix', pageCss: 'linear-gradient(135deg, #06130a 0%, #0d3b1f 55%, #00e676 100%)', cardCss: 'linear-gradient(135deg, rgba(3,12,6,0.92), rgba(5,66,30,0.85))', dark: true, accent: '#06130a' },
-            { id: 'synthwave', label: 'Synthwave', pageCss: 'linear-gradient(135deg, #2b0b3f 0%, #a2246b 55%, #f6a821 100%)', cardCss: 'linear-gradient(135deg, rgba(28,7,41,0.92), rgba(97,23,70,0.85))', dark: true, accent: '#2b0b3f' },
-            { id: 'plasma', label: 'Plasma', pageCss: 'linear-gradient(135deg, #3a0ca3 0%, #8e2de2 50%, #ff0080 100%)', cardCss: 'linear-gradient(135deg, rgba(36,7,102,0.92), rgba(114,36,181,0.85))', dark: true, accent: '#3a0ca3' },
-            { id: 'quantum', label: 'Quantum', pageCss: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)', cardCss: 'linear-gradient(135deg, rgba(8,18,22,0.92), rgba(24,47,56,0.85))', dark: true, accent: '#0f2027' },
-            { id: 'obsidian', label: 'Obsidian', pageCss: 'linear-gradient(135deg, #000000 0%, #0a0a0d 55%, #16161f 100%)', cardCss: 'linear-gradient(135deg, rgba(0,0,0,0.92), rgba(22,22,31,0.85))', dark: true, accent: '#000000' },
+            { id: 'rainbow', label: 'Rainbow', pageCss: 'linear-gradient(135deg, #ff3b30 0%, #ff9500 16%, #ffe066 33%, #34c759 50%, #0a84ff 66%, #5e5ce6 83%, #ff2d78 100%)', cardCss: 'linear-gradient(135deg, rgba(255,59,48,0.3), rgba(94,92,230,0.3))', dark: true, rainbow: true, accent: '#7b2ff7' },
             { id: 'inferno', label: 'Inferno', pageCss: 'linear-gradient(135deg, #1a0000 0%, #7a0c0c 55%, #ff2d1f 100%)', cardCss: 'linear-gradient(135deg, rgba(40,3,3,0.92), rgba(150,15,15,0.8))', dark: true, accent: '#7a0c0c' },
+            { id: 'amber', label: 'Amber', pageCss: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 50%, #ffe0b2 100%)', cardCss: 'linear-gradient(135deg, rgba(255,152,0,0.35), rgba(255,224,178,0.35))', dark: false, accent: '#ff9800' },
+            { id: 'citrine', label: 'Citrine', pageCss: 'linear-gradient(135deg, #fbc02d 0%, #ffee58 50%, #fff9c4 100%)', cardCss: 'linear-gradient(135deg, rgba(251,192,45,0.35), rgba(255,249,196,0.35))', dark: false, accent: '#fbc02d' },
+            { id: 'matrix', label: 'Matrix', pageCss: 'linear-gradient(135deg, #06130a 0%, #0d3b1f 55%, #00e676 100%)', cardCss: 'linear-gradient(135deg, rgba(3,12,6,0.92), rgba(5,66,30,0.85))', dark: true, accent: '#06130a' },
+            { id: 'frost', label: 'Frost', pageCss: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 50%, #f0fdfa 100%)', cardCss: 'linear-gradient(135deg, rgba(255,255,255,0.45), rgba(191,219,254,0.35))', dark: false, accent: '#dbeafe' },
+            { id: 'quantum', label: 'Quantum', pageCss: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)', cardCss: 'linear-gradient(135deg, rgba(8,18,22,0.92), rgba(24,47,56,0.85))', dark: true, accent: '#0f2027' },
+            { id: 'neon', label: 'Neon Grid', pageCss: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0ea5e9 100%)', cardCss: 'linear-gradient(135deg, rgba(15,23,42,0.45), rgba(14,165,233,0.35))', dark: true, accent: '#0f172a' },
+            { id: 'aurora', label: 'Aurora', pageCss: 'linear-gradient(135deg, #4f5fd1 0%, #7b4fc9 50%, #4fb8c9 100%)', cardCss: 'linear-gradient(135deg, rgba(102,126,234,0.35), rgba(118,75,162,0.35))', dark: false, accent: '#4f5fd1' },
+            { id: 'cyber', label: 'Cyber', pageCss: 'linear-gradient(135deg, #1e1b4b 0%, #7e22ce 50%, #ec4899 100%)', cardCss: 'linear-gradient(135deg, rgba(236,72,153,0.35), rgba(59,130,246,0.35))', dark: true, accent: '#1e1b4b' },
+            { id: 'plasma', label: 'Plasma', pageCss: 'linear-gradient(135deg, #3a0ca3 0%, #8e2de2 50%, #ff0080 100%)', cardCss: 'linear-gradient(135deg, rgba(36,7,102,0.92), rgba(114,36,181,0.85))', dark: true, accent: '#3a0ca3' },
+            { id: 'synthwave', label: 'Synthwave', pageCss: 'linear-gradient(135deg, #2b0b3f 0%, #a2246b 55%, #f6a821 100%)', cardCss: 'linear-gradient(135deg, rgba(28,7,41,0.92), rgba(97,23,70,0.85))', dark: true, accent: '#2b0b3f' },
+            { id: 'holo', label: 'Holo', pageCss: 'linear-gradient(135deg, #fbcfe8 0%, #ddd6fe 50%, #a7f3d0 100%)', cardCss: 'linear-gradient(135deg, rgba(253,207,232,0.4), rgba(167,255,235,0.4))', dark: false, accent: '#fbcfe8' },
+            { id: 'obsidian', label: 'Obsidian', pageCss: 'linear-gradient(135deg, #000000 0%, #0a0a0d 55%, #16161f 100%)', cardCss: 'linear-gradient(135deg, rgba(0,0,0,0.92), rgba(22,22,31,0.85))', dark: true, accent: '#000000' },
         ];
 
         const DEFAULT_THEME_COLOR = '#667eea';
@@ -2058,6 +2102,15 @@
             if (!bg || bg.indexOf('theme:') !== 0) return false;
             const theme = THEME_BACKGROUNDS.find(t => 'theme:' + t.id === bg);
             return !!(theme && theme.dark);
+        }
+
+        // Rainbow's gradient runs through every hue, so no single dark/light
+        // text color reads on all of it — it needs its own outlined-white
+        // treatment instead of the usual binary dark-content swap.
+        function isThemeRainbow(bg) {
+            if (!bg || bg.indexOf('theme:') !== 0) return false;
+            const theme = THEME_BACKGROUNDS.find(t => 'theme:' + t.id === bg);
+            return !!(theme && theme.rainbow);
         }
 
         function resolveCardBackground(bg) {
@@ -2296,7 +2349,7 @@
 
             return (
                 <div
-                    className={'note-card' + (isDragging ? ' dragging' : '') + (note.pinned ? ' pinned' : '') + (selected ? ' selected' : '') + (isThemeDark(note.background) ? ' dark-content' : '')}
+                    className={'note-card' + (isDragging ? ' dragging' : '') + (note.pinned ? ' pinned' : '') + (selected ? ' selected' : '') + (isThemeDark(note.background) ? ' dark-content' : '') + (isThemeRainbow(note.background) ? ' theme-rainbow' : '')}
                     style={{ ...resolveCardBackground(note.background), touchAction: dragEnabled ? 'none' : 'auto' }}
                     data-note-id={note.id}
                     onPointerDown={dragEnabled ? (e) => onCardPointerDown(e, note.id) : undefined}
@@ -2354,25 +2407,28 @@
                                     })}
                                 </div>
                             ) : null}
-                            <div className="note-card-footer">
-                                {noteCategories && noteCategories.length > 0 ? (
-                                    <span className="note-card-category-dots">
-                                        {noteCategories.map((cat) => (
-                                            <span key={cat.id} className="color-dot" style={{ background: cat.color }} title={cat.name}></span>
-                                        ))}
-                                    </span>
-                                ) : <span></span>}
-                                <span style={{ display: 'flex', gap: 8 }}>
-                                    {note.table && note.table.rows.length > 0 ? (
-                                        <span className="note-card-photo-badge">📊 {note.table.rows.length}</span>
-                                    ) : null}
-                                    {note.photos && note.photos.length > 0 ? (
-                                        <span className="note-card-photo-badge">📷 {note.photos.length}</span>
-                                    ) : null}
-                                </span>
-                            </div>
                         </React.Fragment>
                     )}
+                    {/* Category dots stay visible even on a locked note (they're
+                        not sensitive content) — but the table/photo counts,
+                        which hint at what's inside, stay hidden while locked. */}
+                    <div className="note-card-footer">
+                        {noteCategories && noteCategories.length > 0 ? (
+                            <span className="note-card-category-dots">
+                                {noteCategories.map((cat) => (
+                                    <span key={cat.id} className="color-dot" style={{ background: cat.color }} title={cat.name}></span>
+                                ))}
+                            </span>
+                        ) : <span></span>}
+                        <span style={{ display: 'flex', gap: 8 }}>
+                            {!note.locked && note.table && note.table.rows.length > 0 ? (
+                                <span className="note-card-photo-badge">📊 {note.table.rows.length}</span>
+                            ) : null}
+                            {!note.locked && note.photos && note.photos.length > 0 ? (
+                                <span className="note-card-photo-badge">📷 {note.photos.length}</span>
+                            ) : null}
+                        </span>
+                    </div>
                 </div>
             );
         }
@@ -2673,21 +2729,25 @@
             );
         });
 
-        function BatchCategorySheet({ background, categories, onAddCategory, onClose }) {
+        function BatchCategorySheet({ background, categories, selectedNotes, onToggleCategory, onClose }) {
             const dark = isThemeDark(background);
             return (
                 <div className="sheet-backdrop" onClick={onClose}>
                     <div className={'sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
-                        <h2>Add category to selected</h2>
+                        <h2>Set category on selected</h2>
                         {categories.length === 0 ? (
                             <p className="sheet-muted-text" style={{ fontSize: 13 }}>No categories yet.</p>
                         ) : (
-                            categories.map((cat) => (
-                                <button key={cat.id} className="category-picker-row" onClick={() => onAddCategory(cat.id)}>
-                                    <span className="color-dot" style={{ background: cat.color, width: 12, height: 12 }}></span>
-                                    <span className="category-picker-name">{cat.name}</span>
-                                </button>
-                            ))
+                            categories.map((cat) => {
+                                const allHaveIt = selectedNotes.length > 0 && selectedNotes.every((n) => n.categoryIds && n.categoryIds.includes(cat.id));
+                                return (
+                                    <button key={cat.id} className="category-picker-row" onClick={() => onToggleCategory(cat.id)}>
+                                        <span className="color-dot" style={{ background: cat.color, width: 12, height: 12 }}></span>
+                                        <span className="category-picker-name">{cat.name}</span>
+                                        {allHaveIt ? <span className="category-picker-check">✓</span> : null}
+                                    </button>
+                                );
+                            })
                         )}
                         <div className="btn-row" style={{ marginTop: 14 }}>
                             <button className="primary-btn" style={{ flex: 1 }} onClick={onClose}>Done</button>
@@ -3350,6 +3410,7 @@
             const [draft, setDraft] = useState(note);
             const [editingBlockId, setEditingBlockId] = useState(null);
             const [confirmTrash, setConfirmTrash] = useState(false);
+            const [confirmClearAll, setConfirmClearAll] = useState(false);
             const [previewPhoto, setPreviewPhoto] = useState(null);
             const [uploading, setUploading] = useState(false);
             const [dateCellActive, setDateCellActive] = useState(false);
@@ -3396,6 +3457,13 @@
             //   { kind: 'mileage', rowId }
             const dateTargetRef = useRef(null);
             const [showDatePickerSheet, setShowDatePickerSheet] = useState(false);
+            // Title is a controlled input — its value changes in React state on
+            // every keystroke, unlike a block's contentEditable (which only
+            // syncs to state on commit). Pushing history per keystroke would
+            // make undo revert one character at a time, so instead snapshot
+            // the pre-edit state on focus and only actually commit it to
+            // history on blur, and only if the title actually changed.
+            const titleEditSnapshotRef = useRef(null);
             // Set right after inserting a date, so the follow-up effect that
             // re-enters edit mode on this block can land the caret just past the
             // inserted text instead of wherever placeCursorAtDeepestEnd puts it.
@@ -3431,6 +3499,7 @@
             useBackClose(showTemplateMenu, () => setShowTemplateMenu(false));
             useBackClose(showSaveTemplate, () => setShowSaveTemplate(false));
             useBackClose(confirmTrash, () => setConfirmTrash(false));
+            useBackClose(confirmClearAll, () => setConfirmClearAll(false));
             useBackClose(showCategoryPicker, () => setShowCategoryPicker(false));
             useBackClose(showDatePickerSheet, () => setShowDatePickerSheet(false));
 
@@ -3468,6 +3537,7 @@
             };
 
             const toggleDraftCategory = (id) => {
+                pushEditHistory();
                 setDraft((d) => {
                     const current = d.categoryIds || [];
                     const next = current.includes(id) ? current.filter(c => c !== id) : [...current, id];
@@ -3477,6 +3547,7 @@
 
             const createAndSelectCategory = (name, color) => {
                 const id = onAddCategory(name, color);
+                pushEditHistory();
                 setDraft((d) => ({ ...d, categoryIds: [...(d.categoryIds || []), id] }));
             };
 
@@ -3732,9 +3803,12 @@
                 setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, checked: !b.checked } : b) }));
             };
 
-            const uncheckAll = () => {
+            // Resets the body text only — title, category, background,
+            // mileage table, and photos are untouched.
+            const clearAllBlocks = () => {
                 pushEditHistory();
-                setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.type === 'checklist' && b.checked ? { ...b, checked: false } : b) }));
+                setDraft((d) => ({ ...d, blocks: [{ id: makeId(), type: 'text', html: '' }] }));
+                setEditingBlockId(null);
             };
 
             const copyContent = async () => {
@@ -4037,6 +4111,7 @@
                 : { b: false, i: false, u: false };
 
             const editorHeaderDark = isThemeDark(draft.background);
+            const editorHeaderRainbow = isThemeRainbow(draft.background);
             const editorDefaultBadgeStyle = { background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) };
 
             // Long-press any icon below to drag it into a new position — the
@@ -4064,7 +4139,7 @@
             };
 
             return (
-                <div className={'editor-screen' + (editorHeaderDark ? ' dark-content' : '')} style={resolvePageBackground(draft.background)}>
+                <div className={'editor-screen' + (editorHeaderDark ? ' dark-content' : '') + (editorHeaderRainbow ? ' theme-rainbow' : '')} style={resolvePageBackground(draft.background)}>
                     <div className="editor-header" style={resolveHeaderBackground(draft.background)}>
                         <button className="icon-btn" style={{ background: headerBadgeBg(editorHeaderDark), color: headerIconColor(editorHeaderDark) }} onClick={handleBack}>←</button>
                         <div className="editor-header-actions">
@@ -4097,8 +4172,20 @@
                                 placeholder={isTemplate ? 'Template name' : 'Title'}
                                 value={draft.title}
                                 onChange={(e) => updateField('title', e.target.value)}
-                                onFocus={() => setTitleFocused(true)}
-                                onBlur={() => setTitleFocused(false)}
+                                onFocus={() => {
+                                    setTitleFocused(true);
+                                    titleEditSnapshotRef.current = { title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds };
+                                }}
+                                onBlur={() => {
+                                    setTitleFocused(false);
+                                    const snapshot = titleEditSnapshotRef.current;
+                                    titleEditSnapshotRef.current = null;
+                                    if (snapshot && snapshot.title !== draft.title) {
+                                        editHistoryRef.current.push(snapshot);
+                                        if (editHistoryRef.current.length > 25) editHistoryRef.current.shift();
+                                        setCanUndoEdit(true);
+                                    }
+                                }}
                                 autoFocus={note.title === ''}
                             />
                         </form>
@@ -4134,8 +4221,8 @@
                             />
                         </div>
 
-                        {draft.blocks.some(b => b.type === 'checklist' && b.checked) ? (
-                            <button className="uncheck-all-btn" onClick={uncheckAll}>Uncheck all</button>
+                        {draft.blocks.some(b => stripHtml(b.html).trim()) ? (
+                            <button className="clear-body-btn" onClick={() => setConfirmClearAll(true)}>Clear</button>
                         ) : null}
 
                         <div className="list-items">
@@ -4301,7 +4388,7 @@
                             title="Background"
                             background={draft.background}
                             value={draft.background}
-                            onChange={(v) => updateField('background', v)}
+                            onChange={(v) => { pushEditHistory(); updateField('background', v); }}
                             onClose={() => setShowBackgroundPicker(false)}
                         />
                     ) : null}
@@ -4370,6 +4457,16 @@
                             confirmLabel={isTemplate ? 'Delete' : 'Move to Trash'}
                             onCancel={() => setConfirmTrash(false)}
                             onConfirm={() => { onTrash(draft.id); onBack(); }}
+                        />
+                    ) : null}
+
+                    {confirmClearAll ? (
+                        <ConfirmSheet
+                            title="Clear all text?"
+                            message="This removes all body text on this note. Undo (↩) right after to bring it back."
+                            confirmLabel="Clear"
+                            onCancel={() => setConfirmClearAll(false)}
+                            onConfirm={() => { clearAllBlocks(); setConfirmClearAll(false); }}
                         />
                     ) : null}
 
@@ -4545,6 +4642,17 @@
                 const updateKeyboardInset = () => {
                     const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
                     document.documentElement.style.setProperty('--keyboard-inset', inset + 'px');
+                    // The padding above only creates room to scroll into — it
+                    // doesn't itself move anything. Some Android WebView
+                    // versions don't re-run their own scroll-into-view logic
+                    // when the viewport shrinks after a field is already
+                    // focused, leaving the focused field stuck wherever it
+                    // was when the keyboard opened. Nudge it back into view
+                    // explicitly whenever the inset changes.
+                    const active = document.activeElement;
+                    if (active && inset > 0 && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+                        active.scrollIntoView({ block: 'nearest' });
+                    }
                 };
                 vv.addEventListener('resize', updateKeyboardInset);
                 vv.addEventListener('scroll', updateKeyboardInset);
@@ -4754,6 +4862,27 @@
                     if (db) idbPut(db, 'notes', updated);
                     return updated;
                 }));
+            };
+
+            const batchRemoveCategoryFromSelected = (categoryId) => {
+                const ids = selectedIds;
+                setNotes((prev) => prev.map((n) => {
+                    if (!ids.includes(n.id) || !n.categoryIds || !n.categoryIds.includes(categoryId)) return n;
+                    const updated = { ...n, categoryIds: n.categoryIds.filter((id) => id !== categoryId) };
+                    if (db) idbPut(db, 'notes', updated);
+                    return updated;
+                }));
+            };
+
+            const batchToggleCategoryOnSelected = (categoryId) => {
+                const ids = selectedIds;
+                const selectedNotes = notes.filter((n) => ids.includes(n.id));
+                const allHaveIt = selectedNotes.length > 0 && selectedNotes.every((n) => n.categoryIds && n.categoryIds.includes(categoryId));
+                if (allHaveIt) {
+                    batchRemoveCategoryFromSelected(categoryId);
+                } else {
+                    batchAddCategoryToSelected(categoryId);
+                }
             };
 
             const restoreNote = useCallback((id) => {
@@ -5379,7 +5508,8 @@
                         <BatchCategorySheet
                             background={settings.dashboardBackground}
                             categories={categories}
-                            onAddCategory={batchAddCategoryToSelected}
+                            selectedNotes={notes.filter((n) => selectedIds.includes(n.id))}
+                            onToggleCategory={batchToggleCategoryOnSelected}
                             onClose={() => { setShowBatchCategory(false); setSelectedIds([]); setSelectMode(false); }}
                         />
                     ) : null}
@@ -5407,12 +5537,6 @@
                                 return ok;
                             }}
                             onCancel={() => setPendingUnlockNoteId(null)}
-                            onForgotPin={() => {
-                                removeAppPin();
-                                setPinUnlockedThisSession(true);
-                                setActiveNoteId(pendingUnlockNoteId);
-                                setPendingUnlockNoteId(null);
-                            }}
                         />
                     ) : null}
 
