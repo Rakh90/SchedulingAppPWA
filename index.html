@@ -522,6 +522,14 @@
             margin-bottom: 12px;
         }
 
+        .empty-state-icon-img {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            object-fit: cover;
+            margin-bottom: 12px;
+        }
+
         /* ---------- FAB ---------- */
         .fab {
             position: fixed;
@@ -2261,7 +2269,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v90';
+        const APP_VERSION = 'v91';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -6163,7 +6171,15 @@
                     <div className="notes-area" style={resolvePageBackground(settings.dashboardBackground)}>
                         {loading ? null : visibleNotes.length === 0 ? (
                             <div className="empty-state">
-                                <div className="emoji">{dashboardViewMode === 'folders' && filterCategory === null ? '📁' : searchQuery.trim() ? '🔍' : showPinnedOnly ? '📌' : '🗒️'}</div>
+                                {dashboardViewMode === 'folders' && filterCategory === null ? (
+                                    folderIconTheme.img ? (
+                                        <img className="empty-state-icon-img" src={folderIconTheme.img} alt="" aria-hidden="true" />
+                                    ) : (
+                                        <div className="emoji">{folderIconTheme.all}</div>
+                                    )
+                                ) : (
+                                    <div className="emoji">{searchQuery.trim() ? '🔍' : showPinnedOnly ? '📌' : '🗒️'}</div>
+                                )}
                                 {dashboardViewMode === 'folders' && filterCategory === null ? (
                                     <p>Select a folder above to view its notes.</p>
                                 ) : searchQuery.trim() ? (
