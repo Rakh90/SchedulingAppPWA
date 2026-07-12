@@ -2187,7 +2187,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v86';
+        const APP_VERSION = 'v87';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2226,14 +2226,15 @@
         // two-level menu -> detail flow.
         const HELP_TOPICS = [
             { id: 'editing', title: 'Creating & editing notes', icon: '📝', body: 'Tap the + button on the dashboard to start a new note, or tap any existing note to open it. Tap the title to rename it, or tap anywhere in the body to start typing. Notes save automatically as you type — there\'s no separate save button.' },
-            { id: 'formatting', title: 'Formatting text', icon: 'B', body: 'Tap into any line of text to bring up the formatting toolbar above it. Bold, italic, and underline apply to the whole line at once — tap the same button again to remove it. The "Aa" button changes text size, and the calendar button inserts today\'s date (or lets you pick another one) right where your cursor was.' },
+            { id: 'formatting', title: 'Formatting text', icon: 'B', body: 'Tap into any line of text to bring up the sticky formatting toolbar above it — it stays reachable near the top of the screen even on a long note. Bold, italic, and underline apply to the whole line at once — tap the same button again to remove it. The "Aa" button changes text size, and the calendar button inserts today\'s date (or lets you pick another one) right where your cursor was. The ⌄ button at the end of the toolbar hides the on-screen keyboard, wherever you\'re typing — the title, a line, or a mileage cell.' },
             { id: 'lists', title: 'Checklists & lists', icon: '☑', body: 'The T • # ▢ buttons switch a line between plain text, a bullet, a numbered item, or a checkbox. Press Enter on an empty list line to indent it one level; press it again to outdent, and a third time to drop back to plain text. Backspace at the start of an indented line outdents it the same way. Long-press a line\'s marker to drag and reorder it.' },
-            { id: 'selectLines', title: 'Select & bulk-edit lines', icon: '☑', body: 'Tap the ☑ button in a note\'s editor to turn on line selection. Press and hold any line, then drag up or down to highlight a range — dragging past the top or bottom edge scrolls the note for you. The toolbar that appears works on every highlighted line at once: switch them all to bulleted/numbered/checklist/plain text, toggle bold/italic/underline, or delete them entirely. Tap ✕ (or the ☑ button again) to exit.' },
+            { id: 'selectLines', title: 'Select & bulk-edit lines', icon: '☑', body: 'Tap the ☑ button in a note\'s formatting toolbar to turn on line selection. Press and hold any line, then drag up or down to highlight a range — dragging past the top or bottom edge scrolls the note for you. The toolbar swaps to show actions for every highlighted line at once: switch them all to bulleted/numbered/checklist/plain text, toggle bold/italic/underline, or delete them entirely. Tap ✕ (or the ☑ button again) to exit.' },
             { id: 'categories', title: 'Categories', icon: '🏷', body: 'Tap "Uncategorized" (or a note\'s existing categories) near the top of a note to assign one or more categories, or create a new one on the spot with its own color. Category chips at the top of the dashboard let you filter to just that category. Manage, rename, recolor, or delete categories any time from Settings — drag a category\'s ⠿ handle there to reorder it.' },
+            { id: 'folderView', title: 'Folder view', icon: '📁', body: 'Tap the 📁 icon on the dashboard to switch the category chips into a grid of folder tiles instead, each showing how many notes it holds. Unlike the chip row, folder view starts with nothing selected — tap a folder to see its notes, and tap that same folder again to hide them. Switching back to chips always shows "All" again. Your choice of chips or folders is remembered the next time you open the app.' },
             { id: 'backgrounds', title: 'Backgrounds & themes', icon: '🎨', body: 'Every note can have its own background — tap the 🎨 button in its editor. Choose from solid colors or the animated gradient themes, including Rainbow, which uses white text so it stays readable over every color in the gradient. You can also set a default background for new notes and a separate background for the dashboard itself, both in Settings.' },
             { id: 'lock', title: 'Note lock (PIN)', icon: '🔒', body: 'Set a PIN in Settings, then lock any individual note from its editor (🔒 button). A locked note shows only its title on the dashboard until the PIN is entered — once unlocked, it stays unlocked for the rest of your session. Change or remove your PIN any time from Settings. If you forget your PIN, open Settings and tap "Change PIN" or "Remove PIN" — a small hidden button in the corner of that screen reveals a "Forgot your PIN?" option that removes it immediately, no confirmation needed, so don\'t tap it by accident.' },
             { id: 'templates', title: 'Templates', icon: '📄', body: 'Save any note as a reusable template from its editor menu (📑 button), then start new notes from it via the "New note" screen. Templates carry over their body text, background, and categories, so you don\'t have to rebuild a note from scratch each time.' },
-            { id: 'mileage', title: 'Mileage table', icon: '📊', body: 'Every note includes an optional mileage table for logging trips. Tap "Today" or "Pick Date" with no cell selected to add a new row already filled in with that date; tap a date cell first to fill that specific cell instead. Pressing Enter moves to the next cell, and pressing Enter in the very last cell of the last row adds a fresh row automatically. The total at the bottom keeps a running sum, and you can export just the mileage data to CSV from a note\'s editor menu.' },
+            { id: 'mileage', title: 'Mileage table', icon: '📊', body: 'Every note includes an optional mileage table for logging trips. Tap "Today" or "Pick Date" with no cell selected to add a new row already filled in with that date; tap a date cell first to fill that specific cell instead. Pressing Enter moves to the next cell, and pressing Enter in the very last cell of the last row adds a fresh row automatically. The total at the bottom keeps a running sum. Tap the ▾ next to "Mileage Table" to minimize the whole section — handy for a note that doesn\'t need it in the way, or one whose mileage data is already finished — it stays minimized the next time you open that note. Export just the mileage data to CSV from the button next to the section label (hidden while minimized).' },
             { id: 'photos', title: 'Photos', icon: '📷', body: 'Add photos to a note with the Camera, Gallery, or Files buttons at the bottom of its editor. The first photo shows as a thumbnail on the note\'s dashboard card, and a badge shows how many photos a note has.' },
             { id: 'calendar', title: 'Calendar date picker', icon: '📅', body: 'The calendar button in a note\'s formatting toolbar opens a built-in date picker, so there\'s no fighting with your device\'s native one. Browse up to 5 years in either direction and tap a day to insert that date wherever your cursor was.' },
             { id: 'undo', title: 'Undo', icon: '↩', body: 'The undo button (↩, appears once you\'ve made a change) reverts the most recent edit to a note — text, title, category, background, or an inserted date. It only covers the current editing session and isn\'t a full history, so it\'s meant for quickly reverting a mistake, not stepping back through every change ever made.' },
@@ -3575,7 +3576,7 @@
             );
         }
 
-        function BlockLine({ block, idx, isEditing, listNumber, isDragging, onStartEdit, onExitEdit, onCommit, onEnter, onBackspaceEmpty, onToggleChecked, onMarkerPointerDown, onMarkerPointerMove, onMarkerPointerUp, selectMode, isSelected, onLineSelectPointerDown, onLineSelectPointerMove, onLineSelectPointerUp }) {
+        function BlockLine({ block, idx, isEditing, listNumber, isDragging, onStartEdit, onExitEdit, onCommit, onEnter, onBackspaceEmpty, onToggleChecked, onMarkerPointerDown, onMarkerPointerMove, onMarkerPointerUp, selectMode, isSelected, onLineSelectPointerDown, onLineSelectPointerMove, onLineSelectPointerUp, onCaretMove }) {
             const editableRef = useRef(null);
 
             // Re-seed the contentEditable's DOM content every time this block enters
@@ -3587,6 +3588,7 @@
                     el.innerHTML = block.html;
                     el.focus();
                     placeCursorAtDeepestEnd(el);
+                    if (onCaretMove) onCaretMove();
                 }
             }, [isEditing]);
 
@@ -3675,6 +3677,7 @@
                             suppressContentEditableWarning
                             onBlur={handleBlur}
                             onKeyDown={handleKeyDown}
+                            onInput={onCaretMove}
                         />
                     ) : (
                         <div
@@ -4243,6 +4246,41 @@
                 lineSelectDragRef.current = { pointerId: null, active: false, timer: null, startX: 0, startY: 0, anchorIdx: null };
             };
 
+            // The --keyboard-inset padding gives .editor-body room to scroll
+            // into, but nothing actually scrolls it there on its own as text
+            // is typed — a long wrapped line can push the caret down below
+            // the keyboard with no automatic (or, it turns out, obvious
+            // manual) way back to it. Runs on every keystroke instead of
+            // just on keyboard open/close, since the caret keeps moving
+            // while the keyboard itself stays put.
+            const scrollCaretIntoView = () => {
+                const sel = window.getSelection();
+                if (!sel || sel.rangeCount === 0) return;
+                const range = sel.getRangeAt(0);
+                let rect = range.getBoundingClientRect();
+                // A collapsed range at the very end of a text node can report
+                // a zero-size rect in some browsers — fall back to the
+                // container element's own rect, which is still close enough
+                // to the caret to be useful here.
+                if (rect.width === 0 && rect.height === 0) {
+                    const node = range.startContainer;
+                    const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+                    if (el && el.getBoundingClientRect) rect = el.getBoundingClientRect();
+                }
+                if (!rect || (rect.width === 0 && rect.height === 0)) return;
+                const body = editorBodyRef.current;
+                if (!body) return;
+                const vv = window.visualViewport;
+                const visibleTop = vv ? vv.offsetTop : 0;
+                const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+                const margin = 16;
+                if (rect.bottom > visibleBottom - margin) {
+                    body.scrollTop += rect.bottom - (visibleBottom - margin);
+                } else if (rect.top < visibleTop + margin) {
+                    body.scrollTop -= (visibleTop + margin) - rect.top;
+                }
+            };
+
             const lineSelectionRange = lineSelection ? [Math.min(lineSelection.anchorIdx, lineSelection.endIdx), Math.max(lineSelection.anchorIdx, lineSelection.endIdx)] : null;
             const selectedLineIds = lineSelectionRange ? draft.blocks.slice(lineSelectionRange[0], lineSelectionRange[1] + 1).map((b) => b.id) : [];
 
@@ -4678,6 +4716,7 @@
                                     onLineSelectPointerDown={handleLineSelectPointerDown}
                                     onLineSelectPointerMove={handleLineSelectPointerMove}
                                     onLineSelectPointerUp={handleLineSelectPointerUp}
+                                    onCaretMove={scrollCaretIntoView}
                                 />
                             ))}
                         </div>
