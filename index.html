@@ -2295,7 +2295,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v93';
+        const APP_VERSION = 'v94';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2909,7 +2909,7 @@
             );
         }
 
-        const MileageTable = forwardRef(function MileageTable({ table, onUpdateCell, onAddRow, onActiveDateCellChange }, ref) {
+        const MileageTable = forwardRef(function MileageTable({ table, onUpdateCell, onAddRow, onActiveDateCellChange, onCellFocus, onCellBlur }, ref) {
             const cellRefs = useRef({});
             const pendingFocusKey = useRef(null);
             const activeCellRef = useRef(null);
@@ -2994,11 +2994,13 @@
             const handleFocus = (rowIdx, colIdx) => {
                 activeCellRef.current = { rowIdx, colIdx };
                 onActiveDateCellChange(colIdx === 0);
+                if (onCellFocus) onCellFocus();
             };
 
             const handleBlur = () => {
                 activeCellRef.current = null;
                 onActiveDateCellChange(false);
+                if (onCellBlur) onCellBlur();
             };
 
             const totalMilesRaw = table.rows.reduce((sum, row) => {
@@ -3910,6 +3912,11 @@
             // the pre-edit state on focus and only actually commit it to
             // history on blur, and only if the title actually changed.
             const titleEditSnapshotRef = useRef(null);
+            // Same reasoning as titleEditSnapshotRef, applied to mileage
+            // cells: typing fires onUpdateCell per keystroke, so history is
+            // snapshotted on focus and only committed on blur if the table
+            // actually changed.
+            const mileageEditSnapshotRef = useRef(null);
             // Set right after inserting a date, so the follow-up effect that
             // re-enters edit mode on this block can land the caret just past the
             // inserted text instead of wherever placeCursorAtDeepestEnd puts it.
@@ -3965,12 +3972,12 @@
 
             // Call before applying a line-level change to snapshot what the note
             // looked like just prior, so undoLastEdit can step back to it. Title,
-            // background, and categoryIds are included too since
+            // background, categoryIds, and table are included too since
             // loadTemplateIntoDraft changes those alongside blocks/photos —
             // every other call site leaves them untouched, so snapshotting
             // them there is a no-op.
             const pushEditHistory = () => {
-                editHistoryRef.current.push({ title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds });
+                editHistoryRef.current.push({ title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds, table: draft.table });
                 if (editHistoryRef.current.length > 25) editHistoryRef.current.shift();
                 setCanUndoEdit(true);
             };
@@ -3978,7 +3985,7 @@
             const undoLastEdit = () => {
                 const prev = editHistoryRef.current.pop();
                 if (!prev) return;
-                setDraft((d) => ({ ...d, title: prev.title, blocks: prev.blocks, photos: prev.photos, background: prev.background, categoryIds: prev.categoryIds }));
+                setDraft((d) => ({ ...d, title: prev.title, blocks: prev.blocks, photos: prev.photos, background: prev.background, categoryIds: prev.categoryIds, table: prev.table }));
                 setEditingBlockId(null);
                 setCanUndoEdit(editHistoryRef.current.length > 0);
             };
@@ -4147,9 +4154,7 @@
 
                 if (target.kind === 'mileage') {
                     if (target.rowId) {
-                        // Individual cell edits (typing, the Today button)
-                        // aren't part of the line-undo system either — stay
-                        // consistent.
+                        pushEditHistory();
                         updateMileageCell(target.rowId, 0, dateStr);
                         const rowIdx = draft.table ? draft.table.rows.findIndex(r => r.id === target.rowId) : -1;
                         if (rowIdx !== -1 && mileageTableRef.current) {
@@ -4163,6 +4168,7 @@
                         // draft.table exists) — queue the focus request and
                         // let the effect below resolve it once that happens.
                         const newRowId = makeId();
+                        pushEditHistory();
                         setDraft((d) => {
                             const t = d.table || { columns: MILEAGE_COLUMNS, rows: [] };
                             const newRow = { id: newRowId, cells: [dateStr, '', '', ''] };
@@ -4641,6 +4647,7 @@
             // Also creates the table (with these fixed mileage columns) on its
             // first press if one doesn't exist yet on this note.
             const addMileageRow = () => {
+                pushEditHistory();
                 setDraft((d) => {
                     const table = d.table || { columns: MILEAGE_COLUMNS, rows: [] };
                     const newRow = { id: makeId(), cells: ['', '', '', ''] };
@@ -4654,6 +4661,7 @@
             const addMileageRowWithToday = () => {
                 const todayStr = new Date().toLocaleDateString();
                 const newRowIdx = draft.table ? draft.table.rows.length : 0;
+                pushEditHistory();
                 setDraft((d) => {
                     const table = d.table || { columns: MILEAGE_COLUMNS, rows: [] };
                     const newRow = { id: makeId(), cells: [todayStr, '', '', ''] };
@@ -4665,6 +4673,7 @@
             };
 
             const removeLastMileageRow = () => {
+                pushEditHistory();
                 setDraft((d) => {
                     if (!d.table || d.table.rows.length === 0) return d;
                     const removed = d.table.rows[d.table.rows.length - 1];
@@ -4697,6 +4706,20 @@
                         },
                     };
                 });
+            };
+
+            const handleMileageCellFocus = () => {
+                mileageEditSnapshotRef.current = { title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds, table: draft.table };
+            };
+
+            const handleMileageCellBlur = () => {
+                const snapshot = mileageEditSnapshotRef.current;
+                mileageEditSnapshotRef.current = null;
+                if (snapshot && JSON.stringify(snapshot.table) !== JSON.stringify(draft.table)) {
+                    editHistoryRef.current.push(snapshot);
+                    if (editHistoryRef.current.length > 25) editHistoryRef.current.shift();
+                    setCanUndoEdit(true);
+                }
             };
 
             const handleBack = () => {
@@ -4774,7 +4797,7 @@
                                 onChange={(e) => updateField('title', e.target.value)}
                                 onFocus={() => {
                                     setTitleFocused(true);
-                                    titleEditSnapshotRef.current = { title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds };
+                                    titleEditSnapshotRef.current = { title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds, table: draft.table };
                                 }}
                                 onBlur={() => {
                                     setTitleFocused(false);
@@ -4917,6 +4940,8 @@
                                         onUpdateCell={updateMileageCell}
                                         onAddRow={addMileageRow}
                                         onActiveDateCellChange={setDateCellActive}
+                                        onCellFocus={handleMileageCellFocus}
+                                        onCellBlur={handleMileageCellBlur}
                                     />
                                 ) : null}
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10, marginTop: 10 }}>
