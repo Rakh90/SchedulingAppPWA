@@ -24,6 +24,7 @@
 
         html {
             --keyboard-inset: 0px;
+            --keyboard-offset-top: 0px;
         }
 
         html, body {
@@ -498,7 +499,11 @@
         /* ---------- Sheets / Modals ---------- */
         .sheet-backdrop {
             position: fixed;
-            top: 0;
+            /* Tracks visualViewport.offsetTop, same reasoning as
+               .editor-screen — without it, a sheet opened while the keyboard
+               has panned the visual viewport would render partly above the
+               visible area. */
+            top: var(--keyboard-offset-top, 0px);
             left: 0;
             right: 0;
             /* Shrinks the backdrop's own box to the actually-visible area
@@ -694,16 +699,22 @@
             color: #555;
         }
 
+        /* Fixed 11-column grid (CATEGORY_COLORS has 22 entries) instead of
+           flex-wrap, so the swatches always land in exactly two even rows —
+           flex-wrap's row breaks depend on how many 28px circles happen to
+           fit the sheet's width, which varies by screen and wouldn't
+           reliably split 22 evenly. Columns just get narrower on narrow
+           screens instead of reflowing to a third row. */
         .swatch-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
+            display: grid;
+            grid-template-columns: repeat(11, 1fr);
+            gap: 8px;
             margin-top: 10px;
         }
 
         .swatch {
-            width: 28px;
-            height: 28px;
+            width: 100%;
+            aspect-ratio: 1;
             border-radius: 50%;
             border: 2px solid transparent;
         }
@@ -797,7 +808,14 @@
         /* ---------- Editor ---------- */
         .editor-screen {
             position: fixed;
-            top: 0;
+            /* Tracks visualViewport.offsetTop (see the keyboard-aware
+               useEffect) instead of a bare 0 — when the keyboard opens, some
+               browsers pan the visual viewport down to keep the focused
+               field visible without moving the fixed-position layout
+               viewport at all, which would otherwise push this whole screen
+               (header, title, sticky toolbar) up out of view with no way to
+               scroll back to it. */
+            top: var(--keyboard-offset-top, 0px);
             left: 0;
             right: 0;
             /* height (not bottom:0/inset) so the box's true size comes from
@@ -872,21 +890,18 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
-            margin: -6px 0 16px;
-            padding: 6px 0;
+            margin: 8px 0 16px;
+            padding: 10px 0 4px;
             flex-wrap: wrap;
             /* Stays reachable on long notes instead of scrolling away with
-               the body — a blurred translucent backdrop (rather than trying
-               to exactly continue the page's own gradient/color, which would
-               visibly seam at this box's own edges) keeps it legible over
-               whatever's scrolling underneath, on any background. Kept light
-               (low alpha) so the note's own background still shows through. */
+               the body. No fill of its own — each button already carries its
+               own background, so the row itself stays fully see-through and
+               the buttons read as floating over the note's background. The
+               border-top is just a thin separator from the title above it. */
             position: sticky;
             top: 0;
             z-index: 3;
-            background: rgba(255,255,255,0.32);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0,0,0,0.1);
         }
 
         .category-select {
@@ -1417,7 +1432,7 @@
         }
 
         .dark-content .editor-meta-row {
-            background: rgba(20,20,26,0.32);
+            border-top-color: rgba(255,255,255,0.18);
         }
 
         .dark-content .checkbox-marker {
@@ -2048,13 +2063,13 @@
 
         // Ordered in rainbow hue order (ROYGBIV), with the hue-less neutrals
         // (brown, slate) last — matches THEME_BACKGROUNDS' ordering scheme.
-        const CATEGORY_COLORS = ['#e53935', '#e57373', '#f2a541', '#ffb300', '#ffd54f', '#81c784', '#43a047', '#4dd0c9', '#4fc3f7', '#5c6bc0', '#667eea', '#9575cd', '#f06292', '#a1887f', '#78909c'];
+        const CATEGORY_COLORS = ['#e53935', '#e57373', '#ff7043', '#f2a541', '#fb8c00', '#ffb300', '#ffd54f', '#c0ca33', '#81c784', '#43a047', '#26a69a', '#4dd0c9', '#00bcd4', '#4fc3f7', '#3949ab', '#5c6bc0', '#667eea', '#9575cd', '#8e24aa', '#f06292', '#a1887f', '#78909c'];
 
         // Bumped alongside service-worker.js's CACHE_NAME on every deploy so
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v81';
+        const APP_VERSION = 'v82';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -4651,6 +4666,21 @@
                 const updateKeyboardInset = () => {
                     const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
                     document.documentElement.style.setProperty('--keyboard-inset', inset + 'px');
+                    // position:fixed elements are anchored to the layout
+                    // viewport, not the visual one — when the keyboard opens,
+                    // some browsers pan the visual viewport down to keep the
+                    // focused field visible (visualViewport.offsetTop > 0)
+                    // without moving the layout viewport at all. Our fixed
+                    // full-screen containers then stay put relative to the
+                    // layout viewport while the visible (visual) viewport
+                    // slides down past them, so their top edge — including
+                    // the sticky toolbar and the title above it — ends up
+                    // rendered above the visible area and unreachable by
+                    // scrolling (scrolling happens inside .editor-body, which
+                    // can't undo a pan of the outer viewport). Shifting these
+                    // containers down by the same offset keeps them aligned
+                    // with whatever's actually visible.
+                    document.documentElement.style.setProperty('--keyboard-offset-top', vv.offsetTop + 'px');
                     // The padding above only creates room to scroll into — it
                     // doesn't itself move anything. Some Android WebView
                     // versions don't re-run their own scroll-into-view logic
