@@ -334,6 +334,14 @@
             flex: 1;
         }
 
+        .folder-selected-heading {
+            text-align: center;
+            font-size: 17px;
+            font-weight: 700;
+            color: #333;
+            margin: 0 0 14px;
+        }
+
         .notes-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -2295,7 +2303,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v94';
+        const APP_VERSION = 'v95';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -6097,6 +6105,10 @@
                 .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory) && noteMatchesSearch(n, searchQuery) && (!showPinnedOnly || n.pinned))
                 .sort(makeNoteSortCompare(noteSortMode, categoryById));
 
+            const selectedFolderName = dashboardViewMode === 'folders' && filterCategory
+                ? (filterCategory === 'all' ? 'All' : filterCategory === 'uncategorized' ? 'Uncategorized' : (categories.find(c => c.id === filterCategory) || {}).name)
+                : null;
+
             const toggleFolder = (id) => setFilterCategory((current) => current === id ? null : id);
 
             const toggleSearch = () => {
@@ -6264,6 +6276,7 @@
                     </div>
 
                     <div className="notes-area" style={resolvePageBackground(settings.dashboardBackground)}>
+                        {selectedFolderName ? <h2 className="folder-selected-heading">{selectedFolderName}</h2> : null}
                         {loading ? null : visibleNotes.length === 0 ? (
                             <div className="empty-state">
                                 {dashboardViewMode === 'folders' && filterCategory === null ? (
