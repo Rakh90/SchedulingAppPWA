@@ -1,4 +1,4 @@
-const CACHE_NAME = 'notepad-app-v96';
+const CACHE_NAME = 'notepad-app-v97';
 const urlsToCache = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const urlsToCache = [
   './icon-192.png',
   './icon-512.png',
   './icon-512-maskable.png',
+  './icons/folder-classic.png',
   './icons/folder-cloud.png',
   './icons/folder-rocket.png',
   './icons/folder-atom.png',
@@ -15,6 +16,11 @@ const urlsToCache = [
   './icons/folder-network.png',
   './icons/folder-spark.png',
   './icons/folder-dna.png',
+  './icons/folder-rainbow.png',
+  './icons/folder-seabed.png',
+  './icons/folder-prismatic.png',
+  './icons/folder-graphite.png',
+  './icons/folder-nebula.png',
   './icons/app-identity-den.png'
 ];
 
