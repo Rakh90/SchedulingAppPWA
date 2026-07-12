@@ -870,6 +870,7 @@
         .editor-meta-row {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
             margin: -6px 0 16px;
             padding: 6px 0;
@@ -878,11 +879,12 @@
                the body — a blurred translucent backdrop (rather than trying
                to exactly continue the page's own gradient/color, which would
                visibly seam at this box's own edges) keeps it legible over
-               whatever's scrolling underneath, on any background. */
+               whatever's scrolling underneath, on any background. Kept light
+               (low alpha) so the note's own background still shows through. */
             position: sticky;
             top: 0;
             z-index: 3;
-            background: rgba(255,255,255,0.82);
+            background: rgba(255,255,255,0.32);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
         }
@@ -1378,10 +1380,15 @@
         .dark-content.theme-rainbow .block-editable,
         .dark-content.theme-rainbow .block-display,
         .dark-content.theme-rainbow .editor-title-input,
-        .dark-content.theme-rainbow .editor-header-title {
+        .dark-content.theme-rainbow .editor-header-title,
+        .dark-content.theme-rainbow .section-label,
+        .dark-content.theme-rainbow .mileage-table th,
+        .dark-content.theme-rainbow .mileage-cell-input,
+        .dark-content.theme-rainbow .mileage-total-label,
+        .dark-content.theme-rainbow .mileage-total-box {
             color: #ffffff;
-            -webkit-text-stroke: 0.6px #000000;
-            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+            -webkit-text-stroke: 0.35px #000000;
+            text-shadow: -0.5px -0.5px 0 #000, 0.5px -0.5px 0 #000, -0.5px 0.5px 0 #000, 0.5px 0.5px 0 #000;
         }
 
         .dark-content.theme-rainbow .editor-title-input::placeholder {
@@ -1410,7 +1417,7 @@
         }
 
         .dark-content .editor-meta-row {
-            background: rgba(20,20,26,0.72);
+            background: rgba(20,20,26,0.32);
         }
 
         .dark-content .checkbox-marker {
@@ -2039,13 +2046,15 @@
             return { draggingId, getDragProps, wrapClick };
         }
 
-        const CATEGORY_COLORS = ['#667eea', '#e57373', '#f2a541', '#ffd54f', '#81c784', '#4dd0c9', '#4fc3f7', '#9575cd', '#f06292', '#a1887f', '#ffb300', '#43a047', '#5c6bc0', '#78909c'];
+        // Ordered in rainbow hue order (ROYGBIV), with the hue-less neutrals
+        // (brown, slate) last — matches THEME_BACKGROUNDS' ordering scheme.
+        const CATEGORY_COLORS = ['#e53935', '#e57373', '#f2a541', '#ffb300', '#ffd54f', '#81c784', '#43a047', '#4dd0c9', '#4fc3f7', '#5c6bc0', '#667eea', '#9575cd', '#f06292', '#a1887f', '#78909c'];
 
         // Bumped alongside service-worker.js's CACHE_NAME on every deploy so
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v80';
+        const APP_VERSION = 'v81';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
