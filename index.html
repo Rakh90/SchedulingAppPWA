@@ -266,6 +266,13 @@
             line-height: 1;
         }
 
+        .folder-tile-icon-img {
+            width: 32px;
+            height: 32px;
+            border-radius: 7px;
+            object-fit: cover;
+        }
+
         .folder-tile-name {
             max-width: 100%;
             overflow: hidden;
@@ -796,25 +803,33 @@
             box-shadow: 0 0 0 2px white inset;
         }
 
+        /* Fixed 5-column grid (10 themes) rather than flex-wrap, so it's
+           always exactly two even rows of five regardless of screen width —
+           same reasoning as the category color swatch grid. */
         .folder-theme-row {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
             gap: 8px;
             margin-top: 10px;
         }
 
         .folder-theme-swatch {
-            flex: 0 0 auto;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 4px;
-            width: 68px;
             padding: 8px 4px;
             border-radius: 12px;
             border: 2px solid #e2e4e9;
             background: #fafafa;
             font-size: 22px;
+        }
+
+        .folder-theme-swatch-img {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            object-fit: cover;
         }
 
         .folder-theme-swatch.selected {
@@ -2224,24 +2239,29 @@
         const CATEGORY_COLORS = ['#e53935', '#e57373', '#ff7043', '#f2a541', '#fb8c00', '#ffb300', '#ffd54f', '#c0ca33', '#81c784', '#43a047', '#26a69a', '#4dd0c9', '#00bcd4', '#4fc3f7', '#3949ab', '#5c6bc0', '#667eea', '#9575cd', '#8e24aa', '#f06292', '#a1887f', '#78909c'];
 
         // Alternate icon sets for the dashboard's folder view (Settings →
-        // Folder icon theme). "dot" uses a plain-text circle glyph rather
-        // than a full-color emoji specifically so CSS `color` actually
-        // affects it — every other option is a fixed-color emoji, so a
-        // category's own color has no visible effect on its tile there.
+        // Folder icon theme). "classic" is the plain emoji folder; every
+        // other option is a piece of custom art (icons/folder-*.png) — one
+        // fixed image per theme, reused for the All/Uncategorized tile and
+        // every category tile alike, same as "classic" reuses 📁 for all of
+        // them too.
         const FOLDER_ICON_THEMES = [
             { id: 'classic', label: 'Classic', all: '🗂️', folder: '📁' },
-            { id: 'open', label: 'Open', all: '📂', folder: '📂' },
-            { id: 'filebox', label: 'File Box', all: '🗃️', folder: '🗃️' },
-            { id: 'cabinet', label: 'Cabinet', all: '🗄️', folder: '🗄️' },
-            { id: 'package', label: 'Package', all: '📦', folder: '📦' },
-            { id: 'dot', label: 'Color Dots', all: '⬤', folder: '⬤' },
+            { id: 'cloud', label: 'Cloud', img: 'icons/folder-cloud.png' },
+            { id: 'rocket', label: 'Rocket', img: 'icons/folder-rocket.png' },
+            { id: 'atom', label: 'Atom', img: 'icons/folder-atom.png' },
+            { id: 'galaxy', label: 'Galaxy', img: 'icons/folder-galaxy.png' },
+            { id: 'media', label: 'Media', img: 'icons/folder-media.png' },
+            { id: 'robot', label: 'Robot', img: 'icons/folder-robot.png' },
+            { id: 'network', label: 'Network', img: 'icons/folder-network.png' },
+            { id: 'spark', label: 'Spark', img: 'icons/folder-spark.png' },
+            { id: 'dna', label: 'DNA', img: 'icons/folder-dna.png' },
         ];
 
         // Bumped alongside service-worker.js's CACHE_NAME on every deploy so
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v88';
+        const APP_VERSION = 'v89';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2284,7 +2304,7 @@
             { id: 'lists', title: 'Checklists & lists', icon: '☑', body: 'The T • # ▢ buttons switch a line between plain text, a bullet, a numbered item, or a checkbox. Press Enter on an empty list line to indent it one level; press it again to outdent, and a third time to drop back to plain text. Backspace at the start of an indented line outdents it the same way. Long-press a line\'s marker to drag and reorder it.' },
             { id: 'selectLines', title: 'Select & bulk-edit lines', icon: '☑', body: 'Tap the ☑ button in a note\'s formatting toolbar to turn on line selection. Press and hold any line, then drag up or down to highlight a range — dragging past the top or bottom edge scrolls the note for you. The toolbar swaps to show actions for every highlighted line at once: switch them all to bulleted/numbered/checklist/plain text, toggle bold/italic/underline, or delete them entirely. Tap ✕ (or the ☑ button again) to exit.' },
             { id: 'categories', title: 'Categories', icon: '🏷', body: 'Tap "Uncategorized" (or a note\'s existing categories) near the top of a note to assign one or more categories, or create a new one on the spot with its own color. Category chips at the top of the dashboard let you filter to just that category. Manage, rename, recolor, or delete categories any time from Settings — drag a category\'s ⠿ handle there to reorder it.' },
-            { id: 'folderView', title: 'Folder view', icon: '📁', body: 'Tap the 📁 icon on the dashboard to switch the category chips into a grid of folder tiles instead, each showing how many notes it holds. Unlike the chip row, folder view starts with nothing selected — tap a folder to see its notes, and tap that same folder again to hide them. Switching back to chips always shows "All" again. Your choice of chips or folders is remembered the next time you open the app. Pick a different folder icon style from "Folder icon theme" in Settings, including a Color Dots option that tints each folder with its category\'s own color.' },
+            { id: 'folderView', title: 'Folder view', icon: '📁', body: 'Tap the 📁 icon on the dashboard to switch the category chips into a grid of folder tiles instead, each showing how many notes it holds. Unlike the chip row, folder view starts with nothing selected — tap a folder to see its notes, and tap that same folder again to hide them. Switching back to chips always shows "All" again. Your choice of chips or folders is remembered the next time you open the app. Pick a different folder icon style — Classic or one of 9 illustrated options — from "Folder icon theme" in Settings.' },
             { id: 'backgrounds', title: 'Backgrounds & themes', icon: '🎨', body: 'Every note can have its own background — tap the 🎨 button in its editor. Choose from solid colors or the animated gradient themes, including Rainbow, which uses white text so it stays readable over every color in the gradient. You can also set a default background for new notes and a separate background for the dashboard itself, both in Settings.' },
             { id: 'lock', title: 'Note lock (PIN)', icon: '🔒', body: 'Set a PIN in Settings, then lock any individual note from its editor (🔒 button). A locked note shows only its title on the dashboard until the PIN is entered — once unlocked, it stays unlocked for the rest of your session. Change or remove your PIN any time from Settings. If you forget your PIN, open Settings and tap "Change PIN" or "Remove PIN" — a small hidden button in the corner of that screen reveals a "Forgot your PIN?" option that removes it immediately, no confirmation needed, so don\'t tap it by accident.' },
             { id: 'templates', title: 'Templates', icon: '📄', body: 'Save any note as a reusable template from its editor menu (📑 button), then start new notes from it via the "New note" screen. Templates carry over their body text, background, and categories, so you don\'t have to rebuild a note from scratch each time.' },
@@ -2750,7 +2770,11 @@
                                     onClick={() => onChangeFolderIconTheme(t.id)}
                                     title={t.label}
                                 >
-                                    <span aria-hidden="true">{t.all}</span>
+                                    {t.img ? (
+                                        <img className="folder-theme-swatch-img" src={t.img} alt="" aria-hidden="true" />
+                                    ) : (
+                                        <span aria-hidden="true">{t.all}</span>
+                                    )}
                                     <span className="folder-theme-swatch-label">{t.label}</span>
                                 </button>
                             ))}
@@ -6067,7 +6091,11 @@
                                     className={'folder-tile' + (filterCategory === 'all' ? ' active' : '')}
                                     onClick={() => toggleFolder('all')}
                                 >
-                                    <span className="folder-tile-icon" style={folderIconTheme.id === 'dot' ? { color: '#8a8f9c' } : undefined} aria-hidden="true">{folderIconTheme.all}</span>
+                                    {folderIconTheme.img ? (
+                                        <img className="folder-tile-icon-img" src={folderIconTheme.img} alt="" aria-hidden="true" />
+                                    ) : (
+                                        <span className="folder-tile-icon" aria-hidden="true">{folderIconTheme.all}</span>
+                                    )}
                                     <span className="folder-tile-name">All</span>
                                     <span className="folder-tile-count">{notes.filter(n => !n.deletedAt).length}</span>
                                 </button>
@@ -6075,7 +6103,11 @@
                                     className={'folder-tile' + (filterCategory === 'uncategorized' ? ' active' : '')}
                                     onClick={() => toggleFolder('uncategorized')}
                                 >
-                                    <span className="folder-tile-icon" style={folderIconTheme.id === 'dot' ? { color: '#8a8f9c' } : undefined} aria-hidden="true">{folderIconTheme.folder}</span>
+                                    {folderIconTheme.img ? (
+                                        <img className="folder-tile-icon-img" src={folderIconTheme.img} alt="" aria-hidden="true" />
+                                    ) : (
+                                        <span className="folder-tile-icon" aria-hidden="true">{folderIconTheme.folder}</span>
+                                    )}
                                     <span className="folder-tile-name">Uncategorized</span>
                                     <span className="folder-tile-count">{notes.filter(n => !n.deletedAt && noteMatchesCategory(n, 'uncategorized')).length}</span>
                                 </button>
@@ -6085,7 +6117,11 @@
                                         className={'folder-tile' + (filterCategory === cat.id ? ' active' : '')}
                                         onClick={() => toggleFolder(cat.id)}
                                     >
-                                        <span className="folder-tile-icon" style={folderIconTheme.id === 'dot' ? { color: cat.color } : undefined} aria-hidden="true">{folderIconTheme.folder}</span>
+                                        {folderIconTheme.img ? (
+                                            <img className="folder-tile-icon-img" src={folderIconTheme.img} alt="" aria-hidden="true" />
+                                        ) : (
+                                            <span className="folder-tile-icon" aria-hidden="true">{folderIconTheme.folder}</span>
+                                        )}
                                         <span className="folder-tile-name">{cat.name}</span>
                                         <span className="folder-tile-count">{notes.filter(n => !n.deletedAt && noteMatchesCategory(n, cat.id)).length}</span>
                                     </button>
