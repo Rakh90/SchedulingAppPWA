@@ -2277,21 +2277,24 @@
         // Folder icon theme). Each option is a piece of custom art
         // (icons/folder-*.png) — one fixed image per theme, reused for the
         // All/Uncategorized tile and every category tile alike.
+        // Ordered in rainbow hue order (ROYGBIV) with Rainbow leading, same
+        // convention as CATEGORY_COLORS/THEME_BACKGROUNDS — hue-less
+        // neutrals (Frost, Void) last.
         const FOLDER_ICON_THEMES = [
-            { id: 'fox', label: 'Fox', img: 'icons/folder-fox.png' },
             { id: 'rainbow', label: 'Rainbow', img: 'icons/folder-rainbow.png' },
             { id: 'clockwork', label: 'Clockwork', img: 'icons/folder-clockwork.png' },
+            { id: 'ember', label: 'Ember', img: 'icons/folder-ember.png' },
+            { id: 'fox', label: 'Fox', img: 'icons/folder-fox.png' },
             { id: 'ginkgo', label: 'Ginkgo', img: 'icons/folder-ginkgo.png' },
             { id: 'leaf', label: 'Leaf', img: 'icons/folder-leaf.png' },
             { id: 'seaweed', label: 'Seaweed', img: 'icons/folder-seaweed.png' },
+            { id: 'aurora', label: 'Aurora', img: 'icons/folder-aurora.png' },
             { id: 'galaxy', label: 'Galaxy', img: 'icons/folder-galaxy.png' },
+            { id: 'butterfly', label: 'Butterfly', img: 'icons/folder-butterfly.png' },
             { id: 'crystal', label: 'Crystal', img: 'icons/folder-crystal.png' },
+            { id: 'gem', label: 'Gem', img: 'icons/folder-gem.png' },
             { id: 'blossom', label: 'Blossom', img: 'icons/folder-blossom.png' },
             { id: 'frost', label: 'Frost', img: 'icons/folder-frost.png' },
-            { id: 'aurora', label: 'Aurora', img: 'icons/folder-aurora.png' },
-            { id: 'gem', label: 'Gem', img: 'icons/folder-gem.png' },
-            { id: 'butterfly', label: 'Butterfly', img: 'icons/folder-butterfly.png' },
-            { id: 'ember', label: 'Ember', img: 'icons/folder-ember.png' },
             { id: 'void', label: 'Void', img: 'icons/folder-void.png' },
         ];
 
@@ -2310,7 +2313,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v100';
+        const APP_VERSION = 'v101';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
