@@ -1,4 +1,4 @@
-const CACHE_NAME = 'notepad-app-v98';
+const CACHE_NAME = 'notepad-app-v99';
 const urlsToCache = [
   './',
   './index.html',
@@ -6,21 +6,16 @@ const urlsToCache = [
   './icon-192.png',
   './icon-512.png',
   './icon-512-maskable.png',
-  './icons/folder-classic.png',
-  './icons/folder-cloud.png',
-  './icons/folder-rocket.png',
-  './icons/folder-atom.png',
-  './icons/folder-galaxy.png',
-  './icons/folder-media.png',
-  './icons/folder-robot.png',
-  './icons/folder-network.png',
-  './icons/folder-spark.png',
-  './icons/folder-dna.png',
+  './icons/folder-fox.png',
   './icons/folder-rainbow.png',
-  './icons/folder-seabed.png',
-  './icons/folder-prismatic.png',
-  './icons/folder-graphite.png',
-  './icons/folder-nebula.png',
+  './icons/folder-clockwork.png',
+  './icons/folder-ginkgo.png',
+  './icons/folder-leaf.png',
+  './icons/folder-seaweed.png',
+  './icons/folder-galaxy.png',
+  './icons/folder-crystal.png',
+  './icons/folder-blossom.png',
+  './icons/folder-frost.png',
   './icons/app-identity-den.png'
 ];
 
