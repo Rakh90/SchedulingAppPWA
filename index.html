@@ -1490,6 +1490,103 @@
             min-width: 48px;
         }
 
+        /* Generic custom-table chrome (the .mileage-* classes above are the
+           shared table/total styling itself, kept under their original names
+           so every existing theme override still applies). */
+        .table-name-input {
+            flex: 1 1 auto;
+            min-width: 0;
+            background: none;
+            border: none;
+            border-bottom: 1.5px solid transparent;
+            border-radius: 0;
+            padding: 2px 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+
+        .table-name-input:focus {
+            outline: none;
+            border-bottom-color: #667eea;
+        }
+
+        .dark-content .table-name-input {
+            color: #f3f4f8;
+        }
+
+        .table-icon-btn {
+            flex: 0 0 auto;
+            background: #f1f1f4;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .table-icon-btn:disabled {
+            opacity: 0.4;
+        }
+
+        .dark-content .table-icon-btn {
+            background: rgba(255,255,255,0.16);
+            color: #f3f4f8;
+        }
+
+        .table-preset-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+            width: 100%;
+            background: #eef0fb;
+            border: 1.5px solid #667eea;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+            text-align: left;
+        }
+
+        .table-preset-title {
+            font-weight: 700;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .table-preset-desc {
+            font-size: 12px;
+            color: #5f6470;
+        }
+
+        .table-col-editor-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .table-col-editor-row input {
+            flex: 1 1 auto;
+            min-width: 0;
+            border: 1px solid #e2e4e9;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .table-type-select {
+            flex: 0 0 auto;
+            border: 1px solid #e2e4e9;
+            border-radius: 8px;
+            padding: 8px 4px;
+            font-size: 13px;
+            background: #fff;
+            color: #333;
+        }
+
         .bg-swatch {
             flex: 0 0 auto;
             width: 26px;
@@ -2313,7 +2410,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v102';
+        const APP_VERSION = 'v103';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2352,7 +2449,7 @@
         // two-level menu -> detail flow.
         const HELP_TOPICS = [
             { id: 'editing', title: 'Creating & editing notes', icon: '📝', body: 'Tap the + button on the dashboard to start a new note, or tap any existing note to open it. Tap the title to rename it, or tap anywhere in the body to start typing. Notes save automatically as you type — there\'s no separate save button.' },
-            { id: 'formatting', title: 'Formatting text', icon: 'B', body: 'Tap into any line of text to bring up the sticky formatting toolbar above it — it stays reachable near the top of the screen even on a long note. Bold, italic, and underline apply to the whole line at once — tap the same button again to remove it. The "Aa" button changes text size, and the calendar button inserts today\'s date (or lets you pick another one) right where your cursor was. The ⌄ button at the end of the toolbar hides the on-screen keyboard, wherever you\'re typing — the title, a line, or a mileage cell.' },
+            { id: 'formatting', title: 'Formatting text', icon: 'B', body: 'Tap into any line of text to bring up the sticky formatting toolbar above it — it stays reachable near the top of the screen even on a long note. Bold, italic, and underline apply to the whole line at once — tap the same button again to remove it. The "Aa" button changes text size, and the calendar button inserts today\'s date (or lets you pick another one) right where your cursor was. The ⌄ button at the end of the toolbar hides the on-screen keyboard, wherever you\'re typing — the title, a line, or a table cell.' },
             { id: 'lists', title: 'Checklists & lists', icon: '☑', body: 'The T • # ▢ buttons switch a line between plain text, a bullet, a numbered item, or a checkbox. Press Enter on an empty list line to indent it one level; press it again to outdent, and a third time to drop back to plain text. Backspace at the start of an indented line outdents it the same way. Long-press a line\'s marker to drag and reorder it.' },
             { id: 'selectLines', title: 'Select & bulk-edit lines', icon: '☑', body: 'Tap the ☑ button in a note\'s formatting toolbar to turn on line selection. Press and hold any line, then drag up or down to highlight a range — dragging past the top or bottom edge scrolls the note for you. The toolbar swaps to show actions for every highlighted line at once: switch them all to bulleted/numbered/checklist/plain text, toggle bold/italic/underline, or delete them entirely. Tap ✕ (or the ☑ button again) to exit.' },
             { id: 'categories', title: 'Categories', icon: '🏷', body: 'Tap "Uncategorized" (or a note\'s existing categories) near the top of a note to assign one or more categories, or create a new one on the spot with its own color. Category chips at the top of the dashboard let you filter to just that category. Manage, rename, recolor, or delete categories any time from Settings — drag a category\'s ⠿ handle there to reorder it.' },
@@ -2360,7 +2457,7 @@
             { id: 'backgrounds', title: 'Backgrounds & themes', icon: '🎨', body: 'Every note can have its own background — tap the 🎨 button in its editor. Choose from solid colors or the animated gradient themes, including Rainbow, which uses white text so it stays readable over every color in the gradient. You can also set a default background for new notes and a separate background for the dashboard itself, both in Settings.' },
             { id: 'lock', title: 'Note lock (PIN)', icon: '🔒', body: 'Set a PIN in Settings, then lock any individual note from its editor (🔒 button). A locked note shows only its title on the dashboard until the PIN is entered — once unlocked, it stays unlocked for the rest of your session. Change or remove your PIN any time from Settings. If you forget your PIN, open Settings and tap "Change PIN" or "Remove PIN" — a small hidden button in the corner of that screen reveals a "Forgot your PIN?" option that removes it immediately, no confirmation needed, so don\'t tap it by accident.' },
             { id: 'templates', title: 'Templates', icon: '📄', body: 'Save any note as a reusable template from its editor menu (📑 button), then start new notes from it via the "New note" screen. Templates carry over their body text, background, and categories, so you don\'t have to rebuild a note from scratch each time.' },
-            { id: 'mileage', title: 'Mileage table', icon: '📊', body: 'Every note includes an optional mileage table for logging trips. Tap "Today" or "Pick Date" with no cell selected to add a new row already filled in with that date; tap a date cell first to fill that specific cell instead. Pressing Enter moves to the next cell, and pressing Enter in the very last cell of the last row adds a fresh row automatically. The total at the bottom keeps a running sum. Tap the ▾ next to "Mileage Table" to minimize the whole section — handy for a note that doesn\'t need it in the way, or one whose mileage data is already finished — it stays minimized the next time you open that note. Export just the mileage data to CSV from the button next to the section label (hidden while minimized).' },
+            { id: 'tables', title: 'Custom tables', icon: '📊', body: 'Any note can hold as many tables as you like — tap "+ Add table" below the note body, then either start from the Mileage preset (Date, Start Point, End Point, Miles) or build your own columns from scratch. Every column has a type: Text, Number, or Date. Number columns keep a running total at the bottom of their table, and Date columns work with that table\'s "Today" and "Pick Date" buttons — tap one with a date cell selected to fill that cell, or with nothing selected to add a new row already filled in with that date. Pressing Enter moves to the next cell, and Enter in the very last cell of the last row adds a fresh row automatically. Tap a table\'s name to rename it, tap ✎ to add, rename, retype, or remove its columns, and tap the ▾ to minimize a table out of the way — it stays minimized the next time you open that note. Export any table to CSV from the button next to its name (hidden while minimized). Notes that had the old Mileage Table feature keep all their data — it shows up as a regular table now.' },
             { id: 'photos', title: 'Photos', icon: '📷', body: 'Add photos to a note with the Camera, Gallery, or Files buttons at the bottom of its editor. The first photo shows as a thumbnail on the note\'s dashboard card, and a badge shows how many photos a note has.' },
             { id: 'calendar', title: 'Calendar date picker', icon: '📅', body: 'The calendar button in a note\'s formatting toolbar opens a built-in date picker, so there\'s no fighting with your device\'s native one. Browse up to 5 years in either direction and tap a day to insert that date wherever your cursor was.' },
             { id: 'undo', title: 'Undo', icon: '↩', body: 'The undo button (↩, appears once you\'ve made a change) reverts the most recent edit to a note — text, title, category, background, or an inserted date. It only covers the current editing session and isn\'t a full history, so it\'s meant for quickly reverting a mistake, not stepping back through every change ever made.' },
@@ -2453,8 +2550,7 @@
                 categoryIds: categoryIds || [],
                 blocks: [{ id: makeId(), type: 'text', html: '' }],
                 photos: [],
-                table: null,
-                mileageCollapsed: false,
+                tables: [],
                 background: background || '#ffffff',
                 order: now,
                 pinned: false,
@@ -2470,9 +2566,13 @@
         function noteFromTemplate(template, categoryIds) {
             const blocks = (template.blocks && template.blocks.length > 0 ? template.blocks : [{ type: 'text', html: '' }])
                 .map((b) => ({ id: makeId(), type: b.type, html: b.html || '', checked: false }));
-            const table = template.table
-                ? { columns: template.table.columns, rows: template.table.rows.map((r) => ({ id: makeId(), cells: [...r.cells] })) }
-                : null;
+            const tables = migrateNoteTables(template).map((t) => ({
+                ...t,
+                id: makeId(),
+                columns: t.columns.map((c) => ({ ...c, id: makeId() })),
+                rows: t.rows.map((r) => ({ id: makeId(), cells: [...r.cells] })),
+                collapsed: !!t.collapsed,
+            }));
             // The template's own categories win when it has any set; the passed-in
             // fallback only applies to templates that were saved before this
             // feature existed (or were never given a category).
@@ -2482,7 +2582,7 @@
                 title: template.name || '',
                 blocks,
                 photos: (template.photos || []).map((p) => ({ id: makeId(), dataUrl: p.dataUrl })),
-                table,
+                tables,
                 background: template.background || '#ffffff',
             };
         }
@@ -2502,13 +2602,20 @@
         // the block model on load so notes created before this update aren't lost.
         function migrateNote(raw) {
             if (raw.blocks) {
-                return {
+                const migrated = {
                     deletedAt: raw.deletedAt || null,
                     order: raw.order != null ? raw.order : (raw.updatedAt || raw.createdAt || Date.now()),
                     pinned: raw.pinned || false,
                     categoryIds: raw.categoryIds || (raw.categoryId ? [raw.categoryId] : []),
                     ...raw,
+                    tables: migrateNoteTables(raw),
                 };
+                // Once migrated, only the new `tables` shape is ever written
+                // back — the legacy fields drop off this note's record on its
+                // next save.
+                delete migrated.table;
+                delete migrated.mileageCollapsed;
+                return migrated;
             }
             let blocks;
             if (raw.type === 'text' || !raw.type) {
@@ -2527,7 +2634,7 @@
                 categoryIds: raw.categoryIds || (raw.categoryId ? [raw.categoryId] : []),
                 blocks,
                 photos: raw.photos || [],
-                table: raw.table || null,
+                tables: migrateNoteTables(raw),
                 background: raw.background || '#ffffff',
                 order: raw.updatedAt || raw.createdAt || Date.now(),
                 pinned: raw.pinned || false,
@@ -2714,8 +2821,8 @@
                             </span>
                         ) : <span></span>}
                         <span style={{ display: 'flex', gap: 8 }}>
-                            {!note.locked && note.table && note.table.rows.length > 0 ? (
-                                <span className="note-card-photo-badge">📊 {note.table.rows.length}</span>
+                            {!note.locked && note.tables && note.tables.some((t) => t.rows.length > 0) ? (
+                                <span className="note-card-photo-badge">📊 {note.tables.reduce((sum, t) => sum + t.rows.length, 0)}</span>
                             ) : null}
                             {!note.locked && note.photos && note.photos.length > 0 ? (
                                 <span className="note-card-photo-badge">📷 {note.photos.length}</span>
@@ -2927,10 +3034,18 @@
             );
         }
 
-        const MileageTable = forwardRef(function MileageTable({ table, onUpdateCell, onAddRow, onActiveDateCellChange, onCellFocus, onCellBlur }, ref) {
+        // One generic, typed-column data table (the old fixed-column
+        // MileageTable, generalized): columns carry a type ('text' |
+        // 'number' | 'date'), every number column gets its own running
+        // total, and date-cell focus is reported upward so the shared
+        // calendar picker can target it. The .mileage-* class names are kept
+        // as-is so every existing light/dark/rainbow style override still
+        // applies unchanged.
+        const NoteTable = forwardRef(function NoteTable({ table, onUpdateCell, onAddRow, onActiveDateCellChange, onCellFocus, onCellBlur }, ref) {
             const cellRefs = useRef({});
             const pendingFocusKey = useRef(null);
             const activeCellRef = useRef(null);
+            const columns = table.columns;
 
             useEffect(() => {
                 if (pendingFocusKey.current && cellRefs.current[pendingFocusKey.current]) {
@@ -2942,12 +3057,12 @@
             useImperativeHandle(ref, () => ({
                 fillActiveDateCellWithToday: () => {
                     const active = activeCellRef.current;
-                    if (!active || active.colIdx !== 0) return;
+                    if (!active || !columns[active.colIdx] || columns[active.colIdx].type !== 'date') return;
                     const row = table.rows[active.rowIdx];
                     if (!row) return;
                     const todayStr = new Date().toLocaleDateString();
-                    onUpdateCell(row.id, 0, todayStr);
-                    const next = cellRefs.current[active.rowIdx + '-1'];
+                    onUpdateCell(row.id, active.colIdx, todayStr);
+                    const next = cellRefs.current[active.rowIdx + '-' + (active.colIdx + 1)];
                     if (next) next.focus();
                 },
                 // Queues a cell to be focused once it exists — used right
@@ -2957,22 +3072,22 @@
                 focusRowCell: (rowIdx, colIdx) => {
                     pendingFocusKey.current = rowIdx + '-' + colIdx;
                 },
-                // Row id (not index) for whichever Date-column cell is
+                // Row id (not index) for whichever date-typed cell is
                 // currently focused, so a caller can act on it after the
-                // native date picker's own focus-stealing/blur has made
+                // calendar sheet's own focus-stealing/blur has made
                 // activeCellRef stale.
                 getActiveDateCell: () => {
                     const active = activeCellRef.current;
-                    if (!active || active.colIdx !== 0) return null;
+                    if (!active || !columns[active.colIdx] || columns[active.colIdx].type !== 'date') return null;
                     const row = table.rows[active.rowIdx];
-                    return row ? { rowId: row.id, rowIdx: active.rowIdx } : null;
+                    return row ? { rowId: row.id, rowIdx: active.rowIdx, colIdx: active.colIdx } : null;
                 },
             }));
 
             // Last column: move into the next row if one exists, otherwise add a
             // fresh row and focus its first cell once it mounts.
             const advanceFocus = (rowIdx, colIdx) => {
-                if (colIdx < MILEAGE_COLUMNS.length - 1) {
+                if (colIdx < columns.length - 1) {
                     const next = cellRefs.current[rowIdx + '-' + (colIdx + 1)];
                     if (next) next.focus();
                     return;
@@ -3011,7 +3126,7 @@
 
             const handleFocus = (rowIdx, colIdx) => {
                 activeCellRef.current = { rowIdx, colIdx };
-                onActiveDateCellChange(colIdx === 0);
+                onActiveDateCellChange(!!columns[colIdx] && columns[colIdx].type === 'date');
                 if (onCellFocus) onCellFocus();
             };
 
@@ -3021,11 +3136,19 @@
                 if (onCellBlur) onCellBlur();
             };
 
-            const totalMilesRaw = table.rows.reduce((sum, row) => {
-                const n = parseFloat(row.cells[3]);
-                return sum + (isNaN(n) ? 0 : n);
-            }, 0);
-            const totalMiles = Math.round(totalMilesRaw * 100) / 100;
+            // One running total per number-typed column, shown side by side
+            // in the bar under the table (the old single "Total Miles" box,
+            // generalized).
+            const numberTotals = columns
+                .map((col, colIdx) => {
+                    if (col.type !== 'number') return null;
+                    const raw = table.rows.reduce((sum, row) => {
+                        const n = parseFloat(row.cells[colIdx]);
+                        return sum + (isNaN(n) ? 0 : n);
+                    }, 0);
+                    return { col, total: Math.round(raw * 100) / 100 };
+                })
+                .filter(Boolean);
 
             return (
                 <div className="mileage-table-container">
@@ -3034,22 +3157,22 @@
                         <table className="mileage-table">
                             <thead>
                                 <tr>
-                                    {MILEAGE_COLUMNS.map((col) => <th key={col}>{col}</th>)}
+                                    {columns.map((col) => <th key={col.id}>{col.name}</th>)}
                                 </tr>
                             </thead>
                             <tbody>
                                 {table.rows.map((row, rowIdx) => (
                                     <tr key={row.id}>
-                                        {row.cells.map((cell, i) => (
-                                            <td key={i}>
+                                        {columns.map((col, i) => (
+                                            <td key={col.id}>
                                                 <input
                                                     className="mileage-cell-input"
-                                                    autoComplete="mileage-cell-nofill"
+                                                    autoComplete="table-cell-nofill"
                                                     data-lpignore="true"
                                                     data-form-type="other"
-                                                    value={cell}
-                                                    inputMode={i === 3 ? 'decimal' : 'text'}
-                                                    enterKeyHint={i === MILEAGE_COLUMNS.length - 1 ? 'done' : 'next'}
+                                                    value={row.cells[i] != null ? row.cells[i] : ''}
+                                                    inputMode={col.type === 'number' ? 'decimal' : 'text'}
+                                                    enterKeyHint={i === columns.length - 1 ? 'done' : 'next'}
                                                     ref={(el) => { cellRefs.current[rowIdx + '-' + i] = el; }}
                                                     onChange={(e) => handleChange(e, row, rowIdx, i)}
                                                     onKeyDown={(e) => handleKeyDown(e, rowIdx, i)}
@@ -3064,10 +3187,16 @@
                         </table>
                         </form>
                     </div>
-                    <div className="mileage-total-bar">
-                        <span className="mileage-total-label">Total Miles</span>
-                        <div className="mileage-total-box">{totalMiles}</div>
-                    </div>
+                    {numberTotals.length > 0 ? (
+                        <div className="mileage-total-bar">
+                            {numberTotals.map(({ col, total }) => (
+                                <React.Fragment key={col.id}>
+                                    <span className="mileage-total-label">Total {col.name}</span>
+                                    <div className="mileage-total-box">{total}</div>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    ) : null}
                 </div>
             );
         });
@@ -3351,6 +3480,122 @@
             );
         }
 
+        // Shared column-list builder used by both table sheets below: one
+        // row per column with a name input, a Text/Number/Date type picker,
+        // and a remove button (at least one column always remains).
+        function ColumnListEditor({ columns, onChange }) {
+            const setCol = (id, patch) => onChange(columns.map((c) => c.id === id ? { ...c, ...patch } : c));
+            return (
+                <React.Fragment>
+                    {columns.map((col, i) => (
+                        <div className="table-col-editor-row" key={col.id}>
+                            <input
+                                type="text"
+                                autoComplete="table-column-nofill"
+                                data-lpignore="true"
+                                data-form-type="other"
+                                placeholder={'Column ' + (i + 1)}
+                                value={col.name}
+                                onChange={(e) => setCol(col.id, { name: e.target.value })}
+                            />
+                            <select
+                                className="table-type-select"
+                                value={col.type}
+                                onChange={(e) => setCol(col.id, { type: e.target.value })}
+                            >
+                                <option value="text">Text</option>
+                                <option value="number">Number</option>
+                                <option value="date">Date</option>
+                            </select>
+                            <button
+                                type="button"
+                                className="table-icon-btn"
+                                title="Remove column"
+                                disabled={columns.length <= 1}
+                                onClick={() => onChange(columns.filter((c) => c.id !== col.id))}
+                            >✕</button>
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        className="secondary-btn"
+                        style={{ width: '100%', marginBottom: 14, padding: '8px 12px', fontSize: 13 }}
+                        onClick={() => onChange([...columns, { id: makeId(), name: '', type: 'text' }])}
+                    >＋ Add column</button>
+                </React.Fragment>
+            );
+        }
+
+        // Blank column names fall back to "Column N" so a quickly-built
+        // table never ends up with unlabeled headers.
+        function finalizeColumnNames(columns) {
+            return columns.map((c, i) => ({ id: c.id, name: c.name.trim() || ('Column ' + (i + 1)), type: c.type }));
+        }
+
+        // "+ Add table": one-tap Mileage preset up top, or a fully custom
+        // name + column list below it.
+        function TableCreatorSheet({ onCreate, onClose }) {
+            const [name, setName] = useState('');
+            const [columns, setColumns] = useState([
+                { id: makeId(), name: '', type: 'text' },
+                { id: makeId(), name: '', type: 'text' },
+            ]);
+            return (
+                <div className="sheet-backdrop centered" onClick={onClose}>
+                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                        <h2>Add table</h2>
+                        <button type="button" className="table-preset-btn" onClick={() => onCreate(makeMileageTable())}>
+                            <span className="table-preset-title">📊 Mileage</span>
+                            <span className="table-preset-desc">Date · Start Point · End Point · Miles (with total)</span>
+                        </button>
+                        <div className="section-label" style={{ marginTop: 0 }}>Or start blank</div>
+                        <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                            <input
+                                type="text"
+                                autoComplete="table-name-nofill"
+                                data-lpignore="true"
+                                data-form-type="other"
+                                placeholder="Table name"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                style={{ width: '100%', border: '1px solid #e2e4e9', borderRadius: 10, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' }}
+                            />
+                            <ColumnListEditor columns={columns} onChange={setColumns} />
+                        </form>
+                        <div className="btn-row">
+                            <button className="secondary-btn" onClick={onClose}>Cancel</button>
+                            <button
+                                className="primary-btn"
+                                onClick={() => onCreate({ id: makeId(), name: name.trim() || 'Table', columns: finalizeColumnNames(columns), rows: [], collapsed: false })}
+                            >Create table</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ✎ on an existing table: add/rename/retype/remove columns. Edits are
+        // staged locally and only land (via onApply) on Save — cell data is
+        // re-aligned there by column id, so renames/retypes never touch it.
+        function TableColumnsSheet({ table, onApply, onClose }) {
+            const [columns, setColumns] = useState(table.columns.map((c) => ({ ...c })));
+            return (
+                <div className="sheet-backdrop centered" onClick={onClose}>
+                    <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                        <h2>Edit columns</h2>
+                        <p className="sheet-muted-text" style={{ fontSize: 13, marginBottom: 10 }}>Removing a column also removes that column's data from every row.</p>
+                        <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                            <ColumnListEditor columns={columns} onChange={setColumns} />
+                        </form>
+                        <div className="btn-row">
+                            <button className="secondary-btn" onClick={onClose}>Cancel</button>
+                            <button className="primary-btn" onClick={() => onApply(finalizeColumnNames(columns))}>Save columns</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         // Settings → Help. A flat topic list; picking one drills into
         // HelpDetailSheet, which backs out to this list rather than closing
         // outright (see the helpView back-close handling in App).
@@ -3599,27 +3844,67 @@
         const MAX_LINE_INDENT = 4;
         const LINE_INDENT_PX = 22;
 
+        // Column layout of the original fixed Mileage Table feature — still
+        // the source of truth both for migrating pre-v103 notes (whose
+        // `table` field had exactly these four columns) and for the one-tap
+        // "Mileage" preset in the table creator.
         const MILEAGE_COLUMNS = ['Date', 'Start Point', 'End Point', 'Miles'];
+
+        function makeMileageTable() {
+            return {
+                id: makeId(),
+                name: 'Mileage Table',
+                columns: MILEAGE_COLUMNS.map((colName, i) => ({
+                    id: makeId(),
+                    name: colName,
+                    type: i === 0 ? 'date' : (i === MILEAGE_COLUMNS.length - 1 ? 'number' : 'text'),
+                })),
+                rows: [],
+                collapsed: false,
+            };
+        }
+
+        // Lossless, idempotent bridge from the pre-v103 single-mileage-table
+        // note shape (`table` + `mileageCollapsed`) to the generic `tables`
+        // array. Run everywhere a note or template is read from storage:
+        // IndexedDB load, backup import, and both template-instantiation
+        // paths. A note that already has a `tables` array (even an empty
+        // one) is trusted as-is and never re-migrated.
+        function migrateNoteTables(raw) {
+            if (Array.isArray(raw.tables)) return raw.tables;
+            if (raw.table) {
+                return [{
+                    ...makeMileageTable(),
+                    // Rows reused verbatim (ids preserved); old template
+                    // tables stored rows without ids, so backfill those.
+                    rows: (raw.table.rows || []).map((r) => ({ id: r.id || makeId(), cells: [...r.cells] })),
+                    collapsed: !!raw.mileageCollapsed,
+                }];
+            }
+            return [];
+        }
 
         function csvEscapeCell(value) {
             const s = String(value == null ? '' : value);
             return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
         }
 
-        function mileageTableToCsv(table) {
-            const lines = [MILEAGE_COLUMNS.map(csvEscapeCell).join(',')];
+        function tableToCsv(table) {
+            const lines = [table.columns.map((c) => csvEscapeCell(c.name)).join(',')];
             table.rows.forEach((row) => lines.push(row.cells.map(csvEscapeCell).join(',')));
             return lines.join('\r\n');
         }
 
-        function downloadMileageCsv(table, noteTitle) {
-            const csv = mileageTableToCsv(table);
+        function downloadTableCsv(table, noteTitle) {
+            const csv = tableToCsv(table);
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
-            const safeName = (noteTitle || 'mileage').trim().replace(/[^a-z0-9\-_ ]/gi, '').trim() || 'mileage';
+            const sanitize = (s) => (s || '').trim().replace(/[^a-z0-9\-_ ]/gi, '').trim();
+            const notePart = sanitize(noteTitle);
+            const tablePart = sanitize(table.name) || 'table';
             const a = document.createElement('a');
             a.href = url;
-            a.download = safeName + '-mileage.csv';
+            a.download = (notePart ? notePart + '-' : '') + tablePart + '.csv';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -3700,7 +3985,7 @@
                         title="Select lines"
                     >☑</button>
                     {/* Blurs whatever field currently has focus (title, a
-                        body line, or a mileage cell) — the field itself may
+                        body line, or a table cell) — the field itself may
                         not be this button's sibling, so this just targets
                         document.activeElement directly rather than needing
                         each caller to track which input is focused. iOS in
@@ -3870,9 +4155,16 @@
             const [confirmClearAll, setConfirmClearAll] = useState(false);
             const [previewPhoto, setPreviewPhoto] = useState(null);
             const [uploading, setUploading] = useState(false);
-            const [dateCellActive, setDateCellActive] = useState(false);
-            const [confirmRemoveRow, setConfirmRemoveRow] = useState(false);
-            const [removedRowToast, setRemovedRowToast] = useState(null);
+            // Which table (by id) currently has a date-typed cell focused —
+            // that table's "Today" button fills the cell instead of adding a
+            // row. Null when no date cell is focused anywhere.
+            const [dateCellActiveTableId, setDateCellActiveTableId] = useState(null);
+            const [confirmRemoveRow, setConfirmRemoveRow] = useState(null); // tableId | null
+            const [removedRowToast, setRemovedRowToast] = useState(null); // { tableId, row } | null
+            const [confirmRemoveTable, setConfirmRemoveTable] = useState(null); // tableId | null
+            const [removedTableToast, setRemovedTableToast] = useState(null); // { table, index } | null
+            const [showTableCreator, setShowTableCreator] = useState(false);
+            const [columnEditorTableId, setColumnEditorTableId] = useState(null);
             const [showCategoryPicker, setShowCategoryPicker] = useState(false);
             const [showSaveTemplate, setShowSaveTemplate] = useState(false);
             const [showTemplateMenu, setShowTemplateMenu] = useState(false);
@@ -3906,13 +4198,15 @@
             const galleryInputRef = useRef(null);
             const filesInputRef = useRef(null);
             const titleInputRef = useRef(null);
-            const mileageTableRef = useRef(null);
+            // One imperative-handle ref per rendered table, keyed by table id.
+            const tableRefs = useRef({});
             const saveTimer = useRef(null);
             const removedRowToastTimer = useRef(null);
+            const removedTableToastTimer = useRef(null);
             const blockDragRef = useRef({ pointerId: null, blockId: null, timer: null, dragging: false, startX: 0, startY: 0 });
             const justDraggedBlockRef = useRef(false);
             // One shared CalendarPickerSheet serves the body line toolbar,
-            // the title field, and the mileage table's date column. This
+            // the title field, and every table's date-typed columns. This
             // holds where a picked date should land, captured at the moment
             // the sheet opens (not read live later) — opening the sheet can
             // blur out of a line's edit mode or a text selection well before
@@ -3920,7 +4214,7 @@
             // pick handler isn't reliable. One of:
             //   { kind: 'block', blockId, offset, html }
             //   { kind: 'title', selStart, selEnd, value }
-            //   { kind: 'mileage', rowId }
+            //   { kind: 'table', tableId, rowId, colIdx }
             const dateTargetRef = useRef(null);
             const [showDatePickerSheet, setShowDatePickerSheet] = useState(false);
             // Title is a controlled input — its value changes in React state on
@@ -3930,11 +4224,11 @@
             // the pre-edit state on focus and only actually commit it to
             // history on blur, and only if the title actually changed.
             const titleEditSnapshotRef = useRef(null);
-            // Same reasoning as titleEditSnapshotRef, applied to mileage
-            // cells: typing fires onUpdateCell per keystroke, so history is
-            // snapshotted on focus and only committed on blur if the table
-            // actually changed.
-            const mileageEditSnapshotRef = useRef(null);
+            // Same reasoning as titleEditSnapshotRef, applied to table cells
+            // and table-name inputs across every table: typing fires an
+            // update per keystroke, so history is snapshotted on focus and
+            // only committed on blur if the tables actually changed.
+            const tableEditSnapshotRef = useRef(null);
             // Set right after inserting a date, so the follow-up effect that
             // re-enters edit mode on this block can land the caret just past the
             // inserted text instead of wherever placeCursorAtDeepestEnd puts it.
@@ -3951,18 +4245,20 @@
             // another empty line, and a third gives up on the list entirely.
             // Reset (blockId: null) the moment anything else happens to it.
             const emptyEnterRef = useRef({ blockId: null, indented: false });
-            // Set when a mileage date is picked with no cell active and the
-            // note had no table yet — MileageTable only mounts once
-            // draft.table exists, so mileageTableRef.current is still null
-            // at the exact moment the new row's setDraft call is queued.
-            // The effect below waits for the table to actually show up
-            // before asking MileageTable to focus the new row.
-            const pendingMileageFocusRowIdRef = useRef(null);
+            // Set when a table date is picked with no cell active — the new
+            // row hasn't rendered (and possibly the table hasn't re-rendered)
+            // at the exact moment the setDraft call is queued. The effect
+            // below waits for the row to actually show up before asking that
+            // table to focus it. { tableId, rowId, colIdx } | null.
+            const pendingTableFocusRef = useRef(null);
 
             // Hardware/gesture back button: closes whichever sheet is open,
             // or — if nothing is — leaves the editor the same as tapping ←.
             useBackClose(true, onBack);
-            useBackClose(confirmRemoveRow, () => setConfirmRemoveRow(false));
+            useBackClose(!!confirmRemoveRow, () => setConfirmRemoveRow(null));
+            useBackClose(!!confirmRemoveTable, () => setConfirmRemoveTable(null));
+            useBackClose(showTableCreator, () => setShowTableCreator(false));
+            useBackClose(!!columnEditorTableId, () => setColumnEditorTableId(null));
             useBackClose(!!previewPhoto, () => setPreviewPhoto(null));
             useBackClose(showBackgroundPicker, () => setShowBackgroundPicker(false));
             useBackClose(!!textSizeMenuBlockId, () => setTextSizeMenuBlockId(null));
@@ -3990,12 +4286,12 @@
 
             // Call before applying a line-level change to snapshot what the note
             // looked like just prior, so undoLastEdit can step back to it. Title,
-            // background, categoryIds, and table are included too since
+            // background, categoryIds, and tables are included too since
             // loadTemplateIntoDraft changes those alongside blocks/photos —
             // every other call site leaves them untouched, so snapshotting
             // them there is a no-op.
             const pushEditHistory = () => {
-                editHistoryRef.current.push({ title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds, table: draft.table });
+                editHistoryRef.current.push({ title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds, tables: draft.tables });
                 if (editHistoryRef.current.length > 25) editHistoryRef.current.shift();
                 setCanUndoEdit(true);
             };
@@ -4003,7 +4299,7 @@
             const undoLastEdit = () => {
                 const prev = editHistoryRef.current.pop();
                 if (!prev) return;
-                setDraft((d) => ({ ...d, title: prev.title, blocks: prev.blocks, photos: prev.photos, background: prev.background, categoryIds: prev.categoryIds, table: prev.table }));
+                setDraft((d) => ({ ...d, title: prev.title, blocks: prev.blocks, photos: prev.photos, background: prev.background, categoryIds: prev.categoryIds, tables: prev.tables }));
                 setEditingBlockId(null);
                 setCanUndoEdit(editHistoryRef.current.length > 0);
             };
@@ -4100,14 +4396,14 @@
                 }
             };
 
-            // Mirrors the "Today" button: if a Date cell is currently
-            // focused, target it directly. Otherwise leave rowId null and
-            // let applyPickedDate add a fresh row once a date is actually
-            // picked.
-            const openDateSheetForMileage = () => {
-                const table = mileageTableRef.current;
-                const active = table && table.getActiveDateCell ? table.getActiveDateCell() : null;
-                dateTargetRef.current = { kind: 'mileage', rowId: active ? active.rowId : null };
+            // Mirrors a table's "Today" button: if one of its date-typed
+            // cells is currently focused, target it directly. Otherwise
+            // leave rowId null and let applyPickedDate add a fresh row once
+            // a date is actually picked.
+            const openDateSheetForTable = (tableId) => {
+                const ref = tableRefs.current[tableId];
+                const active = ref && ref.getActiveDateCell ? ref.getActiveDateCell() : null;
+                dateTargetRef.current = { kind: 'table', tableId, rowId: active ? active.rowId : null, colIdx: active ? active.colIdx : null };
                 setShowDatePickerSheet(true);
             };
 
@@ -4116,7 +4412,7 @@
             // text at the saved caret offset, then re-wrapping in whatever
             // bold/italic/underline chain the line already had — formatting is
             // always whole-line, never partial, so this is safe), the title
-            // field, or a mileage table date cell. isoDateStr is the sheet's
+            // field, or a table's date-typed cell. isoDateStr is the sheet's
             // own 'YYYY-MM-DD' value, or null if the sheet was dismissed
             // without picking anything.
             const applyPickedDate = (isoDateStr) => {
@@ -4170,29 +4466,33 @@
                     return;
                 }
 
-                if (target.kind === 'mileage') {
+                if (target.kind === 'table') {
+                    const table = (draft.tables || []).find(t => t.id === target.tableId);
+                    if (!table) return;
                     if (target.rowId) {
                         pushEditHistory();
-                        updateMileageCell(target.rowId, 0, dateStr);
-                        const rowIdx = draft.table ? draft.table.rows.findIndex(r => r.id === target.rowId) : -1;
-                        if (rowIdx !== -1 && mileageTableRef.current) {
-                            mileageTableRef.current.focusRowCell(rowIdx, 1);
+                        updateTableCell(target.tableId, target.rowId, target.colIdx, dateStr);
+                        const rowIdx = table.rows.findIndex(r => r.id === target.rowId);
+                        const ref = tableRefs.current[target.tableId];
+                        if (rowIdx !== -1 && ref) {
+                            ref.focusRowCell(rowIdx, Math.min(target.colIdx + 1, table.columns.length - 1));
                         }
                     } else {
                         // No cell was focused when the sheet opened — add a
-                        // fresh row with the picked date already in it. If
-                        // this is the note's first-ever mileage row, MileageTable
-                        // hasn't mounted yet (it only renders once
-                        // draft.table exists) — queue the focus request and
-                        // let the effect below resolve it once that happens.
+                        // fresh row with the picked date already in its first
+                        // date-typed column, and queue focus on the next cell
+                        // (the effect below resolves it once the row renders).
+                        const dateColIdx = table.columns.findIndex(c => c.type === 'date');
+                        if (dateColIdx === -1) return;
                         const newRowId = makeId();
                         pushEditHistory();
-                        setDraft((d) => {
-                            const t = d.table || { columns: MILEAGE_COLUMNS, rows: [] };
-                            const newRow = { id: newRowId, cells: [dateStr, '', '', ''] };
-                            return { ...d, table: { ...t, rows: [...t.rows, newRow] } };
-                        });
-                        pendingMileageFocusRowIdRef.current = newRowId;
+                        setDraft((d) => ({
+                            ...d,
+                            tables: (d.tables || []).map(t => t.id === target.tableId
+                                ? { ...t, rows: [...t.rows, { id: newRowId, cells: t.columns.map((c, i) => i === dateColIdx ? dateStr : '') }] }
+                                : t),
+                        }));
+                        pendingTableFocusRef.current = { tableId: target.tableId, rowId: newRowId, colIdx: Math.min(dateColIdx + 1, table.columns.length - 1) };
                     }
                 }
             };
@@ -4209,18 +4509,21 @@
                 pendingCaretOffsetRef.current = null;
             }, [editingBlockId]);
 
-            // Resolves a mileage focus-advance request queued against a row
+            // Resolves a table focus-advance request queued against a row
             // that didn't exist as a rendered cell yet at the time it was
-            // requested (see pendingMileageFocusRowIdRef) — runs again on
-            // every table change until the row (and MileageTable itself, if
-            // this was the first-ever row) actually shows up.
+            // requested (see pendingTableFocusRef) — runs again on every
+            // tables change until the row actually shows up.
             useEffect(() => {
-                if (!pendingMileageFocusRowIdRef.current || !mileageTableRef.current || !draft.table) return;
-                const rowIdx = draft.table.rows.findIndex(r => r.id === pendingMileageFocusRowIdRef.current);
+                const pending = pendingTableFocusRef.current;
+                if (!pending) return;
+                const table = (draft.tables || []).find(t => t.id === pending.tableId);
+                const ref = tableRefs.current[pending.tableId];
+                if (!table || !ref) return;
+                const rowIdx = table.rows.findIndex(r => r.id === pending.rowId);
                 if (rowIdx === -1) return;
-                mileageTableRef.current.focusRowCell(rowIdx, 1);
-                pendingMileageFocusRowIdRef.current = null;
-            }, [draft.table]);
+                ref.focusRowCell(rowIdx, pending.colIdx);
+                pendingTableFocusRef.current = null;
+            }, [draft.tables]);
 
             // Reads the live DOM (not stale React state) so a format toggle picks up
             // whatever was just typed, then writes the result straight back into the
@@ -4275,7 +4578,7 @@
             };
 
             // Resets the body text only — title, category, background,
-            // mileage table, and photos are untouched.
+            // tables, and photos are untouched.
             const clearAllBlocks = () => {
                 pushEditHistory();
                 setDraft((d) => ({ ...d, blocks: [{ id: makeId(), type: 'text', html: '' }] }));
@@ -4645,15 +4948,19 @@
                 pushEditHistory();
                 const blocks = (template.blocks && template.blocks.length > 0 ? template.blocks : [{ type: 'text', html: '' }])
                     .map((b) => ({ id: makeId(), type: b.type, html: b.html || '', checked: false }));
-                const table = template.table
-                    ? { columns: template.table.columns, rows: template.table.rows.map((r) => ({ id: makeId(), cells: [...r.cells] })) }
-                    : null;
+                const tables = migrateNoteTables(template).map((t) => ({
+                    ...t,
+                    id: makeId(),
+                    columns: t.columns.map((c) => ({ ...c, id: makeId() })),
+                    rows: t.rows.map((r) => ({ id: makeId(), cells: [...r.cells] })),
+                    collapsed: !!t.collapsed,
+                }));
                 const photos = (template.photos || []).map((p) => ({ id: makeId(), dataUrl: p.dataUrl }));
                 setDraft((d) => ({
                     ...d,
                     title: template.name || d.title,
                     blocks,
-                    table,
+                    tables,
                     photos,
                     background: template.background || d.background,
                     categoryIds: (template.categoryIds && template.categoryIds.length > 0) ? template.categoryIds : d.categoryIds,
@@ -4662,78 +4969,143 @@
                 setShowTemplateMenu(false);
             };
 
-            // Also creates the table (with these fixed mileage columns) on its
-            // first press if one doesn't exist yet on this note.
-            const addMileageRow = () => {
+            // Applies `updater` to one table in the draft's tables array,
+            // leaving every other table untouched.
+            const updateOneTable = (tableId, updater) => {
+                setDraft((d) => ({ ...d, tables: (d.tables || []).map(t => t.id === tableId ? updater(t) : t) }));
+            };
+
+            // Collapse is a view preference, not a content edit — no history
+            // entry, matching the old mileageCollapsed behavior.
+            const toggleTableCollapsed = (tableId) => {
+                updateOneTable(tableId, (t) => ({ ...t, collapsed: !t.collapsed }));
+            };
+
+            // Renames flow per keystroke; undo for them is covered by the
+            // focus/blur snapshot pair below, not per-keystroke history.
+            const renameTable = (tableId, name) => {
+                updateOneTable(tableId, (t) => ({ ...t, name }));
+            };
+
+            const addTable = (tableObj) => {
+                pushEditHistory();
+                setDraft((d) => ({ ...d, tables: [...(d.tables || []), tableObj] }));
+                setShowTableCreator(false);
+            };
+
+            const removeTable = (tableId) => {
                 pushEditHistory();
                 setDraft((d) => {
-                    const table = d.table || { columns: MILEAGE_COLUMNS, rows: [] };
-                    const newRow = { id: makeId(), cells: ['', '', '', ''] };
-                    return { ...d, table: { ...table, rows: [...table.rows, newRow] } };
+                    const tables = d.tables || [];
+                    const index = tables.findIndex(t => t.id === tableId);
+                    if (index === -1) return d;
+                    if (removedTableToastTimer.current) clearTimeout(removedTableToastTimer.current);
+                    setRemovedRowToast(null);
+                    setRemovedTableToast({ table: tables[index], index });
+                    removedTableToastTimer.current = setTimeout(() => setRemovedTableToast(null), 5000);
+                    return { ...d, tables: tables.filter(t => t.id !== tableId) };
                 });
             };
 
-            // Used by the Today button when no date cell is currently
-            // focused: rather than doing nothing, add a fresh row pre-filled
-            // with today's date instead of an empty one.
-            const addMileageRowWithToday = () => {
-                const todayStr = new Date().toLocaleDateString();
-                const newRowIdx = draft.table ? draft.table.rows.length : 0;
-                pushEditHistory();
+            const undoRemoveTable = () => {
+                if (removedTableToastTimer.current) clearTimeout(removedTableToastTimer.current);
+                const toast = removedTableToast;
+                setRemovedTableToast(null);
+                if (!toast) return;
                 setDraft((d) => {
-                    const table = d.table || { columns: MILEAGE_COLUMNS, rows: [] };
-                    const newRow = { id: makeId(), cells: [todayStr, '', '', ''] };
-                    return { ...d, table: { ...table, rows: [...table.rows, newRow] } };
+                    const tables = [...(d.tables || [])];
+                    tables.splice(Math.min(toast.index, tables.length), 0, toast.table);
+                    return { ...d, tables };
                 });
-                if (mileageTableRef.current) {
-                    mileageTableRef.current.focusRowCell(newRowIdx, 1);
+            };
+
+            // Replaces a table's column set (add/rename/retype/remove) and
+            // re-aligns every row's cells by column id: surviving columns
+            // keep their data at their new position, brand-new columns start
+            // empty, and removed columns' data is dropped.
+            const applyColumnEdits = (tableId, newColumns) => {
+                pushEditHistory();
+                updateOneTable(tableId, (t) => ({
+                    ...t,
+                    columns: newColumns,
+                    rows: t.rows.map((r) => ({
+                        ...r,
+                        cells: newColumns.map((nc) => {
+                            const oldIdx = t.columns.findIndex(c => c.id === nc.id);
+                            return oldIdx === -1 ? '' : (r.cells[oldIdx] != null ? r.cells[oldIdx] : '');
+                        }),
+                    })),
+                }));
+                setColumnEditorTableId(null);
+            };
+
+            const addTableRow = (tableId) => {
+                pushEditHistory();
+                updateOneTable(tableId, (t) => ({ ...t, rows: [...t.rows, { id: makeId(), cells: t.columns.map(() => '') }] }));
+            };
+
+            // Used by a table's Today button when none of its date cells is
+            // focused: rather than doing nothing, add a fresh row pre-filled
+            // with today's date in its first date column.
+            const addTableRowWithToday = (tableId) => {
+                const table = (draft.tables || []).find(t => t.id === tableId);
+                if (!table) return;
+                const todayStr = new Date().toLocaleDateString();
+                const dateColIdx = table.columns.findIndex(c => c.type === 'date');
+                const newRowIdx = table.rows.length;
+                pushEditHistory();
+                updateOneTable(tableId, (t) => ({
+                    ...t,
+                    rows: [...t.rows, { id: makeId(), cells: t.columns.map((c, i) => i === dateColIdx ? todayStr : '') }],
+                }));
+                const ref = tableRefs.current[tableId];
+                if (ref) {
+                    ref.focusRowCell(newRowIdx, Math.min(dateColIdx + 1, table.columns.length - 1));
                 }
             };
 
-            const removeLastMileageRow = () => {
+            const removeLastTableRow = (tableId) => {
                 pushEditHistory();
                 setDraft((d) => {
-                    if (!d.table || d.table.rows.length === 0) return d;
-                    const removed = d.table.rows[d.table.rows.length - 1];
+                    const table = (d.tables || []).find(t => t.id === tableId);
+                    if (!table || table.rows.length === 0) return d;
+                    const removed = table.rows[table.rows.length - 1];
                     if (removedRowToastTimer.current) clearTimeout(removedRowToastTimer.current);
-                    setRemovedRowToast(removed);
+                    setRemovedTableToast(null);
+                    setRemovedRowToast({ tableId, row: removed });
                     removedRowToastTimer.current = setTimeout(() => setRemovedRowToast(null), 5000);
-                    return { ...d, table: { ...d.table, rows: d.table.rows.slice(0, -1) } };
+                    return { ...d, tables: d.tables.map(t => t.id === tableId ? { ...t, rows: t.rows.slice(0, -1) } : t) };
                 });
             };
 
             const undoRemoveRow = () => {
                 if (removedRowToastTimer.current) clearTimeout(removedRowToastTimer.current);
+                const toast = removedRowToast;
                 setRemovedRowToast(null);
-                setDraft((d) => {
-                    if (!removedRowToast || !d.table) return d;
-                    return { ...d, table: { ...d.table, rows: [...d.table.rows, removedRowToast] } };
-                });
+                if (!toast) return;
+                setDraft((d) => ({
+                    ...d,
+                    tables: (d.tables || []).map(t => t.id === toast.tableId ? { ...t, rows: [...t.rows, toast.row] } : t),
+                }));
             };
 
-            const updateMileageCell = (rowId, cellIndex, value) => {
-                setDraft((d) => {
-                    if (!d.table) return d;
-                    return {
-                        ...d,
-                        table: {
-                            ...d.table,
-                            rows: d.table.rows.map(r => r.id === rowId
-                                ? { ...r, cells: r.cells.map((c, i) => i === cellIndex ? value : c) }
-                                : r),
-                        },
-                    };
-                });
+            const updateTableCell = (tableId, rowId, cellIndex, value) => {
+                updateOneTable(tableId, (t) => ({
+                    ...t,
+                    rows: t.rows.map(r => r.id === rowId
+                        ? { ...r, cells: r.cells.map((c, i) => i === cellIndex ? value : c) }
+                        : r),
+                }));
             };
 
-            const handleMileageCellFocus = () => {
-                mileageEditSnapshotRef.current = { title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds, table: draft.table };
+            const handleTableCellFocus = () => {
+                tableEditSnapshotRef.current = { title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds, tables: draft.tables };
             };
 
-            const handleMileageCellBlur = () => {
-                const snapshot = mileageEditSnapshotRef.current;
-                mileageEditSnapshotRef.current = null;
-                if (snapshot && JSON.stringify(snapshot.table) !== JSON.stringify(draft.table)) {
+            const handleTableCellBlur = () => {
+                const snapshot = tableEditSnapshotRef.current;
+                tableEditSnapshotRef.current = null;
+                if (snapshot && JSON.stringify(snapshot.tables) !== JSON.stringify(draft.tables)) {
                     editHistoryRef.current.push(snapshot);
                     if (editHistoryRef.current.length > 25) editHistoryRef.current.shift();
                     setCanUndoEdit(true);
@@ -4815,7 +5187,7 @@
                                 onChange={(e) => updateField('title', e.target.value)}
                                 onFocus={() => {
                                     setTitleFocused(true);
-                                    titleEditSnapshotRef.current = { title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds, table: draft.table };
+                                    titleEditSnapshotRef.current = { title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds, tables: draft.tables };
                                 }}
                                 onBlur={() => {
                                     setTitleFocused(false);
@@ -4930,83 +5302,156 @@
                             ))}
                         </div>
 
-                        <div className="section-label-row">
-                            <button
-                                type="button"
-                                className="section-collapse-btn"
-                                onClick={() => updateField('mileageCollapsed', !draft.mileageCollapsed)}
-                                title={draft.mileageCollapsed ? 'Expand mileage table' : 'Minimize mileage table'}
-                            >
-                                <span className={'section-collapse-chevron' + (draft.mileageCollapsed ? ' collapsed' : '')}>▾</span>
-                                <span className="section-label" style={{ margin: 0 }}>Mileage Table</span>
-                            </button>
-                            {!draft.mileageCollapsed && draft.table && draft.table.rows.length > 0 ? (
-                                <button
-                                    className="csv-export-btn"
-                                    onClick={() => downloadMileageCsv(draft.table, draft.title)}
-                                >
-                                    ⬇ Export CSV
-                                </button>
-                            ) : null}
-                        </div>
-                        {draft.mileageCollapsed ? null : (
-                            <React.Fragment>
-                                {draft.table ? (
-                                    <MileageTable
-                                        ref={mileageTableRef}
-                                        table={draft.table}
-                                        onUpdateCell={updateMileageCell}
-                                        onAddRow={addMileageRow}
-                                        onActiveDateCellChange={setDateCellActive}
-                                        onCellFocus={handleMileageCellFocus}
-                                        onCellBlur={handleMileageCellBlur}
-                                    />
-                                ) : null}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10, marginTop: 10 }}>
-                                    {/* "Today" and "Pick Date" both already add a row
-                                        on their own when nothing's selected, making a
-                                        separate blank "+ Add Mileage Row" button
-                                        redundant — removed per feedback. */}
-                                    <button
-                                        className="secondary-btn"
-                                        style={{ padding: '10px 12px', fontSize: 13 }}
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => {
-                                            if (dateCellActive && mileageTableRef.current) {
-                                                mileageTableRef.current.fillActiveDateCellWithToday();
-                                            } else {
-                                                addMileageRowWithToday();
-                                            }
-                                        }}
-                                    >
-                                        📅 Today
-                                    </button>
-                                    <button
-                                        className="secondary-btn"
-                                        style={{ padding: '10px 12px', fontSize: 13 }}
-                                        onMouseDown={(e) => { e.preventDefault(); openDateSheetForMileage(); }}
-                                    >
-                                        📅 Pick Date
-                                    </button>
-                                    <button
-                                        className="secondary-btn"
-                                        style={{ marginLeft: 'auto', padding: '10px 10px', fontSize: 12 }}
-                                        disabled={!draft.table || draft.table.rows.length === 0}
-                                        onClick={() => setConfirmRemoveRow(true)}
-                                    >
-                                        🗑 Remove Row
-                                    </button>
-                                </div>
-                            </React.Fragment>
-                        )}
+                        {(draft.tables || []).map((table) => {
+                            const hasDateColumn = table.columns.some((c) => c.type === 'date');
+                            return (
+                                <React.Fragment key={table.id}>
+                                    <div className="section-label-row">
+                                        <button
+                                            type="button"
+                                            className="section-collapse-btn"
+                                            onClick={() => toggleTableCollapsed(table.id)}
+                                            title={table.collapsed ? 'Expand table' : 'Minimize table'}
+                                        >
+                                            <span className={'section-collapse-chevron' + (table.collapsed ? ' collapsed' : '')}>▾</span>
+                                        </button>
+                                        <input
+                                            className="table-name-input"
+                                            type="text"
+                                            autoComplete="table-name-nofill"
+                                            data-lpignore="true"
+                                            data-form-type="other"
+                                            placeholder="Table name"
+                                            value={table.name}
+                                            onChange={(e) => renameTable(table.id, e.target.value)}
+                                            onFocus={handleTableCellFocus}
+                                            onBlur={handleTableCellBlur}
+                                        />
+                                        {!table.collapsed && table.rows.length > 0 ? (
+                                            <button
+                                                className="csv-export-btn"
+                                                onClick={() => downloadTableCsv(table, draft.title)}
+                                            >
+                                                ⬇ Export CSV
+                                            </button>
+                                        ) : null}
+                                        {!table.collapsed ? (
+                                            <button
+                                                className="table-icon-btn"
+                                                title="Edit columns"
+                                                onClick={() => setColumnEditorTableId(table.id)}
+                                            >
+                                                ✎
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                    {table.collapsed ? null : (
+                                        <React.Fragment>
+                                            <NoteTable
+                                                ref={(el) => { tableRefs.current[table.id] = el; }}
+                                                table={table}
+                                                onUpdateCell={(rowId, cellIdx, value) => updateTableCell(table.id, rowId, cellIdx, value)}
+                                                onAddRow={() => addTableRow(table.id)}
+                                                onActiveDateCellChange={(isDate) => setDateCellActiveTableId((prev) => isDate ? table.id : (prev === table.id ? null : prev))}
+                                                onCellFocus={handleTableCellFocus}
+                                                onCellBlur={handleTableCellBlur}
+                                            />
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10, marginTop: 10 }}>
+                                                {hasDateColumn ? (
+                                                    <button
+                                                        className="secondary-btn"
+                                                        style={{ padding: '10px 12px', fontSize: 13 }}
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => {
+                                                            const ref = tableRefs.current[table.id];
+                                                            if (dateCellActiveTableId === table.id && ref) {
+                                                                ref.fillActiveDateCellWithToday();
+                                                            } else {
+                                                                addTableRowWithToday(table.id);
+                                                            }
+                                                        }}
+                                                    >
+                                                        📅 Today
+                                                    </button>
+                                                ) : null}
+                                                {hasDateColumn ? (
+                                                    <button
+                                                        className="secondary-btn"
+                                                        style={{ padding: '10px 12px', fontSize: 13 }}
+                                                        onMouseDown={(e) => { e.preventDefault(); openDateSheetForTable(table.id); }}
+                                                    >
+                                                        📅 Pick Date
+                                                    </button>
+                                                ) : null}
+                                                <button
+                                                    className="secondary-btn"
+                                                    style={{ padding: '10px 12px', fontSize: 13 }}
+                                                    onClick={() => addTableRow(table.id)}
+                                                >
+                                                    ➕ Row
+                                                </button>
+                                                <button
+                                                    className="secondary-btn"
+                                                    style={{ marginLeft: 'auto', padding: '10px 10px', fontSize: 12 }}
+                                                    disabled={table.rows.length === 0}
+                                                    onClick={() => setConfirmRemoveRow(table.id)}
+                                                >
+                                                    🗑 Remove Row
+                                                </button>
+                                                <button
+                                                    className="secondary-btn"
+                                                    style={{ padding: '10px 10px', fontSize: 12 }}
+                                                    title="Remove table"
+                                                    onClick={() => setConfirmRemoveTable(table.id)}
+                                                >
+                                                    🗑 Remove Table
+                                                </button>
+                                            </div>
+                                        </React.Fragment>
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
+                        <button
+                            className="secondary-btn"
+                            style={{ width: '100%', marginTop: (draft.tables || []).length > 0 ? 14 : 20, padding: '10px 12px', fontSize: 13 }}
+                            onClick={() => setShowTableCreator(true)}
+                        >
+                            ➕ Add table
+                        </button>
+
+                        {showTableCreator ? (
+                            <TableCreatorSheet
+                                onCreate={addTable}
+                                onClose={() => setShowTableCreator(false)}
+                            />
+                        ) : null}
+
+                        {columnEditorTableId && (draft.tables || []).some((t) => t.id === columnEditorTableId) ? (
+                            <TableColumnsSheet
+                                table={draft.tables.find((t) => t.id === columnEditorTableId)}
+                                onApply={(newColumns) => applyColumnEdits(columnEditorTableId, newColumns)}
+                                onClose={() => setColumnEditorTableId(null)}
+                            />
+                        ) : null}
 
                         {confirmRemoveRow ? (
                             <ConfirmSheet
                                 title="Remove last row?"
-                                message="The last row of the mileage table will be permanently removed."
+                                message="The last row of this table will be permanently removed."
                                 confirmLabel="Remove Row"
-                                onCancel={() => setConfirmRemoveRow(false)}
-                                onConfirm={() => { removeLastMileageRow(); setConfirmRemoveRow(false); }}
+                                onCancel={() => setConfirmRemoveRow(null)}
+                                onConfirm={() => { removeLastTableRow(confirmRemoveRow); setConfirmRemoveRow(null); }}
+                            />
+                        ) : null}
+
+                        {confirmRemoveTable ? (
+                            <ConfirmSheet
+                                title="Remove this table?"
+                                message="The whole table, including all of its rows, will be removed from this note."
+                                confirmLabel="Remove Table"
+                                onCancel={() => setConfirmRemoveTable(null)}
+                                onConfirm={() => { removeTable(confirmRemoveTable); setConfirmRemoveTable(null); }}
                             />
                         ) : null}
 
@@ -5014,6 +5459,13 @@
                             <div className="undo-toast">
                                 <span>Row removed</span>
                                 <button onClick={undoRemoveRow}>Undo</button>
+                            </div>
+                        ) : null}
+
+                        {removedTableToast ? (
+                            <div className="undo-toast">
+                                <span>Table removed</span>
+                                <button onClick={undoRemoveTable}>Undo</button>
                             </div>
                         ) : null}
 
@@ -5650,9 +6102,13 @@
                     categoryIds: sourceNote.categoryIds || [],
                     blocks: sourceNote.blocks.map((b) => ({ type: b.type, html: b.html })),
                     photos: (sourceNote.photos || []).map((p) => ({ dataUrl: p.dataUrl })),
-                    table: sourceNote.table
-                        ? { columns: sourceNote.table.columns, rows: sourceNote.table.rows.map((r) => ({ cells: [...r.cells] })) }
-                        : null,
+                    tables: migrateNoteTables(sourceNote).map((t) => ({
+                        id: t.id,
+                        name: t.name,
+                        collapsed: !!t.collapsed,
+                        columns: t.columns.map((c) => ({ id: c.id, name: c.name, type: c.type })),
+                        rows: t.rows.map((r) => ({ cells: [...r.cells] })),
+                    })),
                     background: sourceNote.background,
                     createdAt: Date.now(),
                 };
@@ -5669,11 +6125,20 @@
                         categoryIds: updatedDraft.categoryIds || [],
                         blocks: updatedDraft.blocks.map((b) => ({ type: b.type, html: b.html })),
                         photos: (updatedDraft.photos || []).map((p) => ({ dataUrl: p.dataUrl })),
-                        table: updatedDraft.table
-                            ? { columns: updatedDraft.table.columns, rows: updatedDraft.table.rows.map((r) => ({ cells: [...r.cells] })) }
-                            : null,
+                        tables: migrateNoteTables(updatedDraft).map((t) => ({
+                            id: t.id,
+                            name: t.name,
+                            collapsed: !!t.collapsed,
+                            columns: t.columns.map((c) => ({ id: c.id, name: c.name, type: c.type })),
+                            rows: t.rows.map((r) => ({ cells: [...r.cells] })),
+                        })),
                         background: updatedDraft.background,
                     };
+                    // The ...t spread above can carry a pre-v103 template's
+                    // legacy fields along — drop them now that `tables` is
+                    // the only shape written.
+                    delete updated.table;
+                    delete updated.mileageCollapsed;
                     if (db) idbPut(db, 'templates', updated);
                     return updated;
                 }));
