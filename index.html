@@ -1277,10 +1277,13 @@
         .section-collapse-btn {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 4px;
             background: none;
             border: none;
-            padding: 0;
+            padding: 12px 14px;
+            margin: -12px 0 -12px -14px;
+            flex: 0 0 auto;
         }
 
         .section-collapse-btn .section-label {
@@ -1290,7 +1293,7 @@
         .section-collapse-chevron {
             display: inline-block;
             color: #5f6470;
-            font-size: 12px;
+            font-size: 16px;
             transition: transform 0.15s ease;
         }
 
@@ -2410,7 +2413,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v103';
+        const APP_VERSION = 'v104';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
