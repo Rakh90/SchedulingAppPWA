@@ -201,6 +201,16 @@
             color: rgba(255,255,255,0.85);
             font-size: 14px;
             flex: 0 0 auto;
+            /* Same padding + compensating-negative-margin trick as
+               .section-collapse-btn: the ✕ glyph alone is a ~14px target,
+               far too small to hit reliably. The padding grows the real
+               tappable box to ~40x40 while the negative margin keeps the
+               glyph exactly where it was inside the search bar. Because the
+               padding belongs to the button, taps in the enlarged area hit
+               the button — not the search input underneath — so clearing
+               never re-focuses the input. */
+            padding: 13px;
+            margin: -13px;
         }
 
         /* ---------- Category tabs ---------- */
@@ -367,6 +377,13 @@
             cursor: pointer;
             user-select: none;
             transition: transform 0.12s ease, box-shadow 0.12s ease;
+            /* Lets the browser skip layout/paint for cards far offscreen —
+               with hundreds of notes this substantially cuts first paint and
+               re-render cost. 150px approximates a typical card's rendered
+               height (min-height 110px + padding/preview) so the scrollbar
+               stays honest before offscreen cards are actually laid out. */
+            content-visibility: auto;
+            contain-intrinsic-size: 0 150px;
         }
 
         .note-card.dragging {
@@ -411,6 +428,19 @@
 
         .note-card-trash-btn:active {
             background: rgba(197,34,31,0.85);
+        }
+
+        /* Invisible hit-slop (same pattern as .icon-btn::after): the 26px
+           pin/trash circles sit on a card whose own onClick opens the note,
+           so a near-miss used to open the editor instead. Both buttons
+           stopPropagation, so growing the tappable area to ~42x42 turns
+           those near-misses into the intended action. The buttons are
+           position:absolute already, which anchors the pseudo-element. */
+        .note-card-pin-btn::after,
+        .note-card-trash-btn::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
         }
 
         .note-card-pin-btn {
@@ -601,6 +631,12 @@
             font-weight: 700;
             font-size: 14px;
             flex: 0 0 auto;
+            /* The toast only lives ~5s, so its Undo needs to be easy to hit
+               first try: padding + compensating negative margin grows the
+               tappable box to ~40px tall (and wider than the label) without
+               moving the visible text or growing the toast itself. */
+            padding: 12px 14px;
+            margin: -12px -14px;
         }
 
         /* ---------- Sheets / Modals ---------- */
@@ -651,6 +687,41 @@
 
         .sheet-backdrop.centered .sheet {
             border-radius: 16px;
+        }
+
+        /* ---------- Sheet open transitions ----------
+           Mount-time @keyframes (like the FAB/chevron effects, no JS state
+           needed): every sheet in the app shares these two classes, so this
+           one block animates all of them. The backdrop fades in — and since
+           the sheet is its child, the sheet inherits that fade — while
+           bottom sheets additionally slide up and centered dialogs scale in.
+           Entrance only: exit animations would mean deferring unmounts,
+           which is a behavioral change we deliberately avoid. */
+        @keyframes sheet-backdrop-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes sheet-slide-up {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        @keyframes sheet-scale-in {
+            from { transform: scale(0.95); }
+            to { transform: scale(1); }
+        }
+
+        .sheet-backdrop {
+            animation: sheet-backdrop-in 150ms ease-out;
+        }
+
+        .sheet {
+            animation: sheet-slide-up 180ms cubic-bezier(0.22, 0.8, 0.36, 1);
+        }
+
+        .sheet-backdrop.centered .sheet {
+            animation: sheet-scale-in 150ms ease-out;
         }
 
         .sheet h2 {
@@ -924,6 +995,15 @@
 
         .secondary-btn:disabled {
             opacity: 0.45;
+        }
+
+        /* One shared size for every button in a table's action row
+           (Today / Pick Date / ➕ Row / 🗑 Remove Row / 🗑 Remove Table) —
+           previously hand-rolled inline styles that had drifted into two
+           visibly different sizes within the same row. */
+        .table-action-btn {
+            padding: 10px 12px;
+            font-size: 13px;
         }
 
         .danger-btn {
@@ -1314,6 +1394,19 @@
             padding: 6px 10px;
             font-size: 12px;
             font-weight: 600;
+            position: relative;
+        }
+
+        /* Invisible hit-slop (same pattern as .icon-btn::after) for the
+           small pill buttons in the table header row — CSV export, edit
+           columns ✎ and the column editor's remove-column ✕ all render at
+           ~27px tall, so the pseudo-element stretches the tappable area to
+           ~40px+ without visually growing the pills. */
+        .csv-export-btn::after,
+        .table-icon-btn::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
         }
 
         .dark-content .csv-export-btn {
@@ -1527,6 +1620,7 @@
             padding: 6px 10px;
             font-size: 12px;
             font-weight: 600;
+            position: relative;
         }
 
         .table-icon-btn:disabled {
@@ -1894,7 +1988,7 @@
     <div id="root"></div>
 
     <script type="text/babel" data-presets="react">
-        const { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } = React;
+        const { useState, useEffect, useRef, useCallback, useMemo, useImperativeHandle, forwardRef } = React;
 
         const DB_NAME = 'notepad-db';
         const DB_VERSION = 4;
@@ -2413,7 +2507,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v104';
+        const APP_VERSION = 'v105';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2688,6 +2782,26 @@
             return !!(note.categoryIds && note.categoryIds.includes(filterCategory));
         }
 
+        // Search-text cache: stripHtml() spins up a DOM element and parses
+        // innerHTML, which used to happen for every block of every note on
+        // every keystroke. Notes are updated immutably (every edit produces a
+        // fresh object via {...n}), so the note object itself is a perfect
+        // cache key — a WeakMap keyed on it invalidates exactly when a note
+        // changes (no reliance on updatedAt being bumped) and lets dropped
+        // notes be garbage-collected with their cache entries.
+        const noteSearchTextCache = new WeakMap();
+        function getNoteSearchText(note) {
+            let text = noteSearchTextCache.get(note);
+            if (text === undefined) {
+                // Joined with \n (which a single-line search box can never
+                // contain), so a query can't accidentally match across two
+                // adjacent blocks.
+                text = (note.blocks || []).map(b => stripHtml(b.html)).join('\n').toLowerCase();
+                noteSearchTextCache.set(note, text);
+            }
+            return text;
+        }
+
         function noteMatchesSearch(note, query) {
             const q = (query || '').trim().toLowerCase();
             if (!q) return true;
@@ -2696,7 +2810,7 @@
             // against that same body would defeat the point by surfacing it
             // in results anyway, so only the (already-visible) title counts.
             if (note.locked) return false;
-            return (note.blocks || []).some(b => stripHtml(b.html).toLowerCase().includes(q));
+            return getNoteSearchText(note).includes(q);
         }
 
         // Pinned notes always float above unpinned ones; used consistently for
@@ -2746,9 +2860,23 @@
             };
         }
 
-        function NoteCard({ note, noteCategories, onOpen, onTrash, onTogglePin, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp, selectMode, selected, onToggleSelect }) {
-            const numbers = computeListNumbers(note.blocks);
-            const previewBlocks = note.blocks.filter(b => b.html && stripHtml(b.html).trim()).slice(0, 4);
+        // React.memo + the custom comparator below keeps unrelated dashboard
+        // state changes (pinning one note, toggling a selection, a toast
+        // appearing) from re-rendering every card — with hundreds of notes
+        // the stripHtml/linkify preview work per card made that visibly slow.
+        const NoteCard = React.memo(function NoteCard({ note, noteCategories, onOpen, onTrash, onTogglePin, dragEnabled, isDragging, onCardPointerDown, onCardPointerMove, onCardPointerUp, selectMode, selected, onToggleSelect }) {
+            const numbers = useMemo(() => computeListNumbers(note.blocks), [note.blocks]);
+            const previewBlocks = useMemo(
+                () => note.blocks.filter(b => b.html && stripHtml(b.html).trim()).slice(0, 4),
+                [note.blocks]
+            );
+            // Linkify once per note version, not once per render: keyed on
+            // the blocks array, which is replaced whenever the note's content
+            // changes (notes are updated immutably).
+            const previewHtml = useMemo(
+                () => previewBlocks.map(b => linkify(b.html)),
+                [previewBlocks]
+            );
 
             return (
                 <div
@@ -2797,14 +2925,14 @@
                             ) : null}
                             {previewBlocks.length > 0 ? (
                                 <div className="note-card-body">
-                                    {previewBlocks.map((b) => {
+                                    {previewBlocks.map((b, previewIdx) => {
                                         const idx = note.blocks.indexOf(b);
                                         return (
                                             <div key={b.id} className={'note-card-list-item' + (b.type === 'checklist' && b.checked ? ' checked' : '')}>
                                                 <span className="marker">
                                                     {b.type === 'checklist' ? (b.checked ? '☑' : '☐') : b.type === 'numbered' ? (numbers[idx] + '.') : b.type === 'bulleted' ? '•' : ''}
                                                 </span>
-                                                <span dangerouslySetInnerHTML={{ __html: linkify(b.html) }}></span>
+                                                <span dangerouslySetInnerHTML={{ __html: previewHtml[previewIdx] }}></span>
                                             </div>
                                         );
                                     })}
@@ -2834,7 +2962,23 @@
                     </div>
                 </div>
             );
-        }
+        }, function noteCardPropsEqual(prev, next) {
+            // Shallow compare, except noteCategories: the dashboard rebuilds
+            // that array wrapper every render even though the category
+            // objects inside it are referentially stable, so it's compared
+            // element-wise instead of by identity.
+            for (const key in next) {
+                if (key === 'noteCategories') continue;
+                if (prev[key] !== next[key]) return false;
+            }
+            const a = prev.noteCategories || [];
+            const b = next.noteCategories || [];
+            if (a.length !== b.length) return false;
+            for (let i = 0; i < a.length; i++) {
+                if (a[i] !== b[i]) return false;
+            }
+            return true;
+        });
 
         function CategoryManagerSheet({ background, categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground, dashboardBackground, onChangeDashboardBackground, hasPin, onStartPinSetup, onStartPinChange, onStartPinRemove, onOpenHelp, folderIconTheme, onChangeFolderIconTheme, appIdentity, onChangeAppIdentity }) {
             const [newName, setNewName] = useState('');
@@ -5362,8 +5506,7 @@
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10, marginTop: 10 }}>
                                                 {hasDateColumn ? (
                                                     <button
-                                                        className="secondary-btn"
-                                                        style={{ padding: '10px 12px', fontSize: 13 }}
+                                                        className="secondary-btn table-action-btn"
                                                         onMouseDown={(e) => e.preventDefault()}
                                                         onClick={() => {
                                                             const ref = tableRefs.current[table.id];
@@ -5379,31 +5522,28 @@
                                                 ) : null}
                                                 {hasDateColumn ? (
                                                     <button
-                                                        className="secondary-btn"
-                                                        style={{ padding: '10px 12px', fontSize: 13 }}
+                                                        className="secondary-btn table-action-btn"
                                                         onMouseDown={(e) => { e.preventDefault(); openDateSheetForTable(table.id); }}
                                                     >
                                                         📅 Pick Date
                                                     </button>
                                                 ) : null}
                                                 <button
-                                                    className="secondary-btn"
-                                                    style={{ padding: '10px 12px', fontSize: 13 }}
+                                                    className="secondary-btn table-action-btn"
                                                     onClick={() => addTableRow(table.id)}
                                                 >
                                                     ➕ Row
                                                 </button>
                                                 <button
-                                                    className="secondary-btn"
-                                                    style={{ marginLeft: 'auto', padding: '10px 10px', fontSize: 12 }}
+                                                    className="secondary-btn table-action-btn"
+                                                    style={{ marginLeft: 'auto' }}
                                                     disabled={table.rows.length === 0}
                                                     onClick={() => setConfirmRemoveRow(table.id)}
                                                 >
                                                     🗑 Remove Row
                                                 </button>
                                                 <button
-                                                    className="secondary-btn"
-                                                    style={{ padding: '10px 10px', fontSize: 12 }}
+                                                    className="secondary-btn table-action-btn"
                                                     title="Remove table"
                                                     onClick={() => setConfirmRemoveTable(table.id)}
                                                 >
@@ -5996,9 +6136,12 @@
                 setSelectedIds([]);
             };
 
-            const toggleSelected = (id) => {
+            // useCallback so the identity stays stable across renders —
+            // NoteCard is memoized, and a fresh function per render would
+            // force every card to re-render anyway.
+            const toggleSelected = useCallback((id) => {
                 setSelectedIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-            };
+            }, []);
 
             const batchTrashSelected = () => {
                 const ids = selectedIds;
@@ -6432,7 +6575,10 @@
                 return [...renumbered, ...trashed];
             };
 
-            const handleCardPointerDown = (e, noteId) => {
+            // These three (and handleCardOpen below) are useCallback-stable
+            // for the same reason as toggleSelected: they're passed to every
+            // memoized NoteCard.
+            const handleCardPointerDown = useCallback((e, noteId) => {
                 if (filterCategory !== 'all') return;
                 e.currentTarget.setPointerCapture(e.pointerId);
                 dragRef.current = { pointerId: e.pointerId, noteId, timer: null, dragging: false, startX: e.clientX, startY: e.clientY };
@@ -6441,9 +6587,9 @@
                     setDraggingId(noteId);
                     if (navigator.vibrate) navigator.vibrate(12);
                 }, 450);
-            };
+            }, [filterCategory]);
 
-            const handleCardPointerMove = (e) => {
+            const handleCardPointerMove = useCallback((e) => {
                 if (dragRef.current.pointerId !== e.pointerId || !dragRef.current.noteId) return;
                 if (!dragRef.current.dragging) {
                     const dx = Math.abs(e.clientX - dragRef.current.startX);
@@ -6461,9 +6607,11 @@
                 if (targetId && targetId !== dragRef.current.noteId) {
                     setNotes((prev) => reorderNotes(prev, dragRef.current.noteId, targetId));
                 }
-            };
+                // reorderNotes is pure (operates only on its arguments), so
+                // capturing the first render's instance here is safe.
+            }, []);
 
-            const handleCardPointerUp = () => {
+            const handleCardPointerUp = useCallback(() => {
                 clearTimeout(dragRef.current.timer);
                 if (dragRef.current.dragging) {
                     justDraggedRef.current = true;
@@ -6481,20 +6629,43 @@
                 }
                 dragRef.current = { pointerId: null, noteId: null, timer: null, dragging: false, startX: 0, startY: 0 };
                 setDraggingId(null);
-            };
+            }, [db]);
 
-            const handleCardOpen = (noteId) => {
+            // Read `notes` through a ref so handleCardOpen doesn't need the
+            // notes array as a dependency — otherwise every note edit would
+            // mint a new callback and re-render all memoized cards, exactly
+            // what the memoization is there to prevent.
+            const notesRef = useRef(notes);
+            notesRef.current = notes;
+
+            const handleCardOpen = useCallback((noteId) => {
                 if (justDraggedRef.current) {
                     justDraggedRef.current = false;
                     return;
                 }
-                const note = notes.find(n => n.id === noteId);
+                const note = notesRef.current.find(n => n.id === noteId);
                 if (note && note.locked && !pinUnlockedThisSession) {
                     setPendingUnlockNoteId(noteId);
                     return;
                 }
                 setActiveNoteId(noteId);
-            };
+            }, [pinUnlockedThisSession]);
+
+            // Memoized so the dashboard doesn't re-filter/re-sort (and, pre-
+            // cache, re-parse every note's HTML) on unrelated re-renders —
+            // only when the inputs below actually change. Declared before the
+            // early returns below, like every other hook in App.
+            const categoryById = useMemo(
+                () => Object.fromEntries(categories.map(c => [c.id, c])),
+                [categories]
+            );
+            const noteSortMode = settings.noteSortMode || 'manual';
+            const visibleNotes = useMemo(
+                () => notes
+                    .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory) && noteMatchesSearch(n, searchQuery) && (!showPinnedOnly || n.pinned))
+                    .sort(makeNoteSortCompare(noteSortMode, categoryById)),
+                [notes, filterCategory, searchQuery, showPinnedOnly, noteSortMode, categoryById]
+            );
 
             // Declared here (before the Trash-screen early return below) so
             // this hook always runs, regardless of which view is showing —
@@ -6577,12 +6748,9 @@
                 );
             }
 
-            const noteSortMode = settings.noteSortMode || 'manual';
-            const categoryById = Object.fromEntries(categories.map(c => [c.id, c]));
-            const visibleNotes = notes
-                .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory) && noteMatchesSearch(n, searchQuery) && (!showPinnedOnly || n.pinned))
-                .sort(makeNoteSortCompare(noteSortMode, categoryById));
-
+            // noteSortMode / categoryById / visibleNotes are computed above
+            // (memoized, before the early returns) — see the useMemo block
+            // following handleCardOpen.
             const selectedFolderName = dashboardViewMode === 'folders' && filterCategory
                 ? (filterCategory === 'all' ? 'All' : filterCategory === 'uncategorized' ? 'Uncategorized' : (categories.find(c => c.id === filterCategory) || {}).name)
                 : null;
