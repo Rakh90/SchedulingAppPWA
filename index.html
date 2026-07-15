@@ -2728,7 +2728,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v128';
+        const APP_VERSION = 'v129';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -7947,7 +7947,20 @@
                             <div className="notes-grid">
                                 {visibleNotes.map((note) => (
                                     <NoteCard
-                                        key={note.id}
+                                        // .note-card uses content-visibility:auto for
+                                        // scroll performance on long lists — locking or
+                                        // unlocking a note swaps its preview between a
+                                        // tiny "Locked" placeholder and full checklist/
+                                        // table/photo content, a size change drastic
+                                        // enough that some mobile rendering pipelines
+                                        // have been seen retaining a stale painted
+                                        // snapshot of the old content alongside the new
+                                        // one (looks like a small card nested inside the
+                                        // real one). Keying on locked status forces a
+                                        // full DOM remount across that transition so
+                                        // there's no old node for a stale paint to stick
+                                        // to, rather than patching the same node in place.
+                                        key={note.id + (note.locked ? '-locked' : '-unlocked')}
                                         note={note}
                                         noteCategories={(note.categoryIds || []).map(id => categoryById[id]).filter(Boolean)}
                                         onOpen={handleCardOpen}
