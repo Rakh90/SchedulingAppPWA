@@ -2670,7 +2670,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v114';
+        const APP_VERSION = 'v115';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -6480,6 +6480,10 @@
             const [view, setView] = useState('home');
             const [showCategoryManager, setShowCategoryManager] = useState(false);
             const [deleteCategoryId, setDeleteCategoryId] = useState(null);
+            // A real tableTemplates id, or the sentinel '__mileage__' for the
+            // built-in Mileage preset — both go through the same confirm
+            // sheet below rather than deleting immediately on tap.
+            const [deleteTableTemplateId, setDeleteTableTemplateId] = useState(null);
             const [draggingId, setDraggingId] = useState(null);
             const [draggingCategoryId, setDraggingCategoryId] = useState(null);
             const [showSearch, setShowSearch] = useState(false);
@@ -6521,6 +6525,7 @@
             useBackClose(selectMode, () => { setSelectMode(false); setSelectedIds([]); });
             useBackClose(showSearch, () => { setShowSearch(false); setSearchQuery(''); });
             useBackClose(!!deleteCategoryId, () => setDeleteCategoryId(null));
+            useBackClose(!!deleteTableTemplateId, () => setDeleteTableTemplateId(null));
             useBackClose(!!pendingImport, () => setPendingImport(null));
 
             const dashboardIconOrder = resolveIconOrder(settings.dashboardIconOrder, DEFAULT_DASHBOARD_ICON_ORDER);
@@ -7787,9 +7792,9 @@
                             onChangeAppIdentity={updateAppIdentity}
                             tableTemplates={settings.tableTemplates || []}
                             onRenameTableTemplate={renameTableTemplate}
-                            onDeleteTableTemplate={deleteTableTemplate}
+                            onDeleteTableTemplate={(id) => setDeleteTableTemplateId(id)}
                             mileagePresetHidden={settings.mileagePresetHidden}
-                            onHideMileagePreset={hideMileagePreset}
+                            onHideMileagePreset={() => setDeleteTableTemplateId('__mileage__')}
                         />
                     ) : null}
 
@@ -7816,6 +7821,24 @@
                             confirmLabel="Delete"
                             onCancel={() => setDeleteCategoryId(null)}
                             onConfirm={() => deleteCategory(deleteCategoryId)}
+                        />
+                    ) : null}
+
+                    {deleteTableTemplateId ? (
+                        <ConfirmSheet
+                            title="Delete template?"
+                            message={
+                                deleteTableTemplateId === '__mileage__'
+                                    ? 'The Mileage preset will no longer appear in "+ Add table". Existing tables built from it are unaffected.'
+                                    : 'This saved column layout will be removed. Existing tables built from it are unaffected — only the reusable preset itself goes away.'
+                            }
+                            confirmLabel="Delete"
+                            onCancel={() => setDeleteTableTemplateId(null)}
+                            onConfirm={() => {
+                                if (deleteTableTemplateId === '__mileage__') hideMileagePreset();
+                                else deleteTableTemplate(deleteTableTemplateId);
+                                setDeleteTableTemplateId(null);
+                            }}
                         />
                     ) : null}
 
