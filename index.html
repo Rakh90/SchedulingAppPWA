@@ -102,6 +102,20 @@
         .header-actions {
             display: flex;
             gap: 6px;
+            /* Split-screen / multi-window can give this app well under half
+               a normal phone's width — up to 6 icons plus the app name no
+               longer fit in one row at that point. min-width:0 lets this
+               flex child actually shrink below its content's natural width
+               (the usual flexbox default blocks that), and overflow-x:auto
+               turns the overflow into a horizontal scroll instead of icons
+               silently clipping off the edge of the screen. */
+            min-width: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .header-actions::-webkit-scrollbar {
+            display: none;
         }
 
         /* The dashboard header can carry up to 6 icons (5 plus Select) —
@@ -1224,6 +1238,16 @@
         .editor-header-actions {
             display: flex;
             gap: 6px;
+            /* Same split-screen/multi-window fix as .header-actions — up to
+               7 action icons no longer all fit in one row at the widths a
+               half-screen multi-window split can give this app. */
+            min-width: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .editor-header-actions::-webkit-scrollbar {
+            display: none;
         }
 
         /* The editor header can carry up to 7 action icons (undo, background,
@@ -2728,7 +2752,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v129';
+        const APP_VERSION = 'v130';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
