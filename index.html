@@ -2677,7 +2677,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v118';
+        const APP_VERSION = 'v119';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -4692,9 +4692,10 @@
         // a press-and-drag line selection is active — same row, same button
         // styling, different job: acts on every highlighted line at once
         // instead of whichever single line has editing focus.
-        function LineSelectionToolbar({ count, uniformType, activeFormats, onSetType, onFormat, onDelete, onDone }) {
+        function LineSelectionToolbar({ count, uniformType, activeFormats, onSetType, onFormat, onFormatAll, onDelete, onDone }) {
             const hasSelection = count > 0;
             const run = (fn) => (e) => { e.preventDefault(); if (hasSelection) fn(); };
+            const allActive = activeFormats.b && activeFormats.i && activeFormats.u;
             return (
                 <div className="line-toolbar">
                     <span className="selection-count-label">{hasSelection ? count + ' selected' : 'Press & drag a line'}</span>
@@ -4702,6 +4703,7 @@
                     <button className={'line-toolbar-btn' + (activeFormats.b ? ' active' : '')} disabled={!hasSelection} onMouseDown={run(() => onFormat('b'))} title="Bold"><b>B</b></button>
                     <button className={'line-toolbar-btn' + (activeFormats.i ? ' active' : '')} disabled={!hasSelection} onMouseDown={run(() => onFormat('i'))} title="Italic"><i>I</i></button>
                     <button className={'line-toolbar-btn' + (activeFormats.u ? ' active' : '')} disabled={!hasSelection} onMouseDown={run(() => onFormat('u'))} title="Underline"><u>U</u></button>
+                    <button className={'line-toolbar-btn line-toolbar-btn-all' + (allActive ? ' active' : '')} disabled={!hasSelection} onMouseDown={run(onFormatAll)} title="Toggle all formats">BIU</button>
                     <span className="line-toolbar-divider"></span>
                     {LINE_TYPE_ICONS.map(({ type, icon }) => (
                         <button
@@ -5599,6 +5601,28 @@
                 }));
             };
 
+            // Bulk version of toggleAllFormats: if every selected line already
+            // has all three of b/i/u, strip all three from all of them;
+            // otherwise add whichever of the three a line is missing, per line.
+            const applyAllFormatsToSelection = () => {
+                if (!selectedLineIds.length) return;
+                const targets = draft.blocks.filter((b) => selectedLineIds.includes(b.id));
+                const allActive = ['b', 'i', 'u'].every((tag) => targets.every((b) => hasWholeLineTag(b.html, tag)));
+                pushEditHistory();
+                setDraft((d) => ({
+                    ...d,
+                    blocks: d.blocks.map((b) => {
+                        if (!selectedLineIds.includes(b.id)) return b;
+                        let html = b.html;
+                        ['b', 'i', 'u'].forEach((tag) => {
+                            const has = hasWholeLineTag(html, tag);
+                            if (allActive === has) html = toggleWholeLineFormat(html, tag);
+                        });
+                        return { ...b, html: sanitizeInlineHtml(html) };
+                    }),
+                }));
+            };
+
             const deleteSelectedLines = () => {
                 if (!selectedLineIds.length) return;
                 pushEditHistory();
@@ -6068,6 +6092,7 @@
                                     })()}
                                     onSetType={applyTypeToSelection}
                                     onFormat={applyFormatToSelection}
+                                    onFormatAll={applyAllFormatsToSelection}
                                     onDelete={deleteSelectedLines}
                                     onDone={() => { setLineSelectMode(false); setSelectedLineIdList([]); }}
                                 />
