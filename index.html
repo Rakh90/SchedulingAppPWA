@@ -685,6 +685,11 @@
 
         .sheet {
             background: white;
+            /* Redundant with the <html> declaration, on purpose — a fixed
+               overlay stacked above the rest of the page is exactly the
+               kind of subtree some browsers evaluate color-scheme for
+               independently rather than always inheriting it. */
+            color-scheme: light;
             width: 100%;
             max-width: 480px;
             border-radius: 18px 18px 0 0;
@@ -2051,6 +2056,47 @@
         .dark-content .sheet-muted-text {
             color: rgba(243,244,248,0.75);
         }
+
+        /* Confirmed on-device: the identical drag-handle icon renders
+           correctly inside a .dark-content sheet (already intentionally
+           dark via this app's own theming) but not inside a plain-white
+           .sheet like the column editor — on the very same device, same
+           build, same shared component. That split points at Android's
+           automatic dark-theme repainting still selectively re-tinting
+           elements inside the always-light sheets specifically, despite
+           the <meta name="color-scheme" content="light"> opt-out earlier
+           in <head> — some installed-PWA/WebView configurations don't
+           fully honor that meta tag. Re-declaring the intended light-mode
+           colors explicitly inside this media query gives the browser
+           deliberate author styling for "the system is in dark mode",
+           which real CSS authorship takes precedence over — a stronger
+           opt-out than color-scheme alone where that tag isn't respected. */
+        @media (prefers-color-scheme: dark) {
+            .sheet:not(.dark-content) {
+                background: white;
+                color: #202124;
+            }
+            .sheet:not(.dark-content) .category-drag-handle {
+                color: #6b6f7a;
+            }
+            .sheet:not(.dark-content) .category-drag-handle svg,
+            .sheet:not(.dark-content) .category-drag-handle circle {
+                fill: #6b6f7a;
+            }
+            .sheet:not(.dark-content) .table-icon-btn {
+                background: #e4e5ea;
+                color: #1a1a1a;
+            }
+            .sheet:not(.dark-content) .sheet-muted-text {
+                color: #5f6470;
+            }
+            .sheet:not(.dark-content) input,
+            .sheet:not(.dark-content) select,
+            .sheet:not(.dark-content) .table-col-editor-row input {
+                background: white;
+                color: #202124;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2609,7 +2655,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v112';
+        const APP_VERSION = 'v113';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
