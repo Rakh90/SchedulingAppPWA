@@ -2609,7 +2609,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v111';
+        const APP_VERSION = 'v112';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3104,7 +3104,7 @@
             );
         }
 
-        function CategoryManagerSheet({ background, categories, onAdd, onRename, onChangeColor, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground, dashboardBackground, onChangeDashboardBackground, hasPin, onStartPinSetup, onStartPinChange, onStartPinRemove, onOpenHelp, folderIconTheme, onChangeFolderIconTheme, appIdentity, onChangeAppIdentity, tableTemplates, onRenameTableTemplate, onDeleteTableTemplate, mileagePresetHidden, onHideMileagePreset, onRestoreMileagePreset }) {
+        function CategoryManagerSheet({ background, categories, onAdd, onRename, onChangeColor, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground, dashboardBackground, onChangeDashboardBackground, hasPin, onStartPinSetup, onStartPinChange, onStartPinRemove, onOpenHelp, folderIconTheme, onChangeFolderIconTheme, appIdentity, onChangeAppIdentity, tableTemplates, onRenameTableTemplate, onDeleteTableTemplate, mileagePresetHidden, onHideMileagePreset }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
             // Which category's color is being edited (its swatch grid is
@@ -3237,22 +3237,19 @@
 
                         <div className="settings-divider"></div>
                         <div className="section-label">Table templates</div>
-                        {mileagePresetHidden ? (
-                            <div className="category-manager-row">
-                                <span aria-hidden="true" style={{ flex: '0 0 auto' }}>📊</span>
-                                <span className="category-picker-name" style={{ color: '#8a8d99' }}>Mileage (hidden from "+ Add table")</span>
-                                <button className="secondary-btn" style={{ flex: '0 0 auto', padding: '6px 10px', fontSize: 12 }} onClick={onRestoreMileagePreset}>Restore</button>
-                            </div>
-                        ) : (
+                        {mileagePresetHidden ? null : (
                             <div className="category-manager-row">
                                 <span aria-hidden="true" style={{ flex: '0 0 auto' }}>📊</span>
                                 <span className="category-picker-name">Mileage</span>
                                 <span className="sheet-muted-text" style={{ fontSize: 11, flex: '0 0 auto' }}>4 cols</span>
-                                <button className="small-icon-btn" title="Remove Mileage preset" onClick={onHideMileagePreset}>✕</button>
+                                <button className="small-icon-btn" title="Delete template" onClick={onHideMileagePreset}>✕</button>
                             </div>
                         )}
                         {(tableTemplates || []).length === 0 ? (
-                            <p className="sheet-muted-text" style={{ fontSize: 12 }}>Open a table's ✎ column editor and tap "Save layout as template" to add more here.</p>
+                            <p className="sheet-muted-text" style={{ fontSize: 12 }}>
+                                {mileagePresetHidden ? 'No saved table templates yet. ' : ''}
+                                Open a table's ✎ column editor and tap "Save layout as template" to add {mileagePresetHidden ? 'one' : 'more'}.
+                            </p>
                         ) : (
                             (tableTemplates || []).map((tpl) => (
                                 <div className="category-manager-row" key={tpl.id}>
@@ -6901,12 +6898,11 @@
 
             // The built-in Mileage preset isn't a user-saved template, so it
             // can't just live in (and be deleted from) the tableTemplates
-            // array — but it's still reversible, not gone for good, since
-            // it's a built-in feature rather than user data: hiding it just
-            // flips a settings flag, and it can be brought back the same way.
-            const setMileagePresetHidden = (hidden) => {
+            // array — a settings flag hides it from "+ Add table" instead,
+            // deleted the same one-tap way as any other template.
+            const hideMileagePreset = () => {
                 setSettings((s) => {
-                    const updated = { ...s, mileagePresetHidden: hidden };
+                    const updated = { ...s, mileagePresetHidden: true };
                     if (db) idbPut(db, 'settings', updated);
                     return updated;
                 });
@@ -7656,8 +7652,7 @@
                             onRenameTableTemplate={renameTableTemplate}
                             onDeleteTableTemplate={deleteTableTemplate}
                             mileagePresetHidden={settings.mileagePresetHidden}
-                            onHideMileagePreset={() => setMileagePresetHidden(true)}
-                            onRestoreMileagePreset={() => setMileagePresetHidden(false)}
+                            onHideMileagePreset={hideMileagePreset}
                         />
                     ) : null}
 
