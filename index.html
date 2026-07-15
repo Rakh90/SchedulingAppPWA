@@ -2677,7 +2677,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v116';
+        const APP_VERSION = 'v117';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2746,7 +2746,7 @@
                 'Tap the 📁 icon on the dashboard to switch the category chips into a grid of folder tiles instead, each showing how many notes it holds.',
                 'Unlike the chip row, folder view starts with nothing selected — tap a folder to see its notes, and tap that same folder again to hide them. Switching back to chips always shows "All" again.',
                 'Your choice of chips or folders is remembered the next time you open the app. Pick from 15 different folder icon styles under "Folder icon theme" in Settings.',
-                'Want one category to stand out from the rest? Tap the small folder icon next to a category\'s color dot in Settings to give just that category its own icon — pick "Default" to go back to the app-wide theme.',
+                'Want one category to stand out from the rest? Tap the small folder icon next to a category\'s color dot in Settings to give just that category its own icon — pick "Default" to go back to the app-wide theme. The All and Uncategorized tiles have the same option at the top of that list.',
             ] },
             { id: 'backgrounds', title: 'Backgrounds & themes', icon: '🎨', body: [
                 'Every note can have its own background — tap the 🎨 button in its editor. Choose from solid colors or the animated gradient themes, including Rainbow, which uses white text so it stays readable over every color in the gradient.',
@@ -3244,16 +3244,18 @@
             );
         }
 
-        function CategoryManagerSheet({ background, categories, onAdd, onRename, onChangeColor, onChangeFolderIcon, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground, dashboardBackground, onChangeDashboardBackground, hasPin, onStartPinSetup, onStartPinChange, onStartPinRemove, onOpenHelp, folderIconTheme, onChangeFolderIconTheme, appIdentity, onChangeAppIdentity, tableTemplates, onRenameTableTemplate, onDeleteTableTemplate, mileagePresetHidden, onHideMileagePreset }) {
+        function CategoryManagerSheet({ background, categories, onAdd, onRename, onChangeColor, onChangeFolderIcon, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground, dashboardBackground, onChangeDashboardBackground, hasPin, onStartPinSetup, onStartPinChange, onStartPinRemove, onOpenHelp, folderIconTheme, onChangeFolderIconTheme, appIdentity, onChangeAppIdentity, tableTemplates, onRenameTableTemplate, onDeleteTableTemplate, mileagePresetHidden, onHideMileagePreset, allFolderIcon, onChangeAllFolderIcon, uncategorizedFolderIcon, onChangeUncategorizedFolderIcon }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
             // Which category's color is being edited (its swatch grid is
             // expanded under the row) — one at a time, tap the dot again to
             // collapse without picking.
             const [colorEditCategoryId, setColorEditCategoryId] = useState(null);
-            // Same expand-under-the-row pattern, for a category's own
-            // folder-view icon (overrides the app-wide Folder icon theme
-            // just for that category's tile).
+            // Same expand-under-the-row pattern, for a folder-view icon
+            // override on the app-wide Folder icon theme — either a real
+            // category's id, or the '__all__'/'__uncategorized__' sentinels
+            // for those two fixed pseudo-categories (never a real category
+            // id, since those come from makeId()).
             const [iconEditCategoryId, setIconEditCategoryId] = useState(null);
             const importInputRef = useRef(null);
             const dark = isThemeDark(background);
@@ -3268,6 +3270,61 @@
                         {categories.length > 1 ? (
                             <p className="sheet-muted-text" style={{ fontSize: 12, marginTop: -4 }}>Drag the handle to reorder.</p>
                         ) : null}
+                        {[
+                            { key: '__all__', label: 'All', value: allFolderIcon, onChange: onChangeAllFolderIcon },
+                            { key: '__uncategorized__', label: 'Uncategorized', value: uncategorizedFolderIcon, onChange: onChangeUncategorizedFolderIcon },
+                        ].map((special) => (
+                            <React.Fragment key={special.key}>
+                                <div className="category-manager-row">
+                                    <button
+                                        type="button"
+                                        className="category-color-btn"
+                                        title={'Change ' + special.label + ' folder icon'}
+                                        onClick={() => setIconEditCategoryId((cur) => cur === special.key ? null : special.key)}
+                                    >
+                                        {special.value ? (
+                                            (() => {
+                                                const t = FOLDER_ICON_THEMES.find((ft) => ft.id === special.value);
+                                                return t && t.img ? (
+                                                    <img className="category-folder-icon-preview" src={t.img} alt="" aria-hidden="true" />
+                                                ) : <span aria-hidden="true">📁</span>;
+                                            })()
+                                        ) : <span aria-hidden="true" style={{ opacity: 0.35 }}>📁</span>}
+                                    </button>
+                                    <span className="category-picker-name" style={{ fontWeight: 600 }}>{special.label}</span>
+                                </div>
+                                {iconEditCategoryId === special.key ? (
+                                    <div className="folder-theme-row" style={{ padding: '8px 0 10px 24px' }}>
+                                        <button
+                                            type="button"
+                                            className={'folder-theme-swatch' + (!special.value ? ' selected' : '')}
+                                            onClick={() => { special.onChange(null); setIconEditCategoryId(null); }}
+                                            title="Use the app-wide theme"
+                                        >
+                                            <span aria-hidden="true">🎨</span>
+                                            <span className="folder-theme-swatch-label">Default</span>
+                                        </button>
+                                        {FOLDER_ICON_THEMES.map((t) => (
+                                            <button
+                                                key={t.id}
+                                                type="button"
+                                                className={'folder-theme-swatch' + (special.value === t.id ? ' selected' : '')}
+                                                onClick={() => { special.onChange(t.id); setIconEditCategoryId(null); }}
+                                                title={t.label}
+                                            >
+                                                {t.img ? (
+                                                    <img className="folder-theme-swatch-img" src={t.img} alt="" aria-hidden="true" />
+                                                ) : (
+                                                    <span aria-hidden="true">{t.all}</span>
+                                                )}
+                                                <span className="folder-theme-swatch-label">{t.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </React.Fragment>
+                        ))}
+                        {categories.length > 0 ? <div className="settings-divider" style={{ margin: '4px 0 10px' }}></div> : null}
                         {categories.map((cat) => (
                             <React.Fragment key={cat.id}>
                                 <div
@@ -7190,6 +7247,26 @@
                 });
             };
 
+            // "All" and "Uncategorized" aren't real categories (no id in the
+            // categories array), so their icon overrides live in settings
+            // instead — same null-means-"use the app-wide theme" convention
+            // as a real category's folderIcon field.
+            const updateAllFolderIcon = (themeId) => {
+                setSettings((s) => {
+                    const updated = { ...s, allFolderIcon: themeId };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+            };
+
+            const updateUncategorizedFolderIcon = (themeId) => {
+                setSettings((s) => {
+                    const updated = { ...s, uncategorizedFolderIcon: themeId };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+            };
+
             const updateAppIdentity = (identityId) => {
                 setSettings((s) => {
                     const updated = { ...s, appIdentity: identityId };
@@ -7419,6 +7496,8 @@
             // order, or it throws (error #300).
             const dashboardViewMode = settings.dashboardViewMode || 'pills';
             const folderIconTheme = FOLDER_ICON_THEMES.find((t) => t.id === settings.folderIconTheme) || FOLDER_ICON_THEMES[0];
+            const allFolderIconTheme = (settings.allFolderIcon && FOLDER_ICON_THEMES.find((t) => t.id === settings.allFolderIcon)) || folderIconTheme;
+            const uncategorizedFolderIconTheme = (settings.uncategorizedFolderIcon && FOLDER_ICON_THEMES.find((t) => t.id === settings.uncategorizedFolderIcon)) || folderIconTheme;
             const appIdentity = APP_IDENTITY_OPTIONS.find((o) => o.id === settings.appIdentity) || APP_IDENTITY_OPTIONS[0];
             useEffect(() => {
                 document.title = appIdentity.label;
@@ -7605,10 +7684,10 @@
                                     className={'folder-tile' + (filterCategory === 'all' ? ' active' : '')}
                                     onClick={() => toggleFolder('all')}
                                 >
-                                    {folderIconTheme.img ? (
-                                        <img className="folder-tile-icon-img" src={folderIconTheme.img} alt="" aria-hidden="true" />
+                                    {allFolderIconTheme.img ? (
+                                        <img className="folder-tile-icon-img" src={allFolderIconTheme.img} alt="" aria-hidden="true" />
                                     ) : (
-                                        <span className="folder-tile-icon" aria-hidden="true">{folderIconTheme.all}</span>
+                                        <span className="folder-tile-icon" aria-hidden="true">{allFolderIconTheme.all}</span>
                                     )}
                                     <span className="folder-tile-name">All</span>
                                     <span className="folder-tile-count">{notes.filter(n => !n.deletedAt).length}</span>
@@ -7617,10 +7696,10 @@
                                     className={'folder-tile' + (filterCategory === 'uncategorized' ? ' active' : '')}
                                     onClick={() => toggleFolder('uncategorized')}
                                 >
-                                    {folderIconTheme.img ? (
-                                        <img className="folder-tile-icon-img" src={folderIconTheme.img} alt="" aria-hidden="true" />
+                                    {uncategorizedFolderIconTheme.img ? (
+                                        <img className="folder-tile-icon-img" src={uncategorizedFolderIconTheme.img} alt="" aria-hidden="true" />
                                     ) : (
-                                        <span className="folder-tile-icon" aria-hidden="true">{folderIconTheme.folder}</span>
+                                        <span className="folder-tile-icon" aria-hidden="true">{uncategorizedFolderIconTheme.folder}</span>
                                     )}
                                     <span className="folder-tile-name">Uncategorized</span>
                                     <span className="folder-tile-count">{notes.filter(n => !n.deletedAt && noteMatchesCategory(n, 'uncategorized')).length}</span>
@@ -7837,6 +7916,10 @@
                             onRename={renameCategory}
                             onChangeColor={changeCategoryColor}
                             onChangeFolderIcon={changeCategoryFolderIcon}
+                            allFolderIcon={settings.allFolderIcon}
+                            onChangeAllFolderIcon={updateAllFolderIcon}
+                            uncategorizedFolderIcon={settings.uncategorizedFolderIcon}
+                            onChangeUncategorizedFolderIcon={updateUncategorizedFolderIcon}
                             onDelete={(id) => setDeleteCategoryId(id)}
                             onClose={() => { setShowCategoryManager(false); setImportError(''); }}
                             draggingCategoryId={draggingCategoryId}
