@@ -856,7 +856,8 @@
         .calendar-weekdays span {
             text-align: center;
             font-size: 12px;
-            color: #333;
+            color: #1a1a1a;
+            text-shadow: 0 0 2px rgba(255,255,255,0.9), 0 0 2px rgba(255,255,255,0.9);
             padding-bottom: 6px;
         }
 
@@ -1055,7 +1056,8 @@
 
         .folder-theme-swatch-label {
             font-size: 10px;
-            color: #333;
+            color: #1a1a1a;
+            text-shadow: 0 0 2px rgba(255,255,255,0.9), 0 0 2px rgba(255,255,255,0.9);
         }
 
         .dark-content .folder-theme-swatch {
@@ -1477,7 +1479,8 @@
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            color: #333;
+            color: #1a1a1a;
+            text-shadow: 0 0 2px rgba(255,255,255,0.9), 0 0 2px rgba(255,255,255,0.9);
             font-weight: 700;
             margin: 20px 0 10px;
         }
@@ -2105,7 +2108,8 @@
            light-classified background, not just the plain default one,
            while still reading as "muted" next to full-strength text. */
         .sheet-muted-text {
-            color: #333;
+            color: #1a1a1a;
+            text-shadow: 0 0 2px rgba(255,255,255,0.9), 0 0 2px rgba(255,255,255,0.9);
         }
 
         .dark-content .sheet-muted-text {
@@ -2143,7 +2147,7 @@
                 color: #1a1a1a;
             }
             .sheet:not(.dark-content) .sheet-muted-text {
-                color: #333;
+                color: #1a1a1a;
             }
             .sheet:not(.dark-content) input,
             .sheet:not(.dark-content) select,
@@ -2724,7 +2728,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v125';
+        const APP_VERSION = 'v126';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
