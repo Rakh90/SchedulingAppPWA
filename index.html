@@ -2728,7 +2728,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v126';
+        const APP_VERSION = 'v127';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -4946,6 +4946,9 @@
             // state just controls whether the button looks enabled while the
             // title — rather than a body line — is what's focused.
             const [titleFocused, setTitleFocused] = useState(false);
+            // Same reasoning as titleFocused, for whichever table's name
+            // field (if any) currently has focus — null when none does.
+            const [focusedTableNameId, setFocusedTableNameId] = useState(null);
             const [copiedFlash, setCopiedFlash] = useState(false);
             const copiedFlashTimer = useRef(null);
             const [draggingBlockId, setDraggingBlockId] = useState(null);
@@ -5194,16 +5197,38 @@
                 setShowDatePickerSheet(true);
             };
 
-            // One button (in the line toolbar) serves both the title field
-            // and body lines. It uses onMouseDown+preventDefault, like every
-            // other line-toolbar button, so document.activeElement is still
-            // whichever of the two was actually focused when this runs —
-            // reliably saying which one to target — and opening the sheet
-            // never blurs the field in the first place.
+            // Same idea as openDateSheetForTitle, for a table's own name
+            // field — undo for the insert rides along with renameTable's
+            // existing focus/blur snapshot pair (see its comment) rather
+            // than needing a pushEditHistory() call here, exactly like the
+            // title case above.
+            const openDateSheetForTableName = (tableId) => {
+                const el = document.querySelector('.table-name-input[data-table-id="' + tableId + '"]');
+                const table = (draft.tables || []).find(t => t.id === tableId);
+                if (!el || !table) return;
+                dateTargetRef.current = {
+                    kind: 'tableName',
+                    tableId,
+                    selStart: el.selectionStart == null ? table.name.length : el.selectionStart,
+                    selEnd: el.selectionEnd == null ? table.name.length : el.selectionEnd,
+                    value: table.name,
+                };
+                setShowDatePickerSheet(true);
+            };
+
+            // One button (in the line toolbar) serves the title field, every
+            // table's name field, and body lines. It uses
+            // onMouseDown+preventDefault, like every other line-toolbar
+            // button, so document.activeElement is still whichever of those
+            // was actually focused when this runs — reliably saying which
+            // one to target — and opening the sheet never blurs the field
+            // in the first place.
             const openDateSheetSmart = () => {
                 const active = document.activeElement;
                 if (active && active.classList && active.classList.contains('editor-title-input')) {
                     openDateSheetForTitle();
+                } else if (active && active.classList && active.classList.contains('table-name-input')) {
+                    openDateSheetForTableName(active.getAttribute('data-table-id'));
                 } else if (editingBlockId) {
                     openDateSheetForBlock();
                 }
@@ -5274,6 +5299,19 @@
                     // the caret defensively, in case anything did blur it.
                     requestAnimationFrame(() => {
                         const el = titleInputRef.current;
+                        if (el) { el.focus(); el.setSelectionRange(caretTarget, caretTarget); }
+                    });
+                    return;
+                }
+
+                if (target.kind === 'tableName') {
+                    const { tableId, selStart, selEnd, value } = target;
+                    if (!(draft.tables || []).some(t => t.id === tableId)) return;
+                    const newName = value.slice(0, selStart) + dateStr + value.slice(selEnd);
+                    renameTable(tableId, newName);
+                    const caretTarget = selStart + dateStr.length;
+                    requestAnimationFrame(() => {
+                        const el = document.querySelector('.table-name-input[data-table-id="' + tableId + '"]');
                         if (el) { el.focus(); el.setSelectionRange(caretTarget, caretTarget); }
                     });
                     return;
@@ -6195,7 +6233,7 @@
                                     </button>
                                     <LineToolbar
                                         hasActiveLine={!!editingBlockId}
-                                        dateAvailable={!!editingBlockId || titleFocused}
+                                        dateAvailable={!!editingBlockId || titleFocused || !!focusedTableNameId}
                                         activeType={activeBlock ? activeBlock.type : null}
                                         activeFormats={activeFormats}
                                         onFormat={toggleLineFormat}
@@ -6296,11 +6334,12 @@
                                             autoComplete="table-name-nofill"
                                             data-lpignore="true"
                                             data-form-type="other"
+                                            data-table-id={table.id}
                                             placeholder="Table name"
                                             value={table.name}
                                             onChange={(e) => renameTable(table.id, e.target.value)}
-                                            onFocus={handleTableCellFocus}
-                                            onBlur={handleTableCellBlur}
+                                            onFocus={() => { handleTableCellFocus(); setFocusedTableNameId(table.id); }}
+                                            onBlur={() => { handleTableCellBlur(); setFocusedTableNameId(null); }}
                                         />
                                         {!table.collapsed && table.rows.length > 0 ? (
                                             <button
