@@ -1450,7 +1450,8 @@
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            color: #5f6470;
+            color: #3a3f4d;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.35);
             font-weight: 700;
             margin: 20px 0 10px;
         }
@@ -2071,8 +2072,15 @@
             background: rgba(255,255,255,0.15);
         }
 
+        /* Light-themed sheets aren't always plain white — a saturated theme
+           gradient (e.g. Aurora) can sit at roughly the same luminance as
+           this mid-gray, dropping contrast to near zero. Darkening the
+           color and adding a faint light halo keeps it legible against any
+           light-classified background, not just the plain default one,
+           while still reading as "muted" next to full-strength text. */
         .sheet-muted-text {
-            color: #5f6470;
+            color: #3a3f4d;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.35);
         }
 
         .dark-content .sheet-muted-text {
@@ -2110,7 +2118,7 @@
                 color: #1a1a1a;
             }
             .sheet:not(.dark-content) .sheet-muted-text {
-                color: #5f6470;
+                color: #3a3f4d;
             }
             .sheet:not(.dark-content) input,
             .sheet:not(.dark-content) select,
@@ -2677,7 +2685,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v120';
+        const APP_VERSION = 'v121';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -4796,24 +4804,28 @@
 
             const sizeClass = ' block-size-' + (block.size || 'medium');
             // In selectMode, the whole row is the press-and-drag highlight
-            // surface. touch-action:none would block native scrolling for
-            // the entire time selectMode is on (reported on-device as "can't
-            // scroll unless I'm highlighting a line") since it disables the
-            // browser's own touch handling outright, not just during an
-            // active drag. pan-y instead lets an ordinary vertical swipe
-            // scroll normally — a real scroll gesture moves fast enough to
-            // blow past the 14px cancel-threshold in handleLineSelectPointerMove
-            // before our 350ms long-press timer ever fires, so it never
-            // starts a selection, and once a genuine long-press *has* fired
-            // (finger held still, so no native scroll had a chance to start
-            // yet) the handler's own preventDefault takes over cleanly for
-            // the rest of that drag. user-select is suppressed here too so
-            // Android's native text-selection/callout menu can't pop up
-            // mid-long-press and fight the custom drag for the same touch.
+            // surface. touch-action was previously 'pan-y' so an ordinary
+            // vertical swipe could still scroll normally — but touch-action
+            // is decided by the browser at the very start of a touch
+            // sequence, not re-evaluated mid-gesture: once a swipe is
+            // recognized as a native pan, a *successful* long-press (finger
+            // held still past 350ms, then dragged to extend the selection)
+            // could still get hijacked into a native scroll partway through,
+            // since pan-y never stopped permitting it for that same touch
+            // (reported on-device as "long press then drag just scrolls the
+            // screen instead of selecting more lines"). touch-action is
+            // 'none' here instead, and handleLineSelectPointerMove now
+            // drives scrolling manually (via editorBodyRef) both for a
+            // plain swipe that never turns into a long-press, and for
+            // dragging near the top/bottom edge once a selection is active
+            // — so native panning is never in the loop to be hijacked.
+            // user-select is suppressed here too so Android's native
+            // text-selection/callout menu can't pop up mid-long-press and
+            // fight the custom drag for the same touch.
             const rowSelectProps = selectMode ? {
                 style: {
                     marginLeft: (block.indent || 0) * LINE_INDENT_PX,
-                    touchAction: 'pan-y',
+                    touchAction: 'none',
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
                     WebkitTouchCallout: 'none',
@@ -4910,7 +4922,7 @@
             // press-and-drag activated, so dragging only ever unions the
             // in-progress range with it (shrinking the drag un-selects lines
             // from this gesture, never previously-selected ones).
-            const lineSelectDragRef = useRef({ pointerId: null, active: false, timer: null, startX: 0, startY: 0, anchorIdx: null, baseIds: [] });
+            const lineSelectDragRef = useRef({ pointerId: null, active: false, scrolling: false, timer: null, startX: 0, startY: 0, lastY: 0, anchorIdx: null, baseIds: [] });
             const lineAutoScrollRef = useRef(null);
             const editorBodyRef = useRef(null);
             // Drives .editor-body's keyboard-active bottom padding (see the
@@ -5459,7 +5471,7 @@
 
             const handleLineSelectPointerDown = (e, idx) => {
                 e.currentTarget.setPointerCapture(e.pointerId);
-                lineSelectDragRef.current = { pointerId: e.pointerId, active: false, timer: null, startX: e.clientX, startY: e.clientY, anchorIdx: idx, baseIds: selectedLineIdList };
+                lineSelectDragRef.current = { pointerId: e.pointerId, active: false, scrolling: false, timer: null, startX: e.clientX, startY: e.clientY, lastY: e.clientY, anchorIdx: idx, baseIds: selectedLineIdList };
                 lineSelectDragRef.current.timer = setTimeout(() => {
                     // Long-press: this line joins the existing selection (it
                     // does NOT replace it), and becomes the anchor of a
@@ -5471,13 +5483,36 @@
             };
 
             const handleLineSelectPointerMove = (e) => {
-                if (lineSelectDragRef.current.pointerId !== e.pointerId || lineSelectDragRef.current.anchorIdx === null) return;
-                if (!lineSelectDragRef.current.active) {
-                    const dx = Math.abs(e.clientX - lineSelectDragRef.current.startX);
-                    const dy = Math.abs(e.clientY - lineSelectDragRef.current.startY);
+                const ref = lineSelectDragRef.current;
+                if (ref.pointerId !== e.pointerId) return;
+                // touch-action is 'none' on these rows (see rowSelectProps),
+                // so nothing scrolls on its own — a swipe that never turns
+                // into a long-press has to be driven manually here, same as
+                // the near-edge auto-scroll below once a selection drag is
+                // active.
+                if (ref.scrolling) {
+                    e.preventDefault();
+                    const body = editorBodyRef.current;
+                    if (body) body.scrollTop -= (e.clientY - ref.lastY);
+                    ref.lastY = e.clientY;
+                    return;
+                }
+                if (ref.anchorIdx === null) return;
+                if (!ref.active) {
+                    const dx = Math.abs(e.clientX - ref.startX);
+                    const dy = Math.abs(e.clientY - ref.startY);
                     if (dx > 14 || dy > 14) {
-                        clearTimeout(lineSelectDragRef.current.timer);
-                        lineSelectDragRef.current.anchorIdx = null;
+                        clearTimeout(ref.timer);
+                        ref.anchorIdx = null;
+                        // Predominantly-vertical movement before the long-press
+                        // fired means the user wanted to scroll, not select —
+                        // hand the rest of this touch over to manual scrolling.
+                        if (dy > dx) {
+                            ref.scrolling = true;
+                            ref.lastY = e.clientY;
+                            const body = editorBodyRef.current;
+                            if (body) body.scrollTop -= (e.clientY - ref.startY);
+                        }
                     }
                     return;
                 }
@@ -5488,7 +5523,7 @@
                 const targetId = rowEl && rowEl.getAttribute('data-block-id');
                 if (targetId) {
                     const idx = draft.blocks.findIndex((b) => b.id === targetId);
-                    if (idx !== -1) setSelectedLineIdList(unionWithRange(lineSelectDragRef.current.baseIds, lineSelectDragRef.current.anchorIdx, idx));
+                    if (idx !== -1) setSelectedLineIdList(unionWithRange(ref.baseIds, ref.anchorIdx, idx));
                 }
             };
 
@@ -5501,13 +5536,13 @@
                 // line un-selects just that line. Tapping an unselected line
                 // does nothing — adding is deliberate (long-press/drag) so a
                 // stray tap can't quietly grow the selection.
-                if (!ref.active && ref.anchorIdx !== null && typeof idx === 'number') {
+                if (!ref.active && !ref.scrolling && ref.anchorIdx !== null && typeof idx === 'number') {
                     const block = draft.blocks[idx];
                     if (block && selectedLineIdList.includes(block.id)) {
                         setSelectedLineIdList((prev) => prev.filter((id) => id !== block.id));
                     }
                 }
-                lineSelectDragRef.current = { pointerId: null, active: false, timer: null, startX: 0, startY: 0, anchorIdx: null, baseIds: [] };
+                lineSelectDragRef.current = { pointerId: null, active: false, scrolling: false, timer: null, startX: 0, startY: 0, lastY: 0, anchorIdx: null, baseIds: [] };
             };
 
             // The --keyboard-inset padding gives .editor-body room to scroll
