@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#667eea">
+    <!-- Every color in this app is hand-picked and manually swapped via our
+         own .dark-content class — none of it is meant to be reprocessed by
+         the browser's own automatic dark theme. Without this, Chrome for
+         Android's "Web contents dark theme" can silently re-tint elements
+         it heuristically judges as light-on-light (exactly the paler icons
+         and helper text in sheets), which read as invisible on-device even
+         though the declared colors and their computed values are correct —
+         a symptom no desktop or headless browser reproduces, since that
+         heuristic repainting is Android-Chrome-specific and happens after
+         our CSS has already been correctly applied. -->
+    <meta name="color-scheme" content="light">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -25,6 +36,10 @@
         html {
             --keyboard-inset: 0px;
             --keyboard-offset-top: 0px;
+            /* Belt-and-suspenders alongside the <meta name="color-scheme">
+               tag in <head> — opts every element in this document out of
+               the browser's own automatic dark-theme repainting. */
+            color-scheme: light;
         }
 
         html, body {
@@ -2575,7 +2590,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v108';
+        const APP_VERSION = 'v109';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -5163,6 +5178,21 @@
             // manual) way back to it. Runs on every keystroke instead of
             // just on keyboard open/close, since the caret keeps moving
             // while the keyboard itself stays put.
+            const scrollRectIntoView = (rect) => {
+                if (!rect || (rect.width === 0 && rect.height === 0)) return;
+                const body = editorBodyRef.current;
+                if (!body) return;
+                const vv = window.visualViewport;
+                const visibleTop = vv ? vv.offsetTop : 0;
+                const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+                const margin = 16;
+                if (rect.bottom > visibleBottom - margin) {
+                    body.scrollTop += rect.bottom - (visibleBottom - margin);
+                } else if (rect.top < visibleTop + margin) {
+                    body.scrollTop -= (visibleTop + margin) - rect.top;
+                }
+            };
+
             const scrollCaretIntoView = () => {
                 const sel = window.getSelection();
                 if (!sel || sel.rangeCount === 0) return;
@@ -5177,18 +5207,26 @@
                     const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
                     if (el && el.getBoundingClientRect) rect = el.getBoundingClientRect();
                 }
-                if (!rect || (rect.width === 0 && rect.height === 0)) return;
-                const body = editorBodyRef.current;
-                if (!body) return;
-                const vv = window.visualViewport;
-                const visibleTop = vv ? vv.offsetTop : 0;
-                const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-                const margin = 16;
-                if (rect.bottom > visibleBottom - margin) {
-                    body.scrollTop += rect.bottom - (visibleBottom - margin);
-                } else if (rect.top < visibleTop + margin) {
-                    body.scrollTop -= (visibleTop + margin) - rect.top;
-                }
+                scrollRectIntoView(rect);
+            };
+
+            // Table cell inputs aren't part of the document Selection API the
+            // way contentEditable blocks are, so scrollCaretIntoView never
+            // covers them — and the visualViewport-driven fix elsewhere only
+            // re-runs when the keyboard's inset actually changes size, which
+            // it doesn't when the keyboard is already open and focus just
+            // moves to a cell in a different (e.g. lower) table. Runs twice:
+            // once right away for the common case, and once after a short
+            // delay to correct for a keyboard that's still animating open
+            // when this first fires (e.g. tapping straight into a table cell
+            // from the dashboard with no keyboard up yet).
+            const scrollFocusedCellIntoView = () => {
+                const run = () => {
+                    const el = document.activeElement;
+                    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) scrollRectIntoView(el.getBoundingClientRect());
+                };
+                requestAnimationFrame(run);
+                setTimeout(run, 300);
             };
 
             // Filtered against the live blocks so ids of since-removed lines
@@ -5569,6 +5607,7 @@
 
             const handleTableCellFocus = () => {
                 tableEditSnapshotRef.current = { title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds, tables: draft.tables };
+                scrollFocusedCellIntoView();
             };
 
             const handleTableCellBlur = () => {
