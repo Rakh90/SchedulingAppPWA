@@ -2151,6 +2151,20 @@
                 background: white;
                 color: #202124;
             }
+            /* The blanket rule above is equal specificity to, and later in
+               the file than, .category-manager-row input[type="text"]'s own
+               background:transparent — so on a system in dark mode it was
+               winning the cascade tie by source order and re-forcing a
+               solid white box behind every category name on any
+               dark:false theme (Amber/Citrine/Frost/Aurora/Holo), the
+               exact "white field" bug reported after appearance:none was
+               already in place. This carve-out re-establishes the
+               transparent/blend-with-theme background for just that input,
+               at higher specificity so it wins regardless of source order. */
+            .sheet:not(.dark-content) .category-manager-row input[type="text"] {
+                background: transparent;
+                color: inherit;
+            }
         }
     </style>
 </head>
@@ -2710,7 +2724,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v123';
+        const APP_VERSION = 'v124';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
