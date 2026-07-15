@@ -1613,6 +1613,23 @@
         .photo-thumb-wrap {
             position: relative;
             flex: 0 0 auto;
+            /* .photo-row scrolls horizontally and reordering also drags
+               horizontally — the same same-axis conflict that bit the
+               bulk-select feature (native panning can win a race against a
+               long-press timer and hijack a real drag mid-gesture even
+               with a delay). touch-action:none blocks native panning on
+               these thumbs entirely; handlePhotoPointerMove drives
+               scrolling manually before the long-press fires, so a plain
+               swipe still scrolls the row. */
+            touch-action: none;
+        }
+
+        .photo-thumb-wrap.dragging {
+            opacity: 0.9;
+            transform: scale(1.06);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.28);
+            border-radius: 10px;
+            z-index: 2;
         }
 
         .photo-thumb {
@@ -2805,7 +2822,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v132';
+        const APP_VERSION = 'v133';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -5110,6 +5127,15 @@
             // name input / collapse / CSV / ✎ buttons sharing that row.
             const tableDragRef = useRef({ pointerId: null, tableId: null, moved: false });
             const [draggingTableId, setDraggingTableId] = useState(null);
+            // Long-press-then-drag pattern for reordering photos (same as the
+            // dashboard's note cards) rather than a dedicated handle icon —
+            // there's no room for a separate handle on an 84px thumbnail that
+            // already carries a tap-to-preview, a delete badge, and (on the
+            // first one) a reposition badge.
+            const photoDragRef = useRef({ pointerId: null, photoId: null, timer: null, dragging: false, scrolling: false, startX: 0, startY: 0, lastX: 0, moved: false });
+            const [draggingPhotoId, setDraggingPhotoId] = useState(null);
+            const photoJustDraggedRef = useRef(false);
+            const photoRowRef = useRef(null);
             // One shared CalendarPickerSheet serves the body line toolbar,
             // the title field, and every table's date-typed columns. This
             // holds where a picked date should land, captured at the moment
@@ -6062,6 +6088,87 @@
                 setDraggingTableId(null);
             };
 
+            const handlePhotoPointerDown = (e, photoId) => {
+                // A pointerdown on the delete/reposition buttons bubbles up
+                // to this wrap before their own click fires. If we captured
+                // the pointer here anyway, the browser routes the resulting
+                // click to the wrap instead of the button (capture wins hit
+                // testing), silently swallowing the button press. Let those
+                // buttons handle their own gesture.
+                if (e.target.closest('.photo-remove-btn, .photo-reposition-btn')) return;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                photoDragRef.current = { pointerId: e.pointerId, photoId, timer: null, dragging: false, scrolling: false, startX: e.clientX, startY: e.clientY, lastX: e.clientX, moved: false };
+                photoDragRef.current.timer = setTimeout(() => {
+                    photoDragRef.current.dragging = true;
+                    setDraggingPhotoId(photoId);
+                    if (navigator.vibrate) navigator.vibrate(12);
+                }, 450);
+            };
+
+            const handlePhotoPointerMove = (e) => {
+                const ref = photoDragRef.current;
+                if (ref.pointerId !== e.pointerId) return;
+                // touch-action is 'none' on these thumbs (see
+                // .photo-thumb-wrap), so a plain swipe that never turns into
+                // a long-press has to scroll .photo-row manually — same
+                // fix, same reasoning, as the bulk line-select drag.
+                if (ref.scrolling) {
+                    e.preventDefault();
+                    const row = photoRowRef.current;
+                    if (row) row.scrollLeft -= (e.clientX - ref.lastX);
+                    ref.lastX = e.clientX;
+                    return;
+                }
+                if (!ref.photoId) return;
+                if (!ref.dragging) {
+                    const dx = Math.abs(e.clientX - ref.startX);
+                    const dy = Math.abs(e.clientY - ref.startY);
+                    if (dx > 14 || dy > 14) {
+                        clearTimeout(ref.timer);
+                        ref.photoId = null;
+                        // Predominantly-horizontal movement before the
+                        // long-press fired means the user wanted to scroll
+                        // the row, not reorder — hand the rest of this
+                        // touch over to manual scrolling.
+                        if (dx > dy) {
+                            ref.scrolling = true;
+                            ref.lastX = e.clientX;
+                            const row = photoRowRef.current;
+                            if (row) row.scrollLeft -= (e.clientX - ref.startX);
+                        }
+                    }
+                    return;
+                }
+                e.preventDefault();
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                const wrapEl = el && el.closest('[data-photo-id]');
+                const targetId = wrapEl && wrapEl.getAttribute('data-photo-id');
+                if (targetId && targetId !== ref.photoId) {
+                    // One history entry per completed drag, pushed lazily on
+                    // the first actual move — matches the table-reorder handle.
+                    if (!ref.moved) {
+                        ref.moved = true;
+                        pushEditHistory();
+                    }
+                    setDraft((d) => {
+                        const photos = [...d.photos];
+                        const dragIdx = photos.findIndex((p) => p.id === ref.photoId);
+                        const targetIdx = photos.findIndex((p) => p.id === targetId);
+                        if (dragIdx === -1 || targetIdx === -1) return d;
+                        const [moved] = photos.splice(dragIdx, 1);
+                        photos.splice(targetIdx, 0, moved);
+                        return { ...d, photos };
+                    });
+                }
+            };
+
+            const handlePhotoPointerUp = () => {
+                clearTimeout(photoDragRef.current.timer);
+                if (photoDragRef.current.dragging) photoJustDraggedRef.current = true;
+                photoDragRef.current = { pointerId: null, photoId: null, timer: null, dragging: false, scrolling: false, startX: 0, startY: 0, lastX: 0, moved: false };
+                setDraggingPhotoId(null);
+            };
+
             // Collapse is a view preference, not a content edit — no history
             // entry, matching the old mileageCollapsed behavior.
             const toggleTableCollapsed = (tableId) => {
@@ -6593,15 +6700,37 @@
                         ) : null}
 
                         <div className="section-label">Photos</div>
-                        <div className="photo-row">
+                        {draft.photos.length > 1 ? (
+                            <p className="sheet-muted-text" style={{ fontSize: 11, marginTop: -6, marginBottom: 6 }}>Press &amp; drag a photo to reorder — the first one is the dashboard thumbnail.</p>
+                        ) : null}
+                        <div className="photo-row" ref={photoRowRef}>
                             {draft.photos.map((photo, photoIdx) => (
-                                <div className="photo-thumb-wrap" key={photo.id}>
+                                <div
+                                    className={'photo-thumb-wrap' + (draggingPhotoId === photo.id ? ' dragging' : '')}
+                                    key={photo.id}
+                                    data-photo-id={photo.id}
+                                    onPointerDown={(e) => handlePhotoPointerDown(e, photo.id)}
+                                    onPointerMove={handlePhotoPointerMove}
+                                    onPointerUp={handlePhotoPointerUp}
+                                    onPointerCancel={handlePhotoPointerUp}
+                                    // Click-to-preview lives on this same element
+                                    // (not the child <img>) because it's the one
+                                    // holding pointer capture for the drag-reorder
+                                    // gesture above — splitting capture and click
+                                    // across parent/child broke native click
+                                    // synthesis on the image. The two buttons
+                                    // below stop propagation so their own taps
+                                    // don't also trigger this.
+                                    onClick={() => {
+                                        if (photoJustDraggedRef.current) { photoJustDraggedRef.current = false; return; }
+                                        setPreviewPhoto(photo.dataUrl);
+                                    }}
+                                >
                                     <img
                                         className="photo-thumb"
                                         src={photo.dataUrl}
                                         alt=""
                                         style={{ objectPosition: (photo.focalX == null ? 50 : photo.focalX) + '% ' + (photo.focalY == null ? 50 : photo.focalY) + '%' }}
-                                        onClick={() => setPreviewPhoto(photo.dataUrl)}
                                     />
                                     {/* Only the first photo is ever shown as the
                                         dashboard note-card thumbnail, so that's the
@@ -6610,10 +6739,10 @@
                                         <button
                                             className="photo-reposition-btn"
                                             title="Choose thumbnail crop"
-                                            onClick={() => setRepositionPhotoId(photo.id)}
+                                            onClick={(e) => { e.stopPropagation(); setRepositionPhotoId(photo.id); }}
                                         >🎯</button>
                                     ) : null}
-                                    <button className="photo-remove-btn" onClick={() => removePhoto(photo.id)}>✕</button>
+                                    <button className="photo-remove-btn" onClick={(e) => { e.stopPropagation(); removePhoto(photo.id); }}>✕</button>
                                 </div>
                             ))}
                             <button className="add-photo-btn" onClick={() => cameraInputRef.current && cameraInputRef.current.click()} disabled={uploading}>
