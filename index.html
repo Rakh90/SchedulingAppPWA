@@ -1186,6 +1186,20 @@
             padding-bottom: calc(16px + var(--keyboard-inset, 0px));
         }
 
+        /* Some Android configurations resize the actual layout viewport
+           when the keyboard opens (rather than only the visual viewport),
+           which can leave --keyboard-inset reporting close to 0 even with
+           the keyboard fully up — the calc() above then adds no real extra
+           room, and content below the focused field (e.g. Photos, below a
+           lower table) becomes unreachable by scrolling. Whenever anything
+           inside .editor-body has focus, this reserves a large flat amount
+           of scroll room regardless of what --keyboard-inset measured, so
+           there's always genuine slack to scroll the rest of the note into
+           view above the keyboard. */
+        .editor-body.keyboard-active {
+            padding-bottom: 55vh;
+        }
+
         .editor-title-input {
             width: 100%;
             border: none;
@@ -1624,7 +1638,11 @@
             min-width: 66px;
             border: none;
             background: transparent;
-            font-size: 14px;
+            /* 16px, not 14 — mobile browsers auto-zoom the page to focus any
+               input styled smaller than that, which can leave the page
+               effectively locked in a zoomed-in state (able to see the
+               field, unable to scroll past it) until the field is blurred. */
+            font-size: 16px;
             padding: 8px 4px;
         }
 
@@ -1680,7 +1698,7 @@
             border-bottom: 1.5px solid transparent;
             border-radius: 0;
             padding: 2px 0;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 700;
             color: #1a1a1a;
         }
@@ -1753,7 +1771,7 @@
             border: 1px solid #e2e4e9;
             border-radius: 8px;
             padding: 8px 10px;
-            font-size: 14px;
+            font-size: 16px;
             box-sizing: border-box;
         }
 
@@ -2590,7 +2608,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v109';
+        const APP_VERSION = 'v110';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -4607,6 +4625,39 @@
             const lineSelectDragRef = useRef({ pointerId: null, active: false, timer: null, startX: 0, startY: 0, anchorIdx: null, baseIds: [] });
             const lineAutoScrollRef = useRef(null);
             const editorBodyRef = useRef(null);
+            // Drives .editor-body's keyboard-active bottom padding (see the
+            // CSS comment on that class) — tracked via focusin/focusout
+            // delegation rather than per-input onFocus/onBlur props so it
+            // covers every focusable thing inside the editor (table cells,
+            // the title, contentEditable blocks) with one listener.
+            const [keyboardActive, setKeyboardActive] = useState(false);
+            useEffect(() => {
+                const body = editorBodyRef.current;
+                if (!body) return undefined;
+                const isFieldEl = (el) => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+                let clearTimer = null;
+                const handleFocusIn = (e) => {
+                    if (!isFieldEl(e.target)) return;
+                    if (clearTimer) { clearTimeout(clearTimer); clearTimer = null; }
+                    setKeyboardActive(true);
+                };
+                // Focus moving straight from one field to another (e.g.
+                // Enter to the next table cell) fires focusout then focusin
+                // in the same tick — the delay avoids a one-frame padding
+                // collapse (and the scroll jump that would cause) between
+                // the two.
+                const handleFocusOut = (e) => {
+                    if (!isFieldEl(e.target)) return;
+                    clearTimer = setTimeout(() => setKeyboardActive(false), 150);
+                };
+                body.addEventListener('focusin', handleFocusIn);
+                body.addEventListener('focusout', handleFocusOut);
+                return () => {
+                    body.removeEventListener('focusin', handleFocusIn);
+                    body.removeEventListener('focusout', handleFocusOut);
+                    if (clearTimer) clearTimeout(clearTimer);
+                };
+            }, []);
             const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
             const filesInputRef = useRef(null);
@@ -5682,7 +5733,7 @@
                             })}
                         </div>
                     </div>
-                    <div className="editor-body" ref={editorBodyRef} style={resolvePageBackground(draft.background)}>
+                    <div className={'editor-body' + (keyboardActive ? ' keyboard-active' : '')} ref={editorBodyRef} style={resolvePageBackground(draft.background)}>
                         <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
                             <input
                                 ref={titleInputRef}
