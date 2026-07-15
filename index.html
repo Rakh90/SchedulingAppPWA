@@ -2677,7 +2677,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v117';
+        const APP_VERSION = 'v118';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -4692,16 +4692,16 @@
         // a press-and-drag line selection is active — same row, same button
         // styling, different job: acts on every highlighted line at once
         // instead of whichever single line has editing focus.
-        function LineSelectionToolbar({ count, uniformType, onSetType, onFormat, onDelete, onDone }) {
+        function LineSelectionToolbar({ count, uniformType, activeFormats, onSetType, onFormat, onDelete, onDone }) {
             const hasSelection = count > 0;
             const run = (fn) => (e) => { e.preventDefault(); if (hasSelection) fn(); };
             return (
                 <div className="line-toolbar">
                     <span className="selection-count-label">{hasSelection ? count + ' selected' : 'Press & drag a line'}</span>
                     <span className="line-toolbar-divider"></span>
-                    <button className="line-toolbar-btn" disabled={!hasSelection} onMouseDown={run(() => onFormat('b'))} title="Bold"><b>B</b></button>
-                    <button className="line-toolbar-btn" disabled={!hasSelection} onMouseDown={run(() => onFormat('i'))} title="Italic"><i>I</i></button>
-                    <button className="line-toolbar-btn" disabled={!hasSelection} onMouseDown={run(() => onFormat('u'))} title="Underline"><u>U</u></button>
+                    <button className={'line-toolbar-btn' + (activeFormats.b ? ' active' : '')} disabled={!hasSelection} onMouseDown={run(() => onFormat('b'))} title="Bold"><b>B</b></button>
+                    <button className={'line-toolbar-btn' + (activeFormats.i ? ' active' : '')} disabled={!hasSelection} onMouseDown={run(() => onFormat('i'))} title="Italic"><i>I</i></button>
+                    <button className={'line-toolbar-btn' + (activeFormats.u ? ' active' : '')} disabled={!hasSelection} onMouseDown={run(() => onFormat('u'))} title="Underline"><u>U</u></button>
                     <span className="line-toolbar-divider"></span>
                     {LINE_TYPE_ICONS.map(({ type, icon }) => (
                         <button
@@ -6056,6 +6056,15 @@
                                         if (!selectedLineIds.length) return null;
                                         const selBlocks = draft.blocks.filter((b) => selectedLineIds.includes(b.id));
                                         return selBlocks.every((b) => b.type === selBlocks[0].type) ? selBlocks[0].type : null;
+                                    })()}
+                                    activeFormats={(() => {
+                                        const selBlocks = draft.blocks.filter((b) => selectedLineIds.includes(b.id));
+                                        if (!selBlocks.length) return { b: false, i: false, u: false };
+                                        return {
+                                            b: selBlocks.every((blk) => hasWholeLineTag(blk.html, 'b')),
+                                            i: selBlocks.every((blk) => hasWholeLineTag(blk.html, 'i')),
+                                            u: selBlocks.every((blk) => hasWholeLineTag(blk.html, 'u')),
+                                        };
                                     })()}
                                     onSetType={applyTypeToSelection}
                                     onFormat={applyFormatToSelection}
