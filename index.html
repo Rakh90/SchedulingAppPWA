@@ -933,20 +933,36 @@
         .category-manager-row input[type="text"] {
             flex: 1;
             border: none;
+            border-radius: 0;
             font-size: 15px;
             padding: 4px 0;
-            background: transparent;
             /* The .sheet's own color-scheme:light (needed elsewhere so
                Android's system dark theme can't re-tint sheet elements)
                makes the browser render this text input with its native
                "auto" appearance — a solid white widget background that
-               ignores the transparent background set above entirely. That
+               ignores the transparent background below entirely. That
                was invisible on the plain default sheet but reads as a
                stark white bar on a colorful theme background. appearance:
-               none opts out of native widget rendering so our own
-               transparent background actually takes effect. */
+               none opts out of native widget rendering; the rest (explicit
+               background-color/-image, box-shadow reset, -webkit-appearance
+               kept alongside the unprefixed property) is the standard
+               belt-and-suspenders set for iOS/WebKit, which is stricter
+               about actually dropping native chrome than Chromium is. */
             appearance: none;
             -webkit-appearance: none;
+            -moz-appearance: none;
+            background: transparent;
+            background-color: transparent;
+            background-image: none;
+            box-shadow: none;
+        }
+
+        .category-manager-row input[type="text"]:-webkit-autofill {
+            /* Chrome's autofill highlight ignores background/appearance
+               entirely and paints its own opaque fill via an internal
+               box-shadow — this is the standard way to defeat it. */
+            -webkit-box-shadow: 0 0 0 1000px transparent inset;
+            transition: background-color 999999s ease-in-out 0s;
         }
 
         .category-manager-row input[type="text"]:focus {
@@ -1461,8 +1477,7 @@
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            color: #3a3f4d;
-            text-shadow: 0 1px 2px rgba(255,255,255,0.35);
+            color: #333;
             font-weight: 700;
             margin: 20px 0 10px;
         }
@@ -2090,8 +2105,7 @@
            light-classified background, not just the plain default one,
            while still reading as "muted" next to full-strength text. */
         .sheet-muted-text {
-            color: #3a3f4d;
-            text-shadow: 0 1px 2px rgba(255,255,255,0.35);
+            color: #333;
         }
 
         .dark-content .sheet-muted-text {
@@ -2129,7 +2143,7 @@
                 color: #1a1a1a;
             }
             .sheet:not(.dark-content) .sheet-muted-text {
-                color: #3a3f4d;
+                color: #333;
             }
             .sheet:not(.dark-content) input,
             .sheet:not(.dark-content) select,
@@ -2696,7 +2710,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v122';
+        const APP_VERSION = 'v123';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
