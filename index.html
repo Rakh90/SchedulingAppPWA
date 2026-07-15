@@ -763,6 +763,21 @@
             margin-bottom: 16px;
         }
 
+        /* Help topic detail body: each topic.body entry is one paragraph,
+           rendered as its own <p> here rather than one run-on block of
+           text — a single ~500-character paragraph (the old shape) reads
+           as a wall of text with no place to rest your eyes. */
+        .help-body p {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .help-body p:last-child {
+            margin-bottom: 0;
+        }
+
         .category-manager-row {
             display: flex;
             align-items: center;
@@ -2655,7 +2670,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v113';
+        const APP_VERSION = 'v114';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2692,24 +2707,95 @@
         // features, each with its own short explanation, browsed as a
         // two-level menu -> detail flow.
         const HELP_TOPICS = [
-            { id: 'editing', title: 'Creating & editing notes', icon: '📝', body: 'Tap the + button on the dashboard to start a new note, or tap any existing note to open it. Tap the title to rename it, or tap anywhere in the body to start typing. Notes save automatically as you type — there\'s no separate save button.' },
-            { id: 'formatting', title: 'Formatting text', icon: 'B', body: 'Tap into any line of text to bring up the sticky formatting toolbar above it — it stays reachable near the top of the screen even on a long note. Bold, italic, and underline apply to the whole line at once — tap the same button again to remove it. The "Aa" button changes text size, and the calendar button inserts today\'s date (or lets you pick another one) right where your cursor was. The ⌄ button at the end of the toolbar hides the on-screen keyboard, wherever you\'re typing — the title, a line, or a table cell.' },
-            { id: 'lists', title: 'Checklists & lists', icon: '☑', body: 'The T • # ▢ buttons switch a line between plain text, a bullet, a numbered item, or a checkbox. Press Enter on an empty list line to indent it one level; press it again to outdent, and a third time to drop back to plain text. Backspace at the start of an indented line outdents it the same way. Long-press a line\'s marker to drag and reorder it.' },
-            { id: 'selectLines', title: 'Select & bulk-edit lines', icon: '☑', body: 'Tap the ☑ button in a note\'s formatting toolbar to turn on line selection. Press and hold any line, then drag up or down to highlight a range — dragging past the top or bottom edge scrolls the note for you. Selections don\'t have to be one continuous run: press and hold another line (without dragging) to add just that line, and repeat to build up any combination. A quick tap on a highlighted line removes only that line from the selection. The toolbar swaps to show actions for every highlighted line at once: switch them all to bulleted/numbered/checklist/plain text, toggle bold/italic/underline, or delete them entirely. Tap ✕ (or the ☑ button again) to exit.' },
-            { id: 'categories', title: 'Categories', icon: '🏷', body: 'Tap "Uncategorized" (or a note\'s existing categories) near the top of a note to assign one or more categories, or create a new one on the spot with its own color. Category chips at the top of the dashboard let you filter to just that category. Manage, rename, recolor, or delete categories any time from Settings — drag a category\'s handle there to reorder it.' },
-            { id: 'folderView', title: 'Folder view', icon: '📁', body: 'Tap the 📁 icon on the dashboard to switch the category chips into a grid of folder tiles instead, each showing how many notes it holds. Unlike the chip row, folder view starts with nothing selected — tap a folder to see its notes, and tap that same folder again to hide them. Switching back to chips always shows "All" again. Your choice of chips or folders is remembered the next time you open the app. Pick from 15 different folder icon styles under "Folder icon theme" in Settings.' },
-            { id: 'backgrounds', title: 'Backgrounds & themes', icon: '🎨', body: 'Every note can have its own background — tap the 🎨 button in its editor. Choose from solid colors or the animated gradient themes, including Rainbow, which uses white text so it stays readable over every color in the gradient. You can also set a default background for new notes and a separate background for the dashboard itself, both in Settings.' },
-            { id: 'lock', title: 'Note lock (PIN)', icon: '🔒', body: 'Set a PIN in Settings, then lock any individual note from its editor (🔒 button). A locked note shows only its title on the dashboard until the PIN is entered — once unlocked, it stays unlocked for the rest of your session. Change or remove your PIN any time from Settings. If you forget your PIN, open Settings and tap "Change PIN" or "Remove PIN" — a small hidden button in the corner of that screen reveals a "Forgot your PIN?" option that removes it immediately, no confirmation needed, so don\'t tap it by accident.' },
-            { id: 'templates', title: 'Templates', icon: '📄', body: 'Save any note as a reusable template from its editor menu (📑 button), then start new notes from it via the "New note" screen. Templates carry over their body text, background, and categories, so you don\'t have to rebuild a note from scratch each time.' },
-            { id: 'tables', title: 'Custom tables', icon: '📊', body: 'Any note can hold as many tables as you like — tap "+ Add table" below the note body, then either start from the Mileage preset (Date, Start Point, End Point, Miles) or build your own columns from scratch. Every column has a type: Text, Number, or Date. Number columns keep a running total at the bottom of their table, and Date columns work with that table\'s "Today" and "Pick Date" buttons — tap one with a date cell selected to fill that cell, or with nothing selected to add a new row already filled in with that date. Pressing Enter moves to the next cell, and Enter in the very last cell of the last row adds a fresh row automatically. Tap a table\'s name to rename it, tap ✎ to add, rename, retype, remove, or drag-reorder its columns, and tap the ▾ to minimize a table out of the way — it stays minimized the next time you open that note. Inside ✎ you can also save the table\'s name and column layout as a template — it then shows up as a one-tap preset in "+ Add table", and can be renamed or deleted from Settings. When a note has more than one table, drag the handle next to a table\'s name to reorder them. Export any table to CSV from the button next to its name (hidden while minimized). Notes that had the old Mileage Table feature keep all their data — it shows up as a regular table now.' },
-            { id: 'photos', title: 'Photos', icon: '📷', body: 'Add photos to a note with the Camera, Gallery, or Files buttons at the bottom of its editor. The first photo shows as a thumbnail on the note\'s dashboard card, and a badge shows how many photos a note has.' },
-            { id: 'calendar', title: 'Calendar date picker', icon: '📅', body: 'The calendar button in a note\'s formatting toolbar opens a built-in date picker, so there\'s no fighting with your device\'s native one. Browse up to 5 years in either direction and tap a day to insert that date wherever your cursor was.' },
-            { id: 'undo', title: 'Undo', icon: '↩', body: 'The undo button (↩, appears once you\'ve made a change) reverts the most recent edit to a note — text, title, category, background, or an inserted date. It only covers the current editing session and isn\'t a full history, so it\'s meant for quickly reverting a mistake, not stepping back through every change ever made.' },
-            { id: 'batch', title: 'Multi-select & batch categories', icon: '☑', body: 'Tap the select icon on the dashboard, then tap notes to select several at once. From there you can move them all to trash, pin/unpin them together, or open the category tool to add or remove a category across every selected note at once — tap a category again to toggle it back off.' },
-            { id: 'search', title: 'Search, sort & pinned notes', icon: '🔍', body: 'The search icon filters notes by title or body text as you type. The sort icon reorders the dashboard by last edited, date created, title, or category. Pin any note to keep it at the top of the dashboard regardless of sort order — tap the 📌 directly on its dashboard card, tap 📌 in its editor, or pin several at once from multi-select.' },
-            { id: 'trash', title: 'Trash & recovery', icon: '🗑', body: 'Deleting a note moves it to Trash instead of removing it right away — open Trash from the dashboard to restore a note or delete it permanently. Anything left in Trash for 30 days is removed automatically.' },
-            { id: 'backup', title: 'Backup (export/import)', icon: '⬇', body: 'Export saves every note and category to a single file you can keep as a backup or move to another device. Import reads one of those files back in, adding its notes and categories alongside whatever you already have. Both are in Settings, under Backup.' },
-            { id: 'reordering', title: 'Reordering things by dragging', icon: '↕', body: 'Several things in the app can be long-pressed and dragged to reorder: notes on the dashboard (when sorted "Manually"), the header icons on both the dashboard and the note editor, categories in Settings (drag their handle), and list lines in a note (drag their bullet/number/checkbox marker). Hold for about half a second without moving until it "picks up," then drag it where you want.' },
+            { id: 'editing', title: 'Creating & editing notes', icon: '📝', body: [
+                'Tap the + button on the dashboard to start a new note, or tap any existing note to open it.',
+                'Tap the title to rename it, or tap anywhere in the body to start typing.',
+                'Notes save automatically as you type — there\'s no separate save button.',
+            ] },
+            { id: 'formatting', title: 'Formatting text', icon: 'B', body: [
+                'Tap into any line of text to bring up the sticky formatting toolbar above it — it stays reachable near the top of the screen even on a long note.',
+                'Bold, italic, and underline apply to the whole line at once — tap the same button again to remove it.',
+                'The "Aa" button changes text size, and the calendar button inserts today\'s date (or lets you pick another one) right where your cursor was.',
+                'The ⌄ button at the end of the toolbar hides the on-screen keyboard, wherever you\'re typing — the title, a line, or a table cell.',
+            ] },
+            { id: 'lists', title: 'Checklists & lists', icon: '☑', body: [
+                'The T • # ▢ buttons switch a line between plain text, a bullet, a numbered item, or a checkbox.',
+                'Press Enter on an empty list line to indent it one level; press it again to outdent, and a third time to drop back to plain text. Backspace at the start of an indented line outdents it the same way.',
+                'Long-press a line\'s marker to drag and reorder it.',
+            ] },
+            { id: 'selectLines', title: 'Select & bulk-edit lines', icon: '☑', body: [
+                'Tap the ☑ button in a note\'s formatting toolbar to turn on line selection.',
+                'Press and hold any line, then drag up or down to highlight a range — dragging past the top or bottom edge scrolls the note for you.',
+                'Selections don\'t have to be one continuous run: press and hold another line (without dragging) to add just that line, and repeat to build up any combination. A quick tap on a highlighted line removes only that line from the selection.',
+                'The toolbar swaps to show actions for every highlighted line at once: switch them all to bulleted/numbered/checklist/plain text, toggle bold/italic/underline, or delete them entirely.',
+                'Tap ✕ (or the ☑ button again) to exit.',
+            ] },
+            { id: 'categories', title: 'Categories', icon: '🏷', body: [
+                'Tap "Uncategorized" (or a note\'s existing categories) near the top of a note to assign one or more categories, or create a new one on the spot with its own color.',
+                'Category chips at the top of the dashboard let you filter to just that category.',
+                'Manage, rename, recolor, or delete categories any time from Settings — drag a category\'s handle there to reorder it.',
+            ] },
+            { id: 'folderView', title: 'Folder view', icon: '📁', body: [
+                'Tap the 📁 icon on the dashboard to switch the category chips into a grid of folder tiles instead, each showing how many notes it holds.',
+                'Unlike the chip row, folder view starts with nothing selected — tap a folder to see its notes, and tap that same folder again to hide them. Switching back to chips always shows "All" again.',
+                'Your choice of chips or folders is remembered the next time you open the app. Pick from 15 different folder icon styles under "Folder icon theme" in Settings.',
+            ] },
+            { id: 'backgrounds', title: 'Backgrounds & themes', icon: '🎨', body: [
+                'Every note can have its own background — tap the 🎨 button in its editor. Choose from solid colors or the animated gradient themes, including Rainbow, which uses white text so it stays readable over every color in the gradient.',
+                'You can also set a default background for new notes and a separate background for the dashboard itself, both in Settings.',
+            ] },
+            { id: 'lock', title: 'Note lock (PIN)', icon: '🔒', body: [
+                'Set a PIN in Settings, then lock any individual note from its editor (🔒 button). A locked note shows only its title on the dashboard until the PIN is entered — once unlocked, it stays unlocked for the rest of your session.',
+                'Change or remove your PIN any time from Settings.',
+                'If you forget your PIN, open Settings and tap "Change PIN" or "Remove PIN" — a small hidden button in the corner of that screen reveals a "Forgot your PIN?" option that removes it immediately, no confirmation needed, so don\'t tap it by accident.',
+            ] },
+            { id: 'templates', title: 'Templates', icon: '📄', body: [
+                'Save any note as a reusable template from its editor menu (📑 button), then start new notes from it via the "New note" screen.',
+                'Templates carry over their body text, background, and categories, so you don\'t have to rebuild a note from scratch each time.',
+            ] },
+            { id: 'tables', title: 'Custom tables', icon: '📊', body: [
+                'Any note can hold as many tables as you like — tap "+ Add table" below the note body, then either start from the Mileage preset (Date, Start Point, End Point, Miles) or build your own columns from scratch.',
+                'Every column has a type: Text, Number, or Date. Number columns keep a running total at the bottom of their table, and Date columns work with that table\'s "Today" and "Pick Date" buttons — tap one with a date cell selected to fill that cell, or with nothing selected to add a new row already filled in with that date.',
+                'Pressing Enter moves to the next cell, and Enter in the very last cell of the last row adds a fresh row automatically.',
+                'Tap a table\'s name to rename it, tap ✎ to add, rename, retype, remove, or drag-reorder its columns, and tap the ▾ to minimize a table out of the way — it stays minimized the next time you open that note.',
+                'Inside ✎ you can also save the table\'s name and column layout as a template — it then shows up as a one-tap preset in "+ Add table", and can be renamed or deleted from Settings.',
+                'When a note has more than one table, drag the handle next to a table\'s name to reorder them. Export any table to CSV from the button next to its name (hidden while minimized).',
+                'Notes that had the old Mileage Table feature keep all their data — it shows up as a regular table now.',
+            ] },
+            { id: 'photos', title: 'Photos', icon: '📷', body: [
+                'Add photos to a note with the Camera, Gallery, or Files buttons at the bottom of its editor.',
+                'The first photo shows as a thumbnail on the note\'s dashboard card, and a badge shows how many photos a note has.',
+            ] },
+            { id: 'calendar', title: 'Calendar date picker', icon: '📅', body: [
+                'The calendar button in a note\'s formatting toolbar opens a built-in date picker, so there\'s no fighting with your device\'s native one.',
+                'Browse up to 5 years in either direction and tap a day to insert that date wherever your cursor was.',
+            ] },
+            { id: 'undo', title: 'Undo', icon: '↩', body: [
+                'The undo button (↩, appears once you\'ve made a change) reverts the most recent edit to a note — text, title, category, background, or an inserted date.',
+                'It only covers the current editing session and isn\'t a full history, so it\'s meant for quickly reverting a mistake, not stepping back through every change ever made.',
+            ] },
+            { id: 'batch', title: 'Multi-select & batch categories', icon: '☑', body: [
+                'Tap the select icon on the dashboard, then tap notes to select several at once.',
+                'From there you can move them all to trash, pin/unpin them together, or open the category tool to add or remove a category across every selected note at once — tap a category again to toggle it back off.',
+            ] },
+            { id: 'search', title: 'Search, sort & pinned notes', icon: '🔍', body: [
+                'The search icon filters notes by title or body text as you type.',
+                'The sort icon reorders the dashboard by last edited, date created, title, or category.',
+                'Pin any note to keep it at the top of the dashboard regardless of sort order — tap the 📌 directly on its dashboard card, tap 📌 in its editor, or pin several at once from multi-select.',
+            ] },
+            { id: 'trash', title: 'Trash & recovery', icon: '🗑', body: [
+                'Deleting a note moves it to Trash instead of removing it right away — open Trash from the dashboard to restore a note or delete it permanently.',
+                'Anything left in Trash for 30 days is removed automatically.',
+            ] },
+            { id: 'backup', title: 'Backup (export/import)', icon: '⬇', body: [
+                'Export saves every note and category to a single file you can keep as a backup or move to another device.',
+                'Import reads one of those files back in, adding its notes and categories alongside whatever you already have.',
+                'Both are in Settings, under Backup.',
+            ] },
+            { id: 'reordering', title: 'Reordering things by dragging', icon: '↕', body: [
+                'Several things in the app can be long-pressed and dragged to reorder: notes on the dashboard (when sorted "Manually"), the header icons on both the dashboard and the note editor, categories in Settings (drag their handle), and list lines in a note (drag their bullet/number/checkbox marker).',
+                'Hold for about half a second without moving until it "picks up," then drag it where you want.',
+            ] },
         ];
 
         // Matches the header's own dark(0.32)-over-gradient overlay so the
@@ -4085,7 +4171,7 @@
                         <p className="sheet-muted-text" style={{ fontSize: 13, marginBottom: 8 }}>Pick a feature to see how it works.</p>
                         {HELP_TOPICS.map((topic) => (
                             <button key={topic.id} className="category-picker-row" onClick={() => onSelectTopic(topic.id)}>
-                                <span style={{ width: 22, textAlign: 'center' }}>{topic.icon}</span>
+                                <span style={{ width: 22, textAlign: 'center', fontSize: 17 }}>{topic.icon}</span>
                                 <span className="category-picker-name">{topic.title}</span>
                                 <span aria-hidden="true" style={{ color: '#999' }}>›</span>
                             </button>
@@ -4104,9 +4190,14 @@
                 <div className="sheet-backdrop centered" onClick={onClose}>
                     <div className="sheet" onClick={(e) => e.stopPropagation()}>
                         <button className="secondary-btn" style={{ marginBottom: 12 }} onClick={onBack}>← Back</button>
-                        <h2>{topic.icon} {topic.title}</h2>
-                        <p style={{ fontSize: 14, lineHeight: 1.5, color: '#333' }}>{topic.body}</p>
-                        <div className="btn-row" style={{ marginTop: 14 }}>
+                        <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>{topic.icon}</span>
+                            {topic.title}
+                        </h2>
+                        <div className="help-body">
+                            {topic.body.map((para, i) => <p key={i}>{para}</p>)}
+                        </div>
+                        <div className="btn-row" style={{ marginTop: 6 }}>
                             <button className="primary-btn" style={{ flex: 1 }} onClick={onClose}>Done</button>
                         </div>
                     </div>
