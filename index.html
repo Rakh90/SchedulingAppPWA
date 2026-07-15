@@ -674,7 +674,13 @@
             max-width: 480px;
             border-radius: 18px 18px 0 0;
             padding: 20px;
-            max-height: 80vh;
+            /* Capped by the backdrop's own height (100%), not just 80vh —
+               the backdrop shrinks via --keyboard-inset when the on-screen
+               keyboard is up, and an 80vh sheet anchored to the bottom of a
+               ~55vh backdrop would push its top edge above the visible
+               viewport, leaving that region permanently unreachable no
+               matter how the sheet's inner content is scrolled. */
+            max-height: min(80vh, 100%);
             overflow-y: auto;
             /* A held finger lingering on a row's text (e.g. right after a
                long-press opens a sheet) can otherwise trigger Android's
@@ -692,14 +698,22 @@
         /* ---------- Sheet open transitions ----------
            Mount-time @keyframes (like the FAB/chevron effects, no JS state
            needed): every sheet in the app shares these two classes, so this
-           one block animates all of them. The backdrop fades in — and since
-           the sheet is its child, the sheet inherits that fade — while
-           bottom sheets additionally slide up and centered dialogs scale in.
+           one block animates all of them. The backdrop's dim layer fades in
+           while bottom sheets additionally slide up and centered dialogs
+           scale in. Deliberately animates background-color rather than
+           opacity: CSS opacity on the backdrop would multiply into every
+           descendant's rendered alpha, so the sheet's buttons and text
+           would spend the whole entrance semi-transparent — and a device
+           that stalls or restarts the animation (reported on-device as the
+           Edit-columns sheet rendering with ghosted ✕ buttons and helper
+           text) would leave the entire sheet's content stuck faded. A
+           background-color animation can only ever affect the dim layer
+           itself, never the legibility of the sheet's content.
            Entrance only: exit animations would mean deferring unmounts,
            which is a behavioral change we deliberately avoid. */
         @keyframes sheet-backdrop-in {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from { background-color: rgba(0,0,0,0); }
+            to { background-color: rgba(0,0,0,0.45); }
         }
 
         @keyframes sheet-slide-up {
@@ -834,7 +848,9 @@
             font-weight: 700;
         }
 
-        .category-manager-row.dragging {
+        .category-manager-row.dragging,
+        .table-col-editor-row.dragging,
+        .section-label-row.dragging {
             opacity: 0.9;
             box-shadow: 0 6px 16px rgba(0,0,0,0.18);
             border-radius: 8px;
@@ -849,6 +865,26 @@
             color: #b3b6c0;
             padding: 4px 2px;
             cursor: grab;
+        }
+
+        /* Wraps a category row's color dot so it's tappable (opens the
+           inline recolor swatch grid) with a finger-sized hit area, without
+           visually growing the 12px dot itself. */
+        .category-color-btn {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            padding: 0;
+            position: relative;
+        }
+
+        .category-color-btn::after {
+            content: '';
+            position: absolute;
+            inset: -12px;
         }
 
         .category-manager-row input[type="text"] {
@@ -926,8 +962,12 @@
             gap: 4px;
             padding: 8px 4px;
             border-radius: 12px;
-            border: 2px solid #e2e4e9;
-            background: #fafafa;
+            /* Translucent for the same reason as .mileage-table th — the
+               Settings sheet is painted with the dashboard theme, and
+               opaque near-white swatch cards turned into a wall of white
+               boxes on the light gradient themes. */
+            border: 2px solid rgba(0,0,0,0.11);
+            background: rgba(0,0,0,0.035);
             font-size: 22px;
         }
 
@@ -1521,7 +1561,11 @@
             padding: 8px 10px;
             border-bottom: 1px solid rgba(0,0,0,0.22);
             border-right: 1px solid rgba(0,0,0,0.1);
-            background: #fafafa;
+            /* Translucent rather than opaque #fafafa: on a plain white note
+               they render identically, but on the light gradient themes
+               (Amber/Citrine/Frost/Aurora/Holo) an opaque near-white header
+               bar read as a broken solid-white strip across the theme. */
+            background: rgba(0,0,0,0.04);
             white-space: nowrap;
         }
 
@@ -1558,22 +1602,28 @@
             border-radius: 6px;
         }
 
-        .mileage-total-bar {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 10px;
+        /* Totals live in a <tfoot> row of the table itself (not a separate
+           bar under the scroll wrap), so on a wide table they horizontally
+           scroll in lockstep with the body and each number column's total
+           stays aligned directly under its own column. */
+        .mileage-total-row td {
             border-top: 2px solid rgba(0,0,0,0.15);
-            padding: 10px 12px;
+            border-bottom: none;
+            border-right: none;
+            padding: 8px 6px 10px;
+            vertical-align: top;
         }
 
         .mileage-total-label {
+            display: block;
             font-weight: 700;
-            font-size: 13px;
+            font-size: 12px;
             color: #333;
+            margin-bottom: 4px;
         }
 
         .mileage-total-box {
+            display: inline-block;
             background: #eef0fb;
             border: 1.5px solid #667eea;
             border-radius: 8px;
@@ -1584,6 +1634,7 @@
             box-shadow: 0 2px 6px rgba(102,126,234,0.25);
             color: #333;
             min-width: 48px;
+            box-sizing: border-box;
         }
 
         /* Generic custom-table chrome (the .mileage-* classes above are the
@@ -1878,7 +1929,7 @@
             color: #f3f4f8;
         }
 
-        .dark-content .mileage-total-bar {
+        .dark-content .mileage-total-row td {
             border-top-color: rgba(255,255,255,0.3);
         }
 
@@ -2507,7 +2558,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v105';
+        const APP_VERSION = 'v106';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -2548,13 +2599,13 @@
             { id: 'editing', title: 'Creating & editing notes', icon: '📝', body: 'Tap the + button on the dashboard to start a new note, or tap any existing note to open it. Tap the title to rename it, or tap anywhere in the body to start typing. Notes save automatically as you type — there\'s no separate save button.' },
             { id: 'formatting', title: 'Formatting text', icon: 'B', body: 'Tap into any line of text to bring up the sticky formatting toolbar above it — it stays reachable near the top of the screen even on a long note. Bold, italic, and underline apply to the whole line at once — tap the same button again to remove it. The "Aa" button changes text size, and the calendar button inserts today\'s date (or lets you pick another one) right where your cursor was. The ⌄ button at the end of the toolbar hides the on-screen keyboard, wherever you\'re typing — the title, a line, or a table cell.' },
             { id: 'lists', title: 'Checklists & lists', icon: '☑', body: 'The T • # ▢ buttons switch a line between plain text, a bullet, a numbered item, or a checkbox. Press Enter on an empty list line to indent it one level; press it again to outdent, and a third time to drop back to plain text. Backspace at the start of an indented line outdents it the same way. Long-press a line\'s marker to drag and reorder it.' },
-            { id: 'selectLines', title: 'Select & bulk-edit lines', icon: '☑', body: 'Tap the ☑ button in a note\'s formatting toolbar to turn on line selection. Press and hold any line, then drag up or down to highlight a range — dragging past the top or bottom edge scrolls the note for you. The toolbar swaps to show actions for every highlighted line at once: switch them all to bulleted/numbered/checklist/plain text, toggle bold/italic/underline, or delete them entirely. Tap ✕ (or the ☑ button again) to exit.' },
+            { id: 'selectLines', title: 'Select & bulk-edit lines', icon: '☑', body: 'Tap the ☑ button in a note\'s formatting toolbar to turn on line selection. Press and hold any line, then drag up or down to highlight a range — dragging past the top or bottom edge scrolls the note for you. Selections don\'t have to be one continuous run: press and hold another line (without dragging) to add just that line, and repeat to build up any combination. A quick tap on a highlighted line removes only that line from the selection. The toolbar swaps to show actions for every highlighted line at once: switch them all to bulleted/numbered/checklist/plain text, toggle bold/italic/underline, or delete them entirely. Tap ✕ (or the ☑ button again) to exit.' },
             { id: 'categories', title: 'Categories', icon: '🏷', body: 'Tap "Uncategorized" (or a note\'s existing categories) near the top of a note to assign one or more categories, or create a new one on the spot with its own color. Category chips at the top of the dashboard let you filter to just that category. Manage, rename, recolor, or delete categories any time from Settings — drag a category\'s ⠿ handle there to reorder it.' },
             { id: 'folderView', title: 'Folder view', icon: '📁', body: 'Tap the 📁 icon on the dashboard to switch the category chips into a grid of folder tiles instead, each showing how many notes it holds. Unlike the chip row, folder view starts with nothing selected — tap a folder to see its notes, and tap that same folder again to hide them. Switching back to chips always shows "All" again. Your choice of chips or folders is remembered the next time you open the app. Pick from 15 different folder icon styles under "Folder icon theme" in Settings.' },
             { id: 'backgrounds', title: 'Backgrounds & themes', icon: '🎨', body: 'Every note can have its own background — tap the 🎨 button in its editor. Choose from solid colors or the animated gradient themes, including Rainbow, which uses white text so it stays readable over every color in the gradient. You can also set a default background for new notes and a separate background for the dashboard itself, both in Settings.' },
             { id: 'lock', title: 'Note lock (PIN)', icon: '🔒', body: 'Set a PIN in Settings, then lock any individual note from its editor (🔒 button). A locked note shows only its title on the dashboard until the PIN is entered — once unlocked, it stays unlocked for the rest of your session. Change or remove your PIN any time from Settings. If you forget your PIN, open Settings and tap "Change PIN" or "Remove PIN" — a small hidden button in the corner of that screen reveals a "Forgot your PIN?" option that removes it immediately, no confirmation needed, so don\'t tap it by accident.' },
             { id: 'templates', title: 'Templates', icon: '📄', body: 'Save any note as a reusable template from its editor menu (📑 button), then start new notes from it via the "New note" screen. Templates carry over their body text, background, and categories, so you don\'t have to rebuild a note from scratch each time.' },
-            { id: 'tables', title: 'Custom tables', icon: '📊', body: 'Any note can hold as many tables as you like — tap "+ Add table" below the note body, then either start from the Mileage preset (Date, Start Point, End Point, Miles) or build your own columns from scratch. Every column has a type: Text, Number, or Date. Number columns keep a running total at the bottom of their table, and Date columns work with that table\'s "Today" and "Pick Date" buttons — tap one with a date cell selected to fill that cell, or with nothing selected to add a new row already filled in with that date. Pressing Enter moves to the next cell, and Enter in the very last cell of the last row adds a fresh row automatically. Tap a table\'s name to rename it, tap ✎ to add, rename, retype, or remove its columns, and tap the ▾ to minimize a table out of the way — it stays minimized the next time you open that note. Export any table to CSV from the button next to its name (hidden while minimized). Notes that had the old Mileage Table feature keep all their data — it shows up as a regular table now.' },
+            { id: 'tables', title: 'Custom tables', icon: '📊', body: 'Any note can hold as many tables as you like — tap "+ Add table" below the note body, then either start from the Mileage preset (Date, Start Point, End Point, Miles) or build your own columns from scratch. Every column has a type: Text, Number, or Date. Number columns keep a running total at the bottom of their table, and Date columns work with that table\'s "Today" and "Pick Date" buttons — tap one with a date cell selected to fill that cell, or with nothing selected to add a new row already filled in with that date. Pressing Enter moves to the next cell, and Enter in the very last cell of the last row adds a fresh row automatically. Tap a table\'s name to rename it, tap ✎ to add, rename, retype, remove, or drag-reorder its columns, and tap the ▾ to minimize a table out of the way — it stays minimized the next time you open that note. Inside ✎ you can also save the table\'s name and column layout as a template — it then shows up as a one-tap preset in "+ Add table", and can be renamed or deleted from Settings. When a note has more than one table, drag the ⠿ handle next to a table\'s name to reorder them. Export any table to CSV from the button next to its name (hidden while minimized). Notes that had the old Mileage Table feature keep all their data — it shows up as a regular table now.' },
             { id: 'photos', title: 'Photos', icon: '📷', body: 'Add photos to a note with the Camera, Gallery, or Files buttons at the bottom of its editor. The first photo shows as a thumbnail on the note\'s dashboard card, and a badge shows how many photos a note has.' },
             { id: 'calendar', title: 'Calendar date picker', icon: '📅', body: 'The calendar button in a note\'s formatting toolbar opens a built-in date picker, so there\'s no fighting with your device\'s native one. Browse up to 5 years in either direction and tap a day to insert that date wherever your cursor was.' },
             { id: 'undo', title: 'Undo', icon: '↩', body: 'The undo button (↩, appears once you\'ve made a change) reverts the most recent edit to a note — text, title, category, background, or an inserted date. It only covers the current editing session and isn\'t a full history, so it\'s meant for quickly reverting a mistake, not stepping back through every change ever made.' },
@@ -2980,9 +3031,13 @@
             return true;
         });
 
-        function CategoryManagerSheet({ background, categories, onAdd, onRename, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground, dashboardBackground, onChangeDashboardBackground, hasPin, onStartPinSetup, onStartPinChange, onStartPinRemove, onOpenHelp, folderIconTheme, onChangeFolderIconTheme, appIdentity, onChangeAppIdentity }) {
+        function CategoryManagerSheet({ background, categories, onAdd, onRename, onChangeColor, onDelete, onClose, draggingCategoryId, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onExport, onImportFile, importError, defaultNoteBackground, onChangeDefaultNoteBackground, dashboardBackground, onChangeDashboardBackground, hasPin, onStartPinSetup, onStartPinChange, onStartPinRemove, onOpenHelp, folderIconTheme, onChangeFolderIconTheme, appIdentity, onChangeAppIdentity, tableTemplates, onRenameTableTemplate, onDeleteTableTemplate }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
+            // Which category's color is being edited (its swatch grid is
+            // expanded under the row) — one at a time, tap the dot again to
+            // collapse without picking.
+            const [colorEditCategoryId, setColorEditCategoryId] = useState(null);
             const importInputRef = useRef(null);
             const dark = isThemeDark(background);
 
@@ -2997,32 +3052,52 @@
                             <p className="sheet-muted-text" style={{ fontSize: 12, marginTop: -4 }}>Drag ⠿ to reorder.</p>
                         ) : null}
                         {categories.map((cat) => (
-                            <div
-                                className={'category-manager-row' + (draggingCategoryId === cat.id ? ' dragging' : '')}
-                                key={cat.id}
-                                data-category-id={cat.id}
-                            >
-                                <span
-                                    className="category-drag-handle"
-                                    style={{ touchAction: 'none' }}
-                                    onPointerDown={(e) => onHandlePointerDown(e, cat.id)}
-                                    onPointerMove={onHandlePointerMove}
-                                    onPointerUp={onHandlePointerUp}
-                                    onPointerCancel={onHandlePointerUp}
-                                >⠿</span>
-                                <span className="color-dot" style={{ background: cat.color, width: 12, height: 12 }}></span>
-                                <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
-                                    <input
-                                        type="text"
-                                        autoComplete="category-name-nofill"
-                                        data-lpignore="true"
-                                        data-form-type="other"
-                                        value={cat.name}
-                                        onChange={(e) => onRename(cat.id, e.target.value)}
-                                    />
-                                </form>
-                                <button className="small-icon-btn" onClick={() => onDelete(cat.id)}>✕</button>
-                            </div>
+                            <React.Fragment key={cat.id}>
+                                <div
+                                    className={'category-manager-row' + (draggingCategoryId === cat.id ? ' dragging' : '')}
+                                    data-category-id={cat.id}
+                                >
+                                    <span
+                                        className="category-drag-handle"
+                                        style={{ touchAction: 'none' }}
+                                        onPointerDown={(e) => onHandlePointerDown(e, cat.id)}
+                                        onPointerMove={onHandlePointerMove}
+                                        onPointerUp={onHandlePointerUp}
+                                        onPointerCancel={onHandlePointerUp}
+                                    >⠿</span>
+                                    <button
+                                        type="button"
+                                        className="category-color-btn"
+                                        title="Change color"
+                                        onClick={() => setColorEditCategoryId((cur) => cur === cat.id ? null : cat.id)}
+                                    >
+                                        <span className="color-dot" style={{ background: cat.color, width: 12, height: 12 }}></span>
+                                    </button>
+                                    <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                                        <input
+                                            type="text"
+                                            autoComplete="category-name-nofill"
+                                            data-lpignore="true"
+                                            data-form-type="other"
+                                            value={cat.name}
+                                            onChange={(e) => onRename(cat.id, e.target.value)}
+                                        />
+                                    </form>
+                                    <button className="small-icon-btn" onClick={() => onDelete(cat.id)}>✕</button>
+                                </div>
+                                {colorEditCategoryId === cat.id ? (
+                                    <div className="swatch-row" style={{ padding: '8px 0 10px 24px' }}>
+                                        {CATEGORY_COLORS.map((c) => (
+                                            <button
+                                                key={c}
+                                                className={'swatch' + (cat.color === c ? ' selected' : '')}
+                                                style={{ background: c }}
+                                                onClick={() => { onChangeColor(cat.id, c); setColorEditCategoryId(null); }}
+                                            ></button>
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </React.Fragment>
                         ))}
                         <div className="add-category-form">
                             <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
@@ -3086,6 +3161,30 @@
                             ))}
                         </div>
                         <p className="sheet-muted-text" style={{ fontSize: 11, marginTop: 4 }}>Only applies when the dashboard is in folder view (📁 icon on the dashboard).</p>
+
+                        <div className="settings-divider"></div>
+                        <div className="section-label">Table templates</div>
+                        {(tableTemplates || []).length === 0 ? (
+                            <p className="sheet-muted-text" style={{ fontSize: 12 }}>No saved table templates yet. Open a table's ✎ column editor and tap "Save layout as template".</p>
+                        ) : (
+                            (tableTemplates || []).map((tpl) => (
+                                <div className="category-manager-row" key={tpl.id}>
+                                    <span aria-hidden="true" style={{ flex: '0 0 auto' }}>📋</span>
+                                    <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
+                                        <input
+                                            type="text"
+                                            autoComplete="table-template-nofill"
+                                            data-lpignore="true"
+                                            data-form-type="other"
+                                            value={tpl.name}
+                                            onChange={(e) => onRenameTableTemplate(tpl.id, e.target.value)}
+                                        />
+                                    </form>
+                                    <span className="sheet-muted-text" style={{ fontSize: 11, flex: '0 0 auto' }}>{tpl.columns.length} col{tpl.columns.length === 1 ? '' : 's'}</span>
+                                    <button className="small-icon-btn" title="Delete template" onClick={() => onDeleteTableTemplate(tpl.id)}>✕</button>
+                                </div>
+                            ))
+                        )}
 
                         {APP_IDENTITY_OPTIONS.length > 1 ? (
                             <React.Fragment>
@@ -3283,8 +3382,9 @@
                 if (onCellBlur) onCellBlur();
             };
 
-            // One running total per number-typed column, shown side by side
-            // in the bar under the table (the old single "Total Miles" box,
+            // One running total per number-typed column, shown in a <tfoot>
+            // row so each total sits (and horizontally scrolls) directly
+            // under its own column (the old single "Total Miles" box,
             // generalized).
             const numberTotals = columns
                 .map((col, colIdx) => {
@@ -3331,19 +3431,28 @@
                                     </tr>
                                 ))}
                             </tbody>
+                            {numberTotals.length > 0 ? (
+                                <tfoot>
+                                    <tr className="mileage-total-row">
+                                        {columns.map((col) => {
+                                            const entry = numberTotals.find((nt) => nt.col.id === col.id);
+                                            return (
+                                                <td key={col.id}>
+                                                    {entry ? (
+                                                        <React.Fragment>
+                                                            <span className="mileage-total-label">Total {col.name}</span>
+                                                            <div className="mileage-total-box">{entry.total}</div>
+                                                        </React.Fragment>
+                                                    ) : null}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                </tfoot>
+                            ) : null}
                         </table>
                         </form>
                     </div>
-                    {numberTotals.length > 0 ? (
-                        <div className="mileage-total-bar">
-                            {numberTotals.map(({ col, total }) => (
-                                <React.Fragment key={col.id}>
-                                    <span className="mileage-total-label">Total {col.name}</span>
-                                    <div className="mileage-total-box">{total}</div>
-                                </React.Fragment>
-                            ))}
-                        </div>
-                    ) : null}
                 </div>
             );
         });
@@ -3628,14 +3737,67 @@
         }
 
         // Shared column-list builder used by both table sheets below: one
-        // row per column with a name input, a Text/Number/Date type picker,
-        // and a remove button (at least one column always remains).
+        // row per column with a ⠿ drag handle (reorder), a name input, a
+        // Text/Number/Date type picker, and a remove button (at least one
+        // column always remains). Reordering uses the same dedicated-handle
+        // pointer pattern as category rows in Settings — drag starts
+        // immediately on the handle (no long-press needed), and because
+        // only the handle is a drag surface, the name input and type select
+        // keep normal focus/typing behavior.
         function ColumnListEditor({ columns, onChange }) {
             const setCol = (id, patch) => onChange(columns.map((c) => c.id === id ? { ...c, ...patch } : c));
+            const dragRef = useRef({ pointerId: null, colId: null });
+            const [draggingColId, setDraggingColId] = useState(null);
+
+            const handleHandlePointerDown = (e, colId) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                dragRef.current = { pointerId: e.pointerId, colId };
+                setDraggingColId(colId);
+                if (navigator.vibrate) navigator.vibrate(12);
+            };
+
+            const handleHandlePointerMove = (e) => {
+                if (dragRef.current.pointerId !== e.pointerId || !dragRef.current.colId) return;
+                e.preventDefault();
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                const rowEl = el && el.closest('[data-col-id]');
+                const targetId = rowEl && rowEl.getAttribute('data-col-id');
+                if (targetId && targetId !== dragRef.current.colId) {
+                    const dragIdx = columns.findIndex((c) => c.id === dragRef.current.colId);
+                    const targetIdx = columns.findIndex((c) => c.id === targetId);
+                    if (dragIdx !== -1 && targetIdx !== -1) {
+                        const reordered = [...columns];
+                        const [moved] = reordered.splice(dragIdx, 1);
+                        reordered.splice(targetIdx, 0, moved);
+                        onChange(reordered);
+                    }
+                }
+            };
+
+            const handleHandlePointerUp = () => {
+                dragRef.current = { pointerId: null, colId: null };
+                setDraggingColId(null);
+            };
+
             return (
                 <React.Fragment>
+                    {columns.length > 1 ? (
+                        <p className="sheet-muted-text" style={{ fontSize: 12, marginTop: -4, marginBottom: 8 }}>Drag ⠿ to reorder columns.</p>
+                    ) : null}
                     {columns.map((col, i) => (
-                        <div className="table-col-editor-row" key={col.id}>
+                        <div
+                            className={'table-col-editor-row' + (draggingColId === col.id ? ' dragging' : '')}
+                            key={col.id}
+                            data-col-id={col.id}
+                        >
+                            <span
+                                className="category-drag-handle"
+                                style={{ touchAction: 'none' }}
+                                onPointerDown={(e) => handleHandlePointerDown(e, col.id)}
+                                onPointerMove={handleHandlePointerMove}
+                                onPointerUp={handleHandlePointerUp}
+                                onPointerCancel={handleHandlePointerUp}
+                            >⠿</span>
                             <input
                                 type="text"
                                 autoComplete="table-column-nofill"
@@ -3679,9 +3841,24 @@
             return columns.map((c, i) => ({ id: c.id, name: c.name.trim() || ('Column ' + (i + 1)), type: c.type }));
         }
 
-        // "+ Add table": one-tap Mileage preset up top, or a fully custom
-        // name + column list below it.
-        function TableCreatorSheet({ onCreate, onClose }) {
+        // Builds a fresh, row-less table from a saved column-layout
+        // template. Column ids are re-minted (same convention as
+        // makeMileageTable) so two tables created from the same template
+        // never share column ids.
+        function makeTableFromTemplate(tpl) {
+            return {
+                id: makeId(),
+                name: tpl.name,
+                columns: tpl.columns.map((c) => ({ id: makeId(), name: c.name, type: c.type })),
+                rows: [],
+                collapsed: false,
+            };
+        }
+
+        // "+ Add table": one-tap Mileage preset up top (plus any user-saved
+        // column-layout templates), or a fully custom name + column list
+        // below them.
+        function TableCreatorSheet({ onCreate, onClose, tableTemplates }) {
             const [name, setName] = useState('');
             const [columns, setColumns] = useState([
                 { id: makeId(), name: '', type: 'text' },
@@ -3695,6 +3872,12 @@
                             <span className="table-preset-title">📊 Mileage</span>
                             <span className="table-preset-desc">Date · Start Point · End Point · Miles (with total)</span>
                         </button>
+                        {(tableTemplates || []).map((tpl) => (
+                            <button key={tpl.id} type="button" className="table-preset-btn" onClick={() => onCreate(makeTableFromTemplate(tpl))}>
+                                <span className="table-preset-title">📋 {tpl.name}</span>
+                                <span className="table-preset-desc">{tpl.columns.map((c) => c.name).join(' · ')}</span>
+                            </button>
+                        ))}
                         <div className="section-label" style={{ marginTop: 0 }}>Or start blank</div>
                         <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
                             <input
@@ -3721,11 +3904,15 @@
             );
         }
 
-        // ✎ on an existing table: add/rename/retype/remove columns. Edits are
-        // staged locally and only land (via onApply) on Save — cell data is
-        // re-aligned there by column id, so renames/retypes never touch it.
-        function TableColumnsSheet({ table, onApply, onClose }) {
+        // ✎ on an existing table: add/rename/retype/remove/reorder columns.
+        // Edits are staged locally and only land (via onApply) on Save —
+        // cell data is re-aligned there by column id, so renames/retypes/
+        // reorders never touch it. Also hosts "Save layout as template",
+        // which snapshots the table's name + current column layout (never
+        // its rows) into Settings for reuse from the "+ Add table" sheet.
+        function TableColumnsSheet({ table, onApply, onClose, onSaveAsTemplate }) {
             const [columns, setColumns] = useState(table.columns.map((c) => ({ ...c })));
+            const [templateSaved, setTemplateSaved] = useState(false);
             return (
                 <div className="sheet-backdrop centered" onClick={onClose}>
                     <div className="sheet" onClick={(e) => e.stopPropagation()}>
@@ -3734,6 +3921,18 @@
                         <form autoComplete="off" onSubmit={(e) => e.preventDefault()} style={{ display: 'contents' }}>
                             <ColumnListEditor columns={columns} onChange={setColumns} />
                         </form>
+                        {onSaveAsTemplate ? (
+                            <button
+                                type="button"
+                                className="secondary-btn"
+                                style={{ width: '100%', marginBottom: 14, padding: '8px 12px', fontSize: 13 }}
+                                disabled={templateSaved}
+                                onClick={() => {
+                                    onSaveAsTemplate(table.name, finalizeColumnNames(columns));
+                                    setTemplateSaved(true);
+                                }}
+                            >{templateSaved ? '✓ Saved — find it under "+ Add table"' : '💾 Save layout as template'}</button>
+                        ) : null}
                         <div className="btn-row">
                             <button className="secondary-btn" onClick={onClose}>Cancel</button>
                             <button className="primary-btn" onClick={() => onApply(finalizeColumnNames(columns))}>Save columns</button>
@@ -3789,6 +3988,7 @@
             const [pin, setPin] = useState('');
             const [confirmPin, setConfirmPin] = useState('');
             const [error, setError] = useState('');
+            const confirmInputRef = useRef(null);
 
             const submit = () => {
                 if (pin.length < 4) { setError('PIN must be at least 4 digits.'); return; }
@@ -3812,6 +4012,7 @@
                                 placeholder="Enter PIN"
                                 value={pin}
                                 onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setError(''); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (confirmInputRef.current) confirmInputRef.current.focus(); } }}
                                 autoFocus
                                 style={{ width: '100%', border: '1px solid #e2e4e9', borderRadius: 10, padding: '10px 12px', fontSize: 16, marginBottom: 10, boxSizing: 'border-box', letterSpacing: 4 }}
                             />
@@ -3825,7 +4026,9 @@
                                 data-form-type="other"
                                 placeholder="Confirm PIN"
                                 value={confirmPin}
+                                ref={confirmInputRef}
                                 onChange={(e) => { setConfirmPin(e.target.value.replace(/\D/g, '')); setError(''); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
                                 style={{ width: '100%', border: '1px solid #e2e4e9', borderRadius: 10, padding: '10px 12px', fontSize: 16, marginBottom: 10, boxSizing: 'border-box', letterSpacing: 4 }}
                             />
                         </form>
@@ -3890,6 +4093,7 @@
                                 placeholder="PIN"
                                 value={pin}
                                 onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setError(''); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
                                 autoFocus
                                 style={{ width: '100%', border: '1px solid #e2e4e9', borderRadius: 10, padding: '10px 12px', fontSize: 16, marginBottom: 10, boxSizing: 'border-box', letterSpacing: 4 }}
                             />
@@ -4261,8 +4465,11 @@
                 style: { marginLeft: (block.indent || 0) * LINE_INDENT_PX, touchAction: 'none' },
                 onPointerDown: (e) => onLineSelectPointerDown(e, idx),
                 onPointerMove: onLineSelectPointerMove,
-                onPointerUp: onLineSelectPointerUp,
-                onPointerCancel: onLineSelectPointerUp,
+                // Up carries the row index so a quick tap can toggle this
+                // line off; cancel deliberately doesn't (an aborted gesture
+                // should never change the selection).
+                onPointerUp: (e) => onLineSelectPointerUp(e, idx),
+                onPointerCancel: () => onLineSelectPointerUp(),
             } : {
                 style: { marginLeft: (block.indent || 0) * LINE_INDENT_PX },
             };
@@ -4295,7 +4502,7 @@
             );
         }
 
-        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate, templates, isTemplate, hasPin, onSetPin, editorIconOrder, onChangeEditorIconOrder }) {
+        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate, templates, isTemplate, hasPin, onSetPin, editorIconOrder, onChangeEditorIconOrder, tableTemplates, onSaveTableTemplate }) {
             const [draft, setDraft] = useState(note);
             const [editingBlockId, setEditingBlockId] = useState(null);
             const [confirmTrash, setConfirmTrash] = useState(false);
@@ -4337,8 +4544,18 @@
             // long-press) so normal touch-scrolling through a note's text is
             // never affected — see handleLineSelectPointerDown below for why.
             const [lineSelectMode, setLineSelectMode] = useState(false);
-            const [lineSelection, setLineSelection] = useState(null); // { anchorIdx, endIdx } | null
-            const lineSelectDragRef = useRef({ pointerId: null, active: false, timer: null, startX: 0, startY: 0, anchorIdx: null });
+            // The selection is an arbitrary set of block ids (kept as an
+            // array), not a single contiguous range: a press-and-drag adds a
+            // contiguous run of lines on top of whatever is already selected,
+            // a long-press (without dragging) adds just that one line, and a
+            // quick tap on an already-selected line removes it — so
+            // non-contiguous selections are built up across gestures.
+            const [selectedLineIdList, setSelectedLineIdList] = useState([]);
+            // baseIds snapshots the selection as it stood when the current
+            // press-and-drag activated, so dragging only ever unions the
+            // in-progress range with it (shrinking the drag un-selects lines
+            // from this gesture, never previously-selected ones).
+            const lineSelectDragRef = useRef({ pointerId: null, active: false, timer: null, startX: 0, startY: 0, anchorIdx: null, baseIds: [] });
             const lineAutoScrollRef = useRef(null);
             const editorBodyRef = useRef(null);
             const cameraInputRef = useRef(null);
@@ -4352,6 +4569,12 @@
             const removedTableToastTimer = useRef(null);
             const blockDragRef = useRef({ pointerId: null, blockId: null, timer: null, dragging: false, startX: 0, startY: 0 });
             const justDraggedBlockRef = useRef(false);
+            // Drag-to-reorder for whole tables (⠿ handle in each table's
+            // header row) — dedicated-handle pattern like category rows, so
+            // the drag starts immediately on the handle and never fights the
+            // name input / collapse / CSV / ✎ buttons sharing that row.
+            const tableDragRef = useRef({ pointerId: null, tableId: null, moved: false });
+            const [draggingTableId, setDraggingTableId] = useState(null);
             // One shared CalendarPickerSheet serves the body line toolbar,
             // the title field, and every table's date-typed columns. This
             // holds where a picked date should land, captured at the moment
@@ -4416,7 +4639,7 @@
             useBackClose(confirmClearAll, () => setConfirmClearAll(false));
             useBackClose(showCategoryPicker, () => setShowCategoryPicker(false));
             useBackClose(showDatePickerSheet, () => setShowDatePickerSheet(false));
-            useBackClose(lineSelectMode, () => { setLineSelectMode(false); setLineSelection(null); });
+            useBackClose(lineSelectMode, () => { setLineSelectMode(false); setSelectedLineIdList([]); });
 
             const resolvedEditorIconOrder = resolveIconOrder(editorIconOrder, DEFAULT_EDITOR_ICON_ORDER);
             const editorIconDrag = useIconReorder(resolvedEditorIconOrder, (order) => onChangeEditorIconOrder && onChangeEditorIconOrder(order));
@@ -4835,12 +5058,26 @@
                 }
             };
 
+            // Document-order union of a base id list with the contiguous
+            // index range [a..b] — keeps selectedLineIdList free of dupes
+            // and ordered the way the note reads.
+            const unionWithRange = (baseIds, a, b) => {
+                const lo = Math.min(a, b);
+                const hi = Math.max(a, b);
+                const idSet = new Set(baseIds);
+                draft.blocks.forEach((blk, i) => { if (i >= lo && i <= hi) idSet.add(blk.id); });
+                return draft.blocks.filter((blk) => idSet.has(blk.id)).map((blk) => blk.id);
+            };
+
             const handleLineSelectPointerDown = (e, idx) => {
                 e.currentTarget.setPointerCapture(e.pointerId);
-                lineSelectDragRef.current = { pointerId: e.pointerId, active: false, timer: null, startX: e.clientX, startY: e.clientY, anchorIdx: idx };
+                lineSelectDragRef.current = { pointerId: e.pointerId, active: false, timer: null, startX: e.clientX, startY: e.clientY, anchorIdx: idx, baseIds: selectedLineIdList };
                 lineSelectDragRef.current.timer = setTimeout(() => {
+                    // Long-press: this line joins the existing selection (it
+                    // does NOT replace it), and becomes the anchor of a
+                    // possible follow-on drag.
                     lineSelectDragRef.current.active = true;
-                    setLineSelection({ anchorIdx: idx, endIdx: idx });
+                    setSelectedLineIdList(unionWithRange(lineSelectDragRef.current.baseIds, idx, idx));
                     if (navigator.vibrate) navigator.vibrate(12);
                 }, 350);
             };
@@ -4863,14 +5100,26 @@
                 const targetId = rowEl && rowEl.getAttribute('data-block-id');
                 if (targetId) {
                     const idx = draft.blocks.findIndex((b) => b.id === targetId);
-                    if (idx !== -1) setLineSelection((sel) => sel ? { ...sel, endIdx: idx } : sel);
+                    if (idx !== -1) setSelectedLineIdList(unionWithRange(lineSelectDragRef.current.baseIds, lineSelectDragRef.current.anchorIdx, idx));
                 }
             };
 
-            const handleLineSelectPointerUp = () => {
-                clearTimeout(lineSelectDragRef.current.timer);
+            const handleLineSelectPointerUp = (e, idx) => {
+                const ref = lineSelectDragRef.current;
+                clearTimeout(ref.timer);
                 stopLineAutoScroll();
-                lineSelectDragRef.current = { pointerId: null, active: false, timer: null, startX: 0, startY: 0, anchorIdx: null };
+                // A quick tap (released before the long-press timer fired,
+                // without wandering into a scroll) on an already-selected
+                // line un-selects just that line. Tapping an unselected line
+                // does nothing — adding is deliberate (long-press/drag) so a
+                // stray tap can't quietly grow the selection.
+                if (!ref.active && ref.anchorIdx !== null && typeof idx === 'number') {
+                    const block = draft.blocks[idx];
+                    if (block && selectedLineIdList.includes(block.id)) {
+                        setSelectedLineIdList((prev) => prev.filter((id) => id !== block.id));
+                    }
+                }
+                lineSelectDragRef.current = { pointerId: null, active: false, timer: null, startX: 0, startY: 0, anchorIdx: null, baseIds: [] };
             };
 
             // The --keyboard-inset padding gives .editor-body room to scroll
@@ -4908,8 +5157,9 @@
                 }
             };
 
-            const lineSelectionRange = lineSelection ? [Math.min(lineSelection.anchorIdx, lineSelection.endIdx), Math.max(lineSelection.anchorIdx, lineSelection.endIdx)] : null;
-            const selectedLineIds = lineSelectionRange ? draft.blocks.slice(lineSelectionRange[0], lineSelectionRange[1] + 1).map((b) => b.id) : [];
+            // Filtered against the live blocks so ids of since-removed lines
+            // can never leak into the bulk actions below.
+            const selectedLineIds = selectedLineIdList.filter((id) => draft.blocks.some((b) => b.id === id));
 
             const applyTypeToSelection = (type) => {
                 if (!selectedLineIds.length) return;
@@ -4947,7 +5197,7 @@
                     const remaining = d.blocks.filter((b) => !selectedLineIds.includes(b.id));
                     return { ...d, blocks: remaining.length > 0 ? remaining : [{ id: makeId(), type: 'text', html: '' }] };
                 });
-                setLineSelection(null);
+                setSelectedLineIdList([]);
                 setLineSelectMode(false);
                 setEditingBlockId(null);
             };
@@ -5120,6 +5370,44 @@
             // leaving every other table untouched.
             const updateOneTable = (tableId, updater) => {
                 setDraft((d) => ({ ...d, tables: (d.tables || []).map(t => t.id === tableId ? updater(t) : t) }));
+            };
+
+            const handleTableHandlePointerDown = (e, tableId) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                tableDragRef.current = { pointerId: e.pointerId, tableId, moved: false };
+                setDraggingTableId(tableId);
+                if (navigator.vibrate) navigator.vibrate(12);
+            };
+
+            const handleTableHandlePointerMove = (e) => {
+                if (tableDragRef.current.pointerId !== e.pointerId || !tableDragRef.current.tableId) return;
+                e.preventDefault();
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                const rowEl = el && el.closest('[data-table-drag-id]');
+                const targetId = rowEl && rowEl.getAttribute('data-table-drag-id');
+                if (targetId && targetId !== tableDragRef.current.tableId) {
+                    // One history entry per completed drag, pushed lazily on
+                    // the first actual move so a no-op press doesn't pollute
+                    // the undo stack.
+                    if (!tableDragRef.current.moved) {
+                        tableDragRef.current.moved = true;
+                        pushEditHistory();
+                    }
+                    setDraft((d) => {
+                        const tables = [...(d.tables || [])];
+                        const dragIdx = tables.findIndex((t) => t.id === tableDragRef.current.tableId);
+                        const targetIdx = tables.findIndex((t) => t.id === targetId);
+                        if (dragIdx === -1 || targetIdx === -1) return d;
+                        const [moved] = tables.splice(dragIdx, 1);
+                        tables.splice(targetIdx, 0, moved);
+                        return { ...d, tables };
+                    });
+                }
+            };
+
+            const handleTableHandlePointerUp = () => {
+                tableDragRef.current = { pointerId: null, tableId: null, moved: false };
+                setDraggingTableId(null);
             };
 
             // Collapse is a view preference, not a content edit — no history
@@ -5362,7 +5650,7 @@
                                     onSetType={applyTypeToSelection}
                                     onFormat={applyFormatToSelection}
                                     onDelete={deleteSelectedLines}
-                                    onDone={() => { setLineSelectMode(false); setLineSelection(null); }}
+                                    onDone={() => { setLineSelectMode(false); setSelectedLineIdList([]); }}
                                 />
                             ) : (
                                 <React.Fragment>
@@ -5406,7 +5694,7 @@
                                                 if (el) commitBlockHtml(editingBlockId, el.innerHTML);
                                             }
                                             setLineSelectMode(true);
-                                            setLineSelection(null);
+                                            setSelectedLineIdList([]);
                                             setEditingBlockId(null);
                                         }}
                                         onDismissKeyboard={() => { if (document.activeElement) document.activeElement.blur(); }}
@@ -5440,7 +5728,7 @@
                                     onMarkerPointerMove={handleMarkerPointerMove}
                                     onMarkerPointerUp={handleMarkerPointerUp}
                                     selectMode={lineSelectMode}
-                                    isSelected={lineSelectionRange ? idx >= lineSelectionRange[0] && idx <= lineSelectionRange[1] : false}
+                                    isSelected={selectedLineIds.includes(block.id)}
                                     onLineSelectPointerDown={handleLineSelectPointerDown}
                                     onLineSelectPointerMove={handleLineSelectPointerMove}
                                     onLineSelectPointerUp={handleLineSelectPointerUp}
@@ -5453,7 +5741,25 @@
                             const hasDateColumn = table.columns.some((c) => c.type === 'date');
                             return (
                                 <React.Fragment key={table.id}>
-                                    <div className="section-label-row">
+                                    <div
+                                        className={'section-label-row' + (draggingTableId === table.id ? ' dragging' : '')}
+                                        data-table-drag-id={table.id}
+                                    >
+                                        {(draft.tables || []).length > 1 ? (
+                                            <span
+                                                className="category-drag-handle"
+                                                title="Drag to reorder tables"
+                                                // zIndex keeps the handle's own hit area on top of the
+                                                // collapse button's negative-margin hit slop, which
+                                                // otherwise overlaps (and would steal) the handle's
+                                                // right edge.
+                                                style={{ touchAction: 'none', position: 'relative', zIndex: 1, padding: '10px 6px', margin: '-10px 0' }}
+                                                onPointerDown={(e) => handleTableHandlePointerDown(e, table.id)}
+                                                onPointerMove={handleTableHandlePointerMove}
+                                                onPointerUp={handleTableHandlePointerUp}
+                                                onPointerCancel={handleTableHandlePointerUp}
+                                            >⠿</span>
+                                        ) : null}
                                         <button
                                             type="button"
                                             className="section-collapse-btn"
@@ -5503,61 +5809,74 @@
                                                 onCellFocus={handleTableCellFocus}
                                                 onCellBlur={handleTableCellBlur}
                                             />
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10, marginTop: 10 }}>
-                                                {hasDateColumn ? (
+                                            {/* Two deliberate groups — constructive (Today / Pick
+                                                Date / + Row) left, destructive (Remove Row / Remove
+                                                Table) right. Each group is its own flex item, so
+                                                when the row is too narrow the destructive pair
+                                                wraps as a unit instead of a stray margin-left:auto
+                                                shoving one button to the far edge and orphaning the
+                                                other on its own line (the v105 layout bug). */}
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6, rowGap: 10, marginTop: 10 }}>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10 }}>
+                                                    {hasDateColumn ? (
+                                                        <button
+                                                            className="secondary-btn table-action-btn"
+                                                            onMouseDown={(e) => e.preventDefault()}
+                                                            onClick={() => {
+                                                                const ref = tableRefs.current[table.id];
+                                                                if (dateCellActiveTableId === table.id && ref) {
+                                                                    ref.fillActiveDateCellWithToday();
+                                                                } else {
+                                                                    addTableRowWithToday(table.id);
+                                                                }
+                                                            }}
+                                                        >
+                                                            📅 Today
+                                                        </button>
+                                                    ) : null}
+                                                    {hasDateColumn ? (
+                                                        <button
+                                                            className="secondary-btn table-action-btn"
+                                                            onMouseDown={(e) => { e.preventDefault(); openDateSheetForTable(table.id); }}
+                                                        >
+                                                            📅 Pick Date
+                                                        </button>
+                                                    ) : null}
                                                     <button
                                                         className="secondary-btn table-action-btn"
-                                                        onMouseDown={(e) => e.preventDefault()}
-                                                        onClick={() => {
-                                                            const ref = tableRefs.current[table.id];
-                                                            if (dateCellActiveTableId === table.id && ref) {
-                                                                ref.fillActiveDateCellWithToday();
-                                                            } else {
-                                                                addTableRowWithToday(table.id);
-                                                            }
-                                                        }}
+                                                        onClick={() => addTableRow(table.id)}
                                                     >
-                                                        📅 Today
+                                                        ➕ Row
                                                     </button>
-                                                ) : null}
-                                                {hasDateColumn ? (
+                                                </div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10 }}>
                                                     <button
                                                         className="secondary-btn table-action-btn"
-                                                        onMouseDown={(e) => { e.preventDefault(); openDateSheetForTable(table.id); }}
+                                                        disabled={table.rows.length === 0}
+                                                        onClick={() => setConfirmRemoveRow(table.id)}
                                                     >
-                                                        📅 Pick Date
+                                                        🗑 Remove Row
                                                     </button>
-                                                ) : null}
-                                                <button
-                                                    className="secondary-btn table-action-btn"
-                                                    onClick={() => addTableRow(table.id)}
-                                                >
-                                                    ➕ Row
-                                                </button>
-                                                <button
-                                                    className="secondary-btn table-action-btn"
-                                                    style={{ marginLeft: 'auto' }}
-                                                    disabled={table.rows.length === 0}
-                                                    onClick={() => setConfirmRemoveRow(table.id)}
-                                                >
-                                                    🗑 Remove Row
-                                                </button>
-                                                <button
-                                                    className="secondary-btn table-action-btn"
-                                                    title="Remove table"
-                                                    onClick={() => setConfirmRemoveTable(table.id)}
-                                                >
-                                                    🗑 Remove Table
-                                                </button>
+                                                    <button
+                                                        className="secondary-btn table-action-btn"
+                                                        title="Remove table"
+                                                        onClick={() => setConfirmRemoveTable(table.id)}
+                                                    >
+                                                        🗑 Remove Table
+                                                    </button>
+                                                </div>
                                             </div>
                                         </React.Fragment>
                                     )}
                                 </React.Fragment>
                             );
                         })}
+                        {/* Auto-width and centered (was a full-width banner) so it
+                            reads as a quiet inline action rather than dominating
+                            the space under the note body. */}
                         <button
                             className="secondary-btn"
-                            style={{ width: '100%', marginTop: (draft.tables || []).length > 0 ? 14 : 20, padding: '10px 12px', fontSize: 13 }}
+                            style={{ display: 'block', margin: ((draft.tables || []).length > 0 ? 14 : 20) + 'px auto 0', padding: '8px 14px', fontSize: 13 }}
                             onClick={() => setShowTableCreator(true)}
                         >
                             ➕ Add table
@@ -5567,6 +5886,7 @@
                             <TableCreatorSheet
                                 onCreate={addTable}
                                 onClose={() => setShowTableCreator(false)}
+                                tableTemplates={tableTemplates}
                             />
                         ) : null}
 
@@ -5575,6 +5895,7 @@
                                 table={draft.tables.find((t) => t.id === columnEditorTableId)}
                                 onApply={(newColumns) => applyColumnEdits(columnEditorTableId, newColumns)}
                                 onClose={() => setColumnEditorTableId(null)}
+                                onSaveAsTemplate={onSaveTableTemplate}
                             />
                         ) : null}
 
@@ -5938,6 +6259,7 @@
             useEffect(() => {
                 const vv = window.visualViewport;
                 if (!vv) return undefined;
+                let lastInset = -1;
                 const updateKeyboardInset = () => {
                     const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
                     document.documentElement.style.setProperty('--keyboard-inset', inset + 'px');
@@ -5962,9 +6284,19 @@
                     // when the viewport shrinks after a field is already
                     // focused, leaving the focused field stuck wherever it
                     // was when the keyboard opened. Nudge it back into view
-                    // explicitly whenever the inset changes.
+                    // explicitly — but ONLY when the inset value actually
+                    // changes (keyboard opening/closing/resizing). This
+                    // handler is also wired to visualViewport 'scroll',
+                    // which fires while the user pans the visual viewport;
+                    // re-running scrollIntoView on every one of those events
+                    // yanks the scroll position back to the focused field,
+                    // making it impossible to scroll anywhere else while the
+                    // keyboard is up ("everything under the keyboard is
+                    // stuck").
+                    const insetChanged = inset !== lastInset;
+                    lastInset = inset;
                     const active = document.activeElement;
-                    if (active && inset > 0 && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+                    if (insetChanged && active && inset > 0 && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
                         active.scrollIntoView({ block: 'nearest' });
                     }
                 };
@@ -6369,6 +6701,46 @@
                 if (db && cat) idbPut(db, 'categories', { ...cat, name });
             };
 
+            const changeCategoryColor = (id, color) => {
+                setCategories((prev) => prev.map(c => c.id === id ? { ...c, color } : c));
+                const cat = categories.find(c => c.id === id);
+                if (db && cat) idbPut(db, 'categories', { ...cat, color });
+            };
+
+            // ----- Saved table column-layout templates (Settings-backed) -----
+            // Stored as settings.tableTemplates: [{ id, name, columns:
+            // [{ id, name, type }] }] — name + column layout only, never row
+            // data. Created from a table's ✎ column editor, listed in the
+            // "+ Add table" sheet, renamed/deleted in Settings.
+            const saveTableTemplate = (name, columns) => {
+                setSettings((s) => {
+                    const tpl = {
+                        id: makeId(),
+                        name: (name || '').trim() || 'Table template',
+                        columns: columns.map((c) => ({ id: c.id, name: c.name, type: c.type })),
+                    };
+                    const updated = { ...s, tableTemplates: [...(s.tableTemplates || []), tpl] };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+            };
+
+            const renameTableTemplate = (id, name) => {
+                setSettings((s) => {
+                    const updated = { ...s, tableTemplates: (s.tableTemplates || []).map(t => t.id === id ? { ...t, name } : t) };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+            };
+
+            const deleteTableTemplate = (id) => {
+                setSettings((s) => {
+                    const updated = { ...s, tableTemplates: (s.tableTemplates || []).filter(t => t.id !== id) };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+            };
+
             const deleteCategory = (id) => {
                 setCategories((prev) => prev.filter(c => c.id !== id));
                 if (db) idbDelete(db, 'categories', id);
@@ -6722,6 +7094,8 @@
                         isTemplate
                         editorIconOrder={settings.editorIconOrder}
                         onChangeEditorIconOrder={updateEditorIconOrder}
+                        tableTemplates={settings.tableTemplates || []}
+                        onSaveTableTemplate={saveTableTemplate}
                     />
                 );
             }
@@ -6744,6 +7118,8 @@
                         onSetPin={setAppPin}
                         editorIconOrder={settings.editorIconOrder}
                         onChangeEditorIconOrder={updateEditorIconOrder}
+                        tableTemplates={settings.tableTemplates || []}
+                        onSaveTableTemplate={saveTableTemplate}
                     />
                 );
             }
@@ -7080,6 +7456,7 @@
                             categories={categories}
                             onAdd={addCategory}
                             onRename={renameCategory}
+                            onChangeColor={changeCategoryColor}
                             onDelete={(id) => setDeleteCategoryId(id)}
                             onClose={() => { setShowCategoryManager(false); setImportError(''); }}
                             draggingCategoryId={draggingCategoryId}
@@ -7102,6 +7479,9 @@
                             onChangeFolderIconTheme={updateFolderIconTheme}
                             appIdentity={appIdentity}
                             onChangeAppIdentity={updateAppIdentity}
+                            tableTemplates={settings.tableTemplates || []}
+                            onRenameTableTemplate={renameTableTemplate}
+                            onDeleteTableTemplate={deleteTableTemplate}
                         />
                     ) : null}
 
