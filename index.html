@@ -2728,7 +2728,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v127';
+        const APP_VERSION = 'v128';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -7458,6 +7458,19 @@
                     if (db) idbPut(db, 'settings', updated);
                     return updated;
                 });
+                // Without a pinHash, verifyPin trivially accepts any input
+                // (including blank) — leaving locked notes marked as such
+                // would mean the "Unlock" button silently stops checking
+                // anything instead of actually requiring the (now
+                // nonexistent) PIN. Removing the PIN removes the lock it
+                // was protecting, same as every note it locked being
+                // explicitly unlocked.
+                setNotes((prev) => prev.map((n) => {
+                    if (!n.locked) return n;
+                    const updated = { ...n, locked: false };
+                    if (db) idbPut(db, 'notes', updated);
+                    return updated;
+                }));
             };
 
             const verifyPin = async (pin) => {
