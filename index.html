@@ -936,6 +936,17 @@
             font-size: 15px;
             padding: 4px 0;
             background: transparent;
+            /* The .sheet's own color-scheme:light (needed elsewhere so
+               Android's system dark theme can't re-tint sheet elements)
+               makes the browser render this text input with its native
+               "auto" appearance — a solid white widget background that
+               ignores the transparent background set above entirely. That
+               was invisible on the plain default sheet but reads as a
+               stark white bar on a colorful theme background. appearance:
+               none opts out of native widget rendering so our own
+               transparent background actually takes effect. */
+            appearance: none;
+            -webkit-appearance: none;
         }
 
         .category-manager-row input[type="text"]:focus {
@@ -2685,7 +2696,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v121';
+        const APP_VERSION = 'v122';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
