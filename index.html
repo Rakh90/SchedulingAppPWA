@@ -1603,8 +1603,11 @@
             display: flex;
             gap: 10px;
             overflow-x: auto;
-            padding-top: 8px;
-            padding-bottom: 4px;
+            /* Top/left/bottom give the delete and reposition badges (both
+               positioned to hang slightly outside their thumbnail) room
+               within this scrollable row's own clipping box, same reasoning
+               as .photo-remove-btn's fix above. */
+            padding: 8px 4px 8px 8px;
         }
 
         .photo-thumb-wrap {
@@ -1633,6 +1636,55 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+
+        .photo-reposition-btn {
+            position: absolute;
+            bottom: -6px;
+            left: -6px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #202124;
+            color: white;
+            border: 2px solid white;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .reposition-frame {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 2 / 1;
+            border-radius: 10px;
+            overflow: hidden;
+            touch-action: none;
+            cursor: crosshair;
+            background: #000;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .reposition-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+
+        .reposition-crosshair {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            margin-left: -10px;
+            margin-top: -10px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.45);
+            pointer-events: none;
         }
 
         .add-photo-btn {
@@ -2753,7 +2805,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v131';
+        const APP_VERSION = 'v132';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3238,7 +3290,12 @@
                     ) : (
                         <React.Fragment>
                             {note.photos && note.photos.length > 0 ? (
-                                <img className="note-card-thumb" src={note.photos[0].dataUrl} alt="" />
+                                <img
+                                    className="note-card-thumb"
+                                    src={note.photos[0].dataUrl}
+                                    alt=""
+                                    style={{ objectPosition: (note.photos[0].focalX == null ? 50 : note.photos[0].focalX) + '% ' + (note.photos[0].focalY == null ? 50 : note.photos[0].focalY) + '%' }}
+                                />
                             ) : null}
                             {previewBlocks.length > 0 ? (
                                 <div className="note-card-body">
@@ -4943,6 +5000,13 @@
             const [confirmTrash, setConfirmTrash] = useState(false);
             const [confirmClearAll, setConfirmClearAll] = useState(false);
             const [previewPhoto, setPreviewPhoto] = useState(null);
+            // Id of the photo currently being repositioned for the dashboard
+            // thumbnail crop (only ever the first photo — see the button
+            // that opens this, since photos[0] is the only one a note-card
+            // ever shows), or null when that sheet is closed.
+            const [repositionPhotoId, setRepositionPhotoId] = useState(null);
+            const repositionFrameRef = useRef(null);
+            const repositionDraggingRef = useRef(false);
             const [uploading, setUploading] = useState(false);
             // Which table (by id) currently has a date-typed cell focused —
             // that table's "Today" button fills the cell instead of adding a
@@ -5101,6 +5165,7 @@
             useBackClose(showTableCreator, () => setShowTableCreator(false));
             useBackClose(!!columnEditorTableId, () => setColumnEditorTableId(null));
             useBackClose(!!previewPhoto, () => setPreviewPhoto(null));
+            useBackClose(!!repositionPhotoId, () => setRepositionPhotoId(null));
             useBackClose(showBackgroundPicker, () => setShowBackgroundPicker(false));
             useBackClose(!!textSizeMenuBlockId, () => setTextSizeMenuBlockId(null));
             useBackClose(showPinSetup, () => setShowPinSetup(false));
@@ -5912,6 +5977,19 @@
                 setDraft((d) => ({ ...d, photos: d.photos.filter(p => p.id !== id) }));
             };
 
+            // Live-updates a photo's thumbnail crop focal point (0-100, matching
+            // CSS object-position%) while the user drags inside the reposition
+            // frame. One history entry per drag gesture, not per pointermove —
+            // pushEditHistory() is called once on pointerdown by the caller,
+            // this just keeps writing the latest position into draft as the
+            // finger/cursor moves, same pattern as table drag-reorder.
+            const setPhotoFocalPoint = (id, focalX, focalY) => {
+                setDraft((d) => ({
+                    ...d,
+                    photos: d.photos.map(p => p.id === id ? { ...p, focalX, focalY } : p),
+                }));
+            };
+
             // Replaces this note's content with a saved template's — reversible
             // via the Undo button, so there's no need for a separate "are you
             // sure" confirmation on top of that.
@@ -6516,14 +6594,25 @@
 
                         <div className="section-label">Photos</div>
                         <div className="photo-row">
-                            {draft.photos.map((photo) => (
+                            {draft.photos.map((photo, photoIdx) => (
                                 <div className="photo-thumb-wrap" key={photo.id}>
                                     <img
                                         className="photo-thumb"
                                         src={photo.dataUrl}
                                         alt=""
+                                        style={{ objectPosition: (photo.focalX == null ? 50 : photo.focalX) + '% ' + (photo.focalY == null ? 50 : photo.focalY) + '%' }}
                                         onClick={() => setPreviewPhoto(photo.dataUrl)}
                                     />
+                                    {/* Only the first photo is ever shown as the
+                                        dashboard note-card thumbnail, so that's the
+                                        only one worth letting you re-crop. */}
+                                    {photoIdx === 0 ? (
+                                        <button
+                                            className="photo-reposition-btn"
+                                            title="Choose thumbnail crop"
+                                            onClick={() => setRepositionPhotoId(photo.id)}
+                                        >🎯</button>
+                                    ) : null}
                                     <button className="photo-remove-btn" onClick={() => removePhoto(photo.id)}>✕</button>
                                 </div>
                             ))}
@@ -6577,6 +6666,57 @@
                             <img src={previewPhoto} alt="" />
                         </div>
                     ) : null}
+
+                    {repositionPhotoId ? (() => {
+                        const photo = draft.photos.find((p) => p.id === repositionPhotoId);
+                        if (!photo) return null;
+                        const focalX = photo.focalX == null ? 50 : photo.focalX;
+                        const focalY = photo.focalY == null ? 50 : photo.focalY;
+                        const applyPointer = (e) => {
+                            const frame = repositionFrameRef.current;
+                            if (!frame) return;
+                            const rect = frame.getBoundingClientRect();
+                            const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                            const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+                            setPhotoFocalPoint(repositionPhotoId, x, y);
+                        };
+                        return (
+                            <div className="sheet-backdrop centered" onClick={() => setRepositionPhotoId(null)}>
+                                <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                                    <h2>Choose thumbnail crop</h2>
+                                    <p className="sheet-muted-text" style={{ fontSize: 13, marginBottom: 10 }}>Drag inside the photo to choose what shows on the dashboard.</p>
+                                    <div
+                                        className="reposition-frame"
+                                        ref={repositionFrameRef}
+                                        onPointerDown={(e) => {
+                                            e.currentTarget.setPointerCapture(e.pointerId);
+                                            repositionDraggingRef.current = true;
+                                            pushEditHistory();
+                                            applyPointer(e);
+                                        }}
+                                        onPointerMove={(e) => {
+                                            if (!repositionDraggingRef.current) return;
+                                            applyPointer(e);
+                                        }}
+                                        onPointerUp={() => { repositionDraggingRef.current = false; }}
+                                        onPointerCancel={() => { repositionDraggingRef.current = false; }}
+                                    >
+                                        <img src={photo.dataUrl} alt="" style={{ objectPosition: focalX + '% ' + focalY + '%' }} />
+                                        <div className="reposition-crosshair" style={{ left: focalX + '%', top: focalY + '%' }}></div>
+                                    </div>
+                                    <div className="btn-row" style={{ marginTop: 14 }}>
+                                        <button
+                                            className="secondary-btn"
+                                            onClick={() => { pushEditHistory(); setPhotoFocalPoint(repositionPhotoId, 50, 50); }}
+                                        >
+                                            Reset to center
+                                        </button>
+                                        <button className="primary-btn" onClick={() => setRepositionPhotoId(null)}>Done</button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })() : null}
 
                     {showBackgroundPicker ? (
                         <BackgroundPickerSheet
