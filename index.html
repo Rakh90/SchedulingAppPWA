@@ -905,6 +905,160 @@
             font-weight: 700;
         }
 
+        .time-picker-sheet {
+            width: 320px;
+        }
+
+        .time-picker-top-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        /* Shared look for every two/three-way switch in the time picker
+           (format, mode, AM/PM) — one pill-shaped track, active option
+           filled solid. */
+        .pill-toggle {
+            display: flex;
+            background: #f1f1f4;
+            border-radius: 10px;
+            padding: 3px;
+            gap: 3px;
+        }
+
+        .pill-toggle button {
+            flex: 1;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            padding: 7px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #5f6470;
+            white-space: nowrap;
+        }
+
+        .pill-toggle button.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .time-format-toggle {
+            flex: 0 0 auto;
+            width: 108px;
+        }
+
+        .time-mode-toggle {
+            margin-bottom: 12px;
+        }
+
+        .time-range-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .time-range-tab {
+            flex: 1;
+            text-align: left;
+            border: 1.5px solid rgba(0,0,0,0.12);
+            background: transparent;
+            border-radius: 10px;
+            padding: 8px 10px;
+            color: inherit;
+        }
+
+        .time-range-tab.active {
+            border-color: #667eea;
+            background: #eef0fb;
+        }
+
+        .time-range-tab-label {
+            display: block;
+            font-size: 11px;
+            color: #5f6470;
+        }
+
+        .time-range-tab-value {
+            display: block;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .time-picker-readout {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            margin: 4px 0 16px;
+        }
+
+        .time-readout-part {
+            border: none;
+            background: transparent;
+            font-size: 38px;
+            font-weight: 700;
+            color: #c7c9d4;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .time-readout-part.active {
+            color: #1a1a1a;
+            background: #eef0fb;
+        }
+
+        .time-readout-colon {
+            font-size: 38px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+
+        .time-period-toggle {
+            flex-direction: column;
+            margin-left: 8px;
+            width: 56px;
+        }
+
+        .clock-face {
+            width: 100%;
+            max-width: 260px;
+            display: block;
+            margin: 0 auto;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .clock-face-bg {
+            fill: #f1f2fb;
+        }
+
+        .clock-hand {
+            stroke: #667eea;
+            stroke-width: 2;
+        }
+
+        .clock-center-dot {
+            fill: #667eea;
+        }
+
+        .clock-selected-dot {
+            fill: #667eea;
+        }
+
+        .clock-number {
+            font-size: 15px;
+            fill: #333;
+        }
+
+        .clock-number.selected {
+            fill: white;
+            font-weight: 700;
+        }
+
         .category-manager-row.dragging,
         .table-col-editor-row.dragging,
         .section-label-row.dragging {
@@ -2226,6 +2380,48 @@
             background: rgba(255,255,255,0.15);
         }
 
+        .dark-content .pill-toggle {
+            background: rgba(255,255,255,0.12);
+        }
+
+        .dark-content .pill-toggle button {
+            color: rgba(243,244,248,0.7);
+        }
+
+        .dark-content .time-range-tab {
+            border-color: rgba(255,255,255,0.18);
+        }
+
+        .dark-content .time-range-tab.active {
+            background: rgba(255,255,255,0.15);
+            border-color: #8b9bf0;
+        }
+
+        .dark-content .time-range-tab-label {
+            color: rgba(243,244,248,0.6);
+        }
+
+        .dark-content .time-readout-part {
+            color: rgba(243,244,248,0.35);
+        }
+
+        .dark-content .time-readout-part.active {
+            color: #f3f4f8;
+            background: rgba(255,255,255,0.15);
+        }
+
+        .dark-content .time-readout-colon {
+            color: #f3f4f8;
+        }
+
+        .dark-content .clock-face-bg {
+            fill: rgba(255,255,255,0.1);
+        }
+
+        .dark-content .clock-number {
+            fill: #f3f4f8;
+        }
+
         /* Light-themed sheets aren't always plain white — a saturated theme
            gradient (e.g. Aurora) can sit at roughly the same luminance as
            this mid-gray, dropping contrast to near zero. Darkening the
@@ -2461,6 +2657,20 @@
                 transform: zoom !== 1 ? 'scale(' + zoom + ')' : undefined,
                 transformOrigin: focalX + '% ' + focalY + '%',
             };
+        }
+
+        // Renders an internal 24-hour {hour, minute} pair as the display
+        // string TimePickerSheet actually inserts into a cell — the picker
+        // always tracks hour/minute in 24h terms internally (so switching
+        // the format toggle is a pure display change, never a value change)
+        // and only converts to 12h + AM/PM here, at the boundary.
+        function formatTimeParts(hour24, minute, format) {
+            const m2 = minute.toString().padStart(2, '0');
+            if (format === '24h') return hour24.toString().padStart(2, '0') + ':' + m2;
+            const period = hour24 >= 12 ? 'PM' : 'AM';
+            let h12 = hour24 % 12;
+            if (h12 === 0) h12 = 12;
+            return h12 + ':' + m2 + ' ' + period;
         }
 
         function escapeHtml(str) {
@@ -2871,7 +3081,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v134';
+        const APP_VERSION = 'v135';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3817,7 +4027,7 @@
         // calendar picker can target it. The .mileage-* class names are kept
         // as-is so every existing light/dark/rainbow style override still
         // applies unchanged.
-        const NoteTable = forwardRef(function NoteTable({ table, onUpdateCell, onAddRow, onActiveDateCellChange, onCellFocus, onCellBlur }, ref) {
+        const NoteTable = forwardRef(function NoteTable({ table, onUpdateCell, onAddRow, onActiveDateCellChange, onActiveTimeCellChange, timeFormat, onCellFocus, onCellBlur }, ref) {
             const cellRefs = useRef({});
             const pendingFocusKey = useRef(null);
             const activeCellRef = useRef(null);
@@ -3855,6 +4065,25 @@
                 getActiveDateCell: () => {
                     const active = activeCellRef.current;
                     if (!active || !columns[active.colIdx] || columns[active.colIdx].type !== 'date') return null;
+                    const row = table.rows[active.rowIdx];
+                    return row ? { rowId: row.id, rowIdx: active.rowIdx, colIdx: active.colIdx } : null;
+                },
+                // Same idea as fillActiveDateCellWithToday, for a time-typed
+                // cell and the current clock time instead.
+                fillActiveTimeCellWithNow: () => {
+                    const active = activeCellRef.current;
+                    if (!active || !columns[active.colIdx] || columns[active.colIdx].type !== 'time') return;
+                    const row = table.rows[active.rowIdx];
+                    if (!row) return;
+                    const now = new Date();
+                    const nowStr = formatTimeParts(now.getHours(), now.getMinutes(), timeFormat);
+                    onUpdateCell(row.id, active.colIdx, nowStr);
+                    const next = cellRefs.current[active.rowIdx + '-' + (active.colIdx + 1)];
+                    if (next) next.focus();
+                },
+                getActiveTimeCell: () => {
+                    const active = activeCellRef.current;
+                    if (!active || !columns[active.colIdx] || columns[active.colIdx].type !== 'time') return null;
                     const row = table.rows[active.rowIdx];
                     return row ? { rowId: row.id, rowIdx: active.rowIdx, colIdx: active.colIdx } : null;
                 },
@@ -3903,12 +4132,14 @@
             const handleFocus = (rowIdx, colIdx) => {
                 activeCellRef.current = { rowIdx, colIdx };
                 onActiveDateCellChange(!!columns[colIdx] && columns[colIdx].type === 'date');
+                onActiveTimeCellChange(!!columns[colIdx] && columns[colIdx].type === 'time');
                 if (onCellFocus) onCellFocus();
             };
 
             const handleBlur = () => {
                 activeCellRef.current = null;
                 onActiveDateCellChange(false);
+                onActiveTimeCellChange(false);
                 if (onCellBlur) onCellBlur();
             };
 
@@ -4156,6 +4387,193 @@
             );
         }
 
+        // Analog clock face for picking a table's time cells — tap or drag
+        // around the ring, hour first then minute (auto-advancing on
+        // release, same as Material's time picker), with a 12h/24h display
+        // toggle and a Single time / Time range mode. Hour/minute are
+        // always tracked internally in 24h terms (see formatTimeParts)
+        // regardless of display format, so flipping the format toggle mid-
+        // pick never changes the actual selected time. The hour ring only
+        // ever shows 1-12 in either format — 24h mode reuses the same ring
+        // and instead relabels the AM/PM toggle as 00-11 / 12-23, rather
+        // than drawing a second concentric ring for 13-23 (a real second
+        // ring is the more "native" look but is a lot more geometry for a
+        // note-taking app's schedule table).
+        function TimePickerSheet({ background, timeFormat, onChangeTimeFormat, onPick, onClose }) {
+            const dark = isThemeDark(background);
+            const now = new Date();
+            const [mode, setMode] = useState('single'); // 'single' | 'range'
+            const [stage, setStage] = useState('hour'); // 'hour' | 'minute'
+            const [activeEnd, setActiveEnd] = useState('start'); // 'start' | 'end'
+            const [startHour, setStartHour] = useState(now.getHours());
+            const [startMinute, setStartMinute] = useState(now.getMinutes());
+            const [endHour, setEndHour] = useState((now.getHours() + 1) % 24);
+            const [endMinute, setEndMinute] = useState(now.getMinutes());
+            const faceRef = useRef(null);
+            const draggingRef = useRef(false);
+
+            const hour = activeEnd === 'start' ? startHour : endHour;
+            const minute = activeEnd === 'start' ? startMinute : endMinute;
+            const setHour = (h) => { if (activeEnd === 'start') setStartHour(h); else setEndHour(h); };
+            const setMinute = (m) => { if (activeEnd === 'start') setStartMinute(m); else setEndMinute(m); };
+            const period = hour >= 12 ? 'PM' : 'AM';
+
+            // Flips AM/PM (or, in 24h mode, 00-11/12-23) while keeping the
+            // same hour-of-half-day — matches how a real clock's hands
+            // don't move when you're just told "actually, PM".
+            const setPeriod = (p) => {
+                const h12 = hour % 12 === 0 ? 12 : hour % 12;
+                setHour(p === 'AM' ? (h12 % 12) : (h12 % 12) + 12);
+            };
+
+            // Ring taps/drags always report a 1-12 hour regardless of
+            // format — combine with whichever half is currently active to
+            // get the real 24h value, same reasoning as setPeriod.
+            const setHourFromRing = (h12) => {
+                setHour(period === 'AM' ? (h12 % 12) : (h12 % 12) + 12);
+            };
+
+            // 0deg = 12 o'clock (straight up), increasing clockwise — the
+            // same convention atan2(dx, -dy) naturally produces.
+            const angleFromEvent = (e) => {
+                const face = faceRef.current;
+                if (!face) return 0;
+                const rect = face.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                let deg = Math.atan2(e.clientX - cx, cy - e.clientY) * 180 / Math.PI;
+                if (deg < 0) deg += 360;
+                return deg;
+            };
+
+            const applyAngle = (deg) => {
+                if (stage === 'hour') {
+                    const idx = Math.round(deg / 30) % 12;
+                    setHourFromRing(idx === 0 ? 12 : idx);
+                } else {
+                    setMinute(Math.round(deg / 6) % 60);
+                }
+            };
+
+            const handleFacePointerDown = (e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                draggingRef.current = true;
+                applyAngle(angleFromEvent(e));
+            };
+            const handleFacePointerMove = (e) => {
+                if (!draggingRef.current) return;
+                applyAngle(angleFromEvent(e));
+            };
+            const handleFacePointerUp = () => {
+                if (!draggingRef.current) return;
+                draggingRef.current = false;
+                // Auto-advance to minute selection once an hour is picked,
+                // same as tapping the hour ring on a native picker.
+                if (stage === 'hour') setStage('minute');
+            };
+
+            const CX = 130, CY = 130, RING_R = 92;
+            const ringValues = stage === 'hour' ? [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] : [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+            const ringPositions = ringValues.map((val, i) => {
+                const rad = (i * 30) * Math.PI / 180;
+                return { val, x: CX + RING_R * Math.sin(rad), y: CY - RING_R * Math.cos(rad) };
+            });
+            const selectedVal = stage === 'hour' ? (hour % 12 === 0 ? 12 : hour % 12) : minute;
+            const selRad = (stage === 'hour' ? (selectedVal % 12) * 30 : selectedVal * 6) * Math.PI / 180;
+            const selX = CX + RING_R * Math.sin(selRad);
+            const selY = CY - RING_R * Math.cos(selRad);
+
+            const buildResult = () => {
+                const startStr = formatTimeParts(startHour, startMinute, timeFormat);
+                if (mode === 'single') return startStr;
+                return startStr + ' – ' + formatTimeParts(endHour, endMinute, timeFormat);
+            };
+
+            return (
+                <div className="sheet-backdrop centered" onClick={onClose}>
+                    <div className={'sheet time-picker-sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
+                        <div className="time-picker-top-row">
+                            <h2 style={{ marginBottom: 0 }}>Pick a time</h2>
+                            <div className="pill-toggle time-format-toggle">
+                                <button className={timeFormat !== '24h' ? 'active' : ''} onClick={() => onChangeTimeFormat('12h')}>12h</button>
+                                <button className={timeFormat === '24h' ? 'active' : ''} onClick={() => onChangeTimeFormat('24h')}>24h</button>
+                            </div>
+                        </div>
+
+                        <div className="pill-toggle time-mode-toggle">
+                            <button className={mode === 'single' ? 'active' : ''} onClick={() => setMode('single')}>Single time</button>
+                            <button className={mode === 'range' ? 'active' : ''} onClick={() => setMode('range')}>Time range</button>
+                        </div>
+
+                        {mode === 'range' ? (
+                            <div className="time-range-tabs">
+                                <button
+                                    className={'time-range-tab' + (activeEnd === 'start' ? ' active' : '')}
+                                    onClick={() => { setActiveEnd('start'); setStage('hour'); }}
+                                >
+                                    <span className="time-range-tab-label">Start</span>
+                                    <span className="time-range-tab-value">{formatTimeParts(startHour, startMinute, timeFormat)}</span>
+                                </button>
+                                <button
+                                    className={'time-range-tab' + (activeEnd === 'end' ? ' active' : '')}
+                                    onClick={() => { setActiveEnd('end'); setStage('hour'); }}
+                                >
+                                    <span className="time-range-tab-label">End</span>
+                                    <span className="time-range-tab-value">{formatTimeParts(endHour, endMinute, timeFormat)}</span>
+                                </button>
+                            </div>
+                        ) : null}
+
+                        <div className="time-picker-readout">
+                            <button
+                                className={'time-readout-part' + (stage === 'hour' ? ' active' : '')}
+                                onClick={() => setStage('hour')}
+                            >{timeFormat === '24h' ? hour.toString().padStart(2, '0') : (hour % 12 === 0 ? 12 : hour % 12)}</button>
+                            <span className="time-readout-colon">:</span>
+                            <button
+                                className={'time-readout-part' + (stage === 'minute' ? ' active' : '')}
+                                onClick={() => setStage('minute')}
+                            >{minute.toString().padStart(2, '0')}</button>
+                            <div className="pill-toggle time-period-toggle">
+                                <button className={period === 'AM' ? 'active' : ''} onClick={() => setPeriod('AM')}>{timeFormat === '24h' ? '00–11' : 'AM'}</button>
+                                <button className={period === 'PM' ? 'active' : ''} onClick={() => setPeriod('PM')}>{timeFormat === '24h' ? '12–23' : 'PM'}</button>
+                            </div>
+                        </div>
+
+                        <svg
+                            className="clock-face"
+                            viewBox="0 0 260 260"
+                            ref={faceRef}
+                            onPointerDown={handleFacePointerDown}
+                            onPointerMove={handleFacePointerMove}
+                            onPointerUp={handleFacePointerUp}
+                            onPointerCancel={handleFacePointerUp}
+                        >
+                            <circle className="clock-face-bg" cx={CX} cy={CY} r="118" />
+                            <line className="clock-hand" x1={CX} y1={CY} x2={selX} y2={selY} />
+                            <circle className="clock-selected-dot" cx={selX} cy={selY} r="17" />
+                            <circle className="clock-center-dot" cx={CX} cy={CY} r="3.5" />
+                            {ringPositions.map((p) => (
+                                <text
+                                    key={p.val}
+                                    className={'clock-number' + (p.val === selectedVal ? ' selected' : '')}
+                                    x={p.x}
+                                    y={p.y}
+                                    textAnchor="middle"
+                                    dominantBaseline="central"
+                                >{stage === 'minute' ? p.val.toString().padStart(2, '0') : p.val}</text>
+                            ))}
+                        </svg>
+
+                        <div className="btn-row" style={{ marginTop: 14 }}>
+                            <button className="secondary-btn" onClick={onClose}>Cancel</button>
+                            <button className="primary-btn" onClick={() => onPick(buildResult())}>Done</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         function CategoryPickerSheet({ background, categories, selectedIds, onToggle, onClose, onCreateCategory }) {
             const [newName, setNewName] = useState('');
             const [newColor, setNewColor] = useState(CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length]);
@@ -4345,6 +4763,7 @@
                                 <option value="text">Text</option>
                                 <option value="number">Number</option>
                                 <option value="date">Date</option>
+                                <option value="time">Time</option>
                             </select>
                             <button
                                 type="button"
@@ -5062,7 +5481,7 @@
             );
         }
 
-        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate, templates, isTemplate, hasPin, onSetPin, editorIconOrder, onChangeEditorIconOrder, tableTemplates, onSaveTableTemplate, mileagePresetHidden }) {
+        function NoteEditor({ note, categories, onBack, onSave, onTrash, onAddCategory, onSaveTemplate, templates, isTemplate, hasPin, onSetPin, editorIconOrder, onChangeEditorIconOrder, tableTemplates, onSaveTableTemplate, mileagePresetHidden, timeFormat, onChangeTimeFormat }) {
             const [draft, setDraft] = useState(note);
             const [editingBlockId, setEditingBlockId] = useState(null);
             const [confirmTrash, setConfirmTrash] = useState(false);
@@ -5080,6 +5499,8 @@
             // that table's "Today" button fills the cell instead of adding a
             // row. Null when no date cell is focused anywhere.
             const [dateCellActiveTableId, setDateCellActiveTableId] = useState(null);
+            // Same idea as dateCellActiveTableId, for a time-typed cell.
+            const [timeCellActiveTableId, setTimeCellActiveTableId] = useState(null);
             const [confirmRemoveRow, setConfirmRemoveRow] = useState(null); // tableId | null
             const [removedRowToast, setRemovedRowToast] = useState(null); // { tableId, row } | null
             const [confirmRemoveTable, setConfirmRemoveTable] = useState(null); // tableId | null
@@ -5199,6 +5620,12 @@
             //   { kind: 'table', tableId, rowId, colIdx }
             const dateTargetRef = useRef(null);
             const [showDatePickerSheet, setShowDatePickerSheet] = useState(false);
+            // Same idea as dateTargetRef, for the TimePickerSheet — only
+            // ever a table cell (unlike dates, time insertion isn't wired
+            // into body text or the title field), so this is just
+            // { tableId, rowId, colIdx } | null rather than a tagged union.
+            const timeTargetRef = useRef(null);
+            const [showTimePickerSheet, setShowTimePickerSheet] = useState(false);
             // Title is a controlled input — its value changes in React state on
             // every keystroke, unlike a block's contentEditable (which only
             // syncs to state on commit). Pushing history per keystroke would
@@ -5252,6 +5679,7 @@
             useBackClose(confirmClearAll, () => setConfirmClearAll(false));
             useBackClose(showCategoryPicker, () => setShowCategoryPicker(false));
             useBackClose(showDatePickerSheet, () => setShowDatePickerSheet(false));
+            useBackClose(showTimePickerSheet, () => setShowTimePickerSheet(false));
             useBackClose(lineSelectMode, () => { setLineSelectMode(false); setSelectedLineIdList([]); });
 
             const resolvedEditorIconOrder = resolveIconOrder(editorIconOrder, DEFAULT_EDITOR_ICON_ORDER);
@@ -5512,6 +5940,50 @@
                         }));
                         pendingTableFocusRef.current = { tableId: target.tableId, rowId: newRowId, colIdx: Math.min(dateColIdx + 1, table.columns.length - 1) };
                     }
+                }
+            };
+
+            // Mirrors openDateSheetForTable, for TimePickerSheet.
+            const openTimeSheetForTable = (tableId) => {
+                const ref = tableRefs.current[tableId];
+                const active = ref && ref.getActiveTimeCell ? ref.getActiveTimeCell() : null;
+                timeTargetRef.current = { tableId, rowId: active ? active.rowId : null, colIdx: active ? active.colIdx : null };
+                setShowTimePickerSheet(true);
+            };
+
+            // Mirrors applyPickedDate's table branch — time insertion only
+            // ever targets a table cell (see timeTargetRef), so this is
+            // simpler than the full tagged-union version. timeStr is
+            // TimePickerSheet's own formatted string (a single time, or a
+            // "start – end" range), or null if the sheet was dismissed
+            // without picking anything.
+            const applyPickedTime = (timeStr) => {
+                setShowTimePickerSheet(false);
+                const target = timeTargetRef.current;
+                timeTargetRef.current = null;
+                if (!timeStr || !target) return;
+                const table = (draft.tables || []).find(t => t.id === target.tableId);
+                if (!table) return;
+                if (target.rowId) {
+                    pushEditHistory();
+                    updateTableCell(target.tableId, target.rowId, target.colIdx, timeStr);
+                    const rowIdx = table.rows.findIndex(r => r.id === target.rowId);
+                    const ref = tableRefs.current[target.tableId];
+                    if (rowIdx !== -1 && ref) {
+                        ref.focusRowCell(rowIdx, Math.min(target.colIdx + 1, table.columns.length - 1));
+                    }
+                } else {
+                    const timeColIdx = table.columns.findIndex(c => c.type === 'time');
+                    if (timeColIdx === -1) return;
+                    const newRowId = makeId();
+                    pushEditHistory();
+                    setDraft((d) => ({
+                        ...d,
+                        tables: (d.tables || []).map(t => t.id === target.tableId
+                            ? { ...t, rows: [...t.rows, { id: newRowId, cells: t.columns.map((c, i) => i === timeColIdx ? timeStr : '') }] }
+                            : t),
+                    }));
+                    pendingTableFocusRef.current = { tableId: target.tableId, rowId: newRowId, colIdx: Math.min(timeColIdx + 1, table.columns.length - 1) };
                 }
             };
 
@@ -6327,6 +6799,25 @@
                 }
             };
 
+            // Mirrors addTableRowWithToday, for a table's Now button.
+            const addTableRowWithNow = (tableId) => {
+                const table = (draft.tables || []).find(t => t.id === tableId);
+                if (!table) return;
+                const now = new Date();
+                const nowStr = formatTimeParts(now.getHours(), now.getMinutes(), timeFormat);
+                const timeColIdx = table.columns.findIndex(c => c.type === 'time');
+                const newRowIdx = table.rows.length;
+                pushEditHistory();
+                updateOneTable(tableId, (t) => ({
+                    ...t,
+                    rows: [...t.rows, { id: makeId(), cells: t.columns.map((c, i) => i === timeColIdx ? nowStr : '') }],
+                }));
+                const ref = tableRefs.current[tableId];
+                if (ref) {
+                    ref.focusRowCell(newRowIdx, Math.min(timeColIdx + 1, table.columns.length - 1));
+                }
+            };
+
             const removeLastTableRow = (tableId) => {
                 pushEditHistory();
                 setDraft((d) => {
@@ -6578,6 +7069,7 @@
 
                         {(draft.tables || []).map((table) => {
                             const hasDateColumn = table.columns.some((c) => c.type === 'date');
+                            const hasTimeColumn = table.columns.some((c) => c.type === 'time');
                             return (
                                 <React.Fragment key={table.id}>
                                     <div
@@ -6646,6 +7138,8 @@
                                                 onUpdateCell={(rowId, cellIdx, value) => updateTableCell(table.id, rowId, cellIdx, value)}
                                                 onAddRow={() => addTableRow(table.id)}
                                                 onActiveDateCellChange={(isDate) => setDateCellActiveTableId((prev) => isDate ? table.id : (prev === table.id ? null : prev))}
+                                                onActiveTimeCellChange={(isTime) => setTimeCellActiveTableId((prev) => isTime ? table.id : (prev === table.id ? null : prev))}
+                                                timeFormat={timeFormat}
                                                 onCellFocus={handleTableCellFocus}
                                                 onCellBlur={handleTableCellBlur}
                                             />
@@ -6677,6 +7171,30 @@
                                                         onMouseDown={(e) => { e.preventDefault(); openDateSheetForTable(table.id); }}
                                                     >
                                                         📅 Pick Date
+                                                    </button>
+                                                ) : null}
+                                                {hasTimeColumn ? (
+                                                    <button
+                                                        className="secondary-btn table-action-btn"
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => {
+                                                            const ref = tableRefs.current[table.id];
+                                                            if (timeCellActiveTableId === table.id && ref) {
+                                                                ref.fillActiveTimeCellWithNow();
+                                                            } else {
+                                                                addTableRowWithNow(table.id);
+                                                            }
+                                                        }}
+                                                    >
+                                                        🕐 Now
+                                                    </button>
+                                                ) : null}
+                                                {hasTimeColumn ? (
+                                                    <button
+                                                        className="secondary-btn table-action-btn"
+                                                        onMouseDown={(e) => { e.preventDefault(); openTimeSheetForTable(table.id); }}
+                                                    >
+                                                        🕐 Pick Time
                                                     </button>
                                                 ) : null}
                                                 <button
@@ -6948,6 +7466,16 @@
                             background={draft.background}
                             onPick={applyPickedDate}
                             onClose={() => applyPickedDate(null)}
+                        />
+                    ) : null}
+
+                    {showTimePickerSheet ? (
+                        <TimePickerSheet
+                            background={draft.background}
+                            timeFormat={timeFormat}
+                            onChangeTimeFormat={onChangeTimeFormat}
+                            onPick={applyPickedTime}
+                            onClose={() => applyPickedTime(null)}
                         />
                     ) : null}
 
@@ -7762,6 +8290,18 @@
                 });
             };
 
+            // Persisted app-wide so it stays consistent across every table
+            // and note rather than resetting each time the picker opens —
+            // matches every other display preference (sort mode, view
+            // mode) in storing the whole settings object, not just this key.
+            const updateTimeFormat = (format) => {
+                setSettings((s) => {
+                    const updated = { ...s, timeFormat: format };
+                    if (db) idbPut(db, 'settings', updated);
+                    return updated;
+                });
+            };
+
             const updateDashboardViewMode = (mode) => {
                 setSettings((s) => {
                     const updated = { ...s, dashboardViewMode: mode };
@@ -8094,6 +8634,8 @@
                         tableTemplates={settings.tableTemplates || []}
                         onSaveTableTemplate={saveTableTemplate}
                         mileagePresetHidden={settings.mileagePresetHidden}
+                        timeFormat={settings.timeFormat || '12h'}
+                        onChangeTimeFormat={updateTimeFormat}
                     />
                 );
             }
@@ -8119,6 +8661,8 @@
                         tableTemplates={settings.tableTemplates || []}
                         onSaveTableTemplate={saveTableTemplate}
                         mileagePresetHidden={settings.mileagePresetHidden}
+                        timeFormat={settings.timeFormat || '12h'}
+                        onChangeTimeFormat={updateTimeFormat}
                     />
                 );
             }
