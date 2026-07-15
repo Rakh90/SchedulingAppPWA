@@ -422,12 +422,19 @@
             z-index: 5;
         }
 
-        .note-card-thumb {
+        .note-card-thumb-wrap {
             width: 100%;
             height: 90px;
-            object-fit: cover;
+            overflow: hidden;
             border-radius: 8px;
             margin-bottom: 2px;
+        }
+
+        .note-card-thumb {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         .note-card-title {
@@ -1632,11 +1639,23 @@
             z-index: 2;
         }
 
-        .photo-thumb {
+        /* The clip lives on this inner wrapper rather than .photo-thumb-wrap
+           itself because the remove/reposition badges below are positioned
+           just outside the 84x84 box (negative top/bottom/left offsets) and
+           still need to be visible — clipping here instead of on the wrap
+           crops a zoomed photo without also cutting off those badges. */
+        .photo-thumb-clip {
             width: 84px;
             height: 84px;
-            object-fit: cover;
+            overflow: hidden;
             border-radius: 10px;
+        }
+
+        .photo-thumb {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         .photo-remove-btn {
@@ -1702,6 +1721,18 @@
             border: 2px solid white;
             box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.45);
             pointer-events: none;
+        }
+
+        .reposition-zoom-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .reposition-zoom-row input[type="range"] {
+            flex: 1 1 auto;
+            accent-color: #4a63e7;
         }
 
         .add-photo-btn {
@@ -2414,6 +2445,24 @@
             });
         }
 
+        // Shared by every place a photo's thumbnail crop is rendered
+        // (dashboard card, editor photo row, reposition sheet preview) so
+        // the focal point + zoom always look identical everywhere. Zoom is
+        // an extra scale applied on top of the object-fit:cover baseline,
+        // anchored at the same point the focal position already uses —
+        // that keeps the chosen focus visually still while the rest of the
+        // image grows around it.
+        function photoThumbStyle(photo) {
+            const focalX = photo.focalX == null ? 50 : photo.focalX;
+            const focalY = photo.focalY == null ? 50 : photo.focalY;
+            const zoom = photo.focalZoom == null ? 1 : photo.focalZoom;
+            return {
+                objectPosition: focalX + '% ' + focalY + '%',
+                transform: zoom !== 1 ? 'scale(' + zoom + ')' : undefined,
+                transformOrigin: focalX + '% ' + focalY + '%',
+            };
+        }
+
         function escapeHtml(str) {
             const div = document.createElement('div');
             div.textContent = str == null ? '' : str;
@@ -2822,7 +2871,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v133';
+        const APP_VERSION = 'v134';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3307,12 +3356,14 @@
                     ) : (
                         <React.Fragment>
                             {note.photos && note.photos.length > 0 ? (
-                                <img
-                                    className="note-card-thumb"
-                                    src={note.photos[0].dataUrl}
-                                    alt=""
-                                    style={{ objectPosition: (note.photos[0].focalX == null ? 50 : note.photos[0].focalX) + '% ' + (note.photos[0].focalY == null ? 50 : note.photos[0].focalY) + '%' }}
-                                />
+                                <div className="note-card-thumb-wrap">
+                                    <img
+                                        className="note-card-thumb"
+                                        src={note.photos[0].dataUrl}
+                                        alt=""
+                                        style={photoThumbStyle(note.photos[0])}
+                                    />
+                                </div>
                             ) : null}
                             {previewBlocks.length > 0 ? (
                                 <div className="note-card-body">
@@ -6016,6 +6067,24 @@
                 }));
             };
 
+            // Same idea as setPhotoFocalPoint but for the crop zoom level —
+            // the slider's onChange calls this on every drag tick, with a
+            // single pushEditHistory() on the slider's pointerdown covering
+            // the whole gesture as one undo step.
+            const setPhotoZoom = (id, zoom) => {
+                setDraft((d) => ({
+                    ...d,
+                    photos: d.photos.map(p => p.id === id ? { ...p, focalZoom: zoom } : p),
+                }));
+            };
+
+            const resetPhotoCrop = (id) => {
+                setDraft((d) => ({
+                    ...d,
+                    photos: d.photos.map(p => p.id === id ? { ...p, focalX: 50, focalY: 50, focalZoom: 1 } : p),
+                }));
+            };
+
             // Replaces this note's content with a saved template's — reversible
             // via the Undo button, so there's no need for a separate "are you
             // sure" confirmation on top of that.
@@ -6726,12 +6795,14 @@
                                         setPreviewPhoto(photo.dataUrl);
                                     }}
                                 >
-                                    <img
-                                        className="photo-thumb"
-                                        src={photo.dataUrl}
-                                        alt=""
-                                        style={{ objectPosition: (photo.focalX == null ? 50 : photo.focalX) + '% ' + (photo.focalY == null ? 50 : photo.focalY) + '%' }}
-                                    />
+                                    <div className="photo-thumb-clip">
+                                        <img
+                                            className="photo-thumb"
+                                            src={photo.dataUrl}
+                                            alt=""
+                                            style={photoThumbStyle(photo)}
+                                        />
+                                    </div>
                                     {/* Only the first photo is ever shown as the
                                         dashboard note-card thumbnail, so that's the
                                         only one worth letting you re-crop. */}
@@ -6801,6 +6872,7 @@
                         if (!photo) return null;
                         const focalX = photo.focalX == null ? 50 : photo.focalX;
                         const focalY = photo.focalY == null ? 50 : photo.focalY;
+                        const zoom = photo.focalZoom == null ? 1 : photo.focalZoom;
                         const applyPointer = (e) => {
                             const frame = repositionFrameRef.current;
                             if (!frame) return;
@@ -6813,7 +6885,7 @@
                             <div className="sheet-backdrop centered" onClick={() => setRepositionPhotoId(null)}>
                                 <div className="sheet" onClick={(e) => e.stopPropagation()}>
                                     <h2>Choose thumbnail crop</h2>
-                                    <p className="sheet-muted-text" style={{ fontSize: 13, marginBottom: 10 }}>Drag inside the photo to choose what shows on the dashboard.</p>
+                                    <p className="sheet-muted-text" style={{ fontSize: 13, marginBottom: 10 }}>Drag inside the photo to choose what shows on the dashboard, then zoom to crop in tighter.</p>
                                     <div
                                         className="reposition-frame"
                                         ref={repositionFrameRef}
@@ -6830,15 +6902,29 @@
                                         onPointerUp={() => { repositionDraggingRef.current = false; }}
                                         onPointerCancel={() => { repositionDraggingRef.current = false; }}
                                     >
-                                        <img src={photo.dataUrl} alt="" style={{ objectPosition: focalX + '% ' + focalY + '%' }} />
+                                        <img src={photo.dataUrl} alt="" style={photoThumbStyle(photo)} />
                                         <div className="reposition-crosshair" style={{ left: focalX + '%', top: focalY + '%' }}></div>
+                                    </div>
+                                    <div className="reposition-zoom-row">
+                                        <span aria-hidden="true">🔍</span>
+                                        <input
+                                            type="range"
+                                            min="1"
+                                            max="3"
+                                            step="0.01"
+                                            value={zoom}
+                                            onPointerDown={() => pushEditHistory()}
+                                            onChange={(e) => setPhotoZoom(repositionPhotoId, parseFloat(e.target.value))}
+                                            aria-label="Thumbnail zoom"
+                                        />
+                                        <span className="sheet-muted-text" style={{ fontSize: 11, flex: '0 0 auto', minWidth: 32, textAlign: 'right' }}>{Math.round(zoom * 100)}%</span>
                                     </div>
                                     <div className="btn-row" style={{ marginTop: 14 }}>
                                         <button
                                             className="secondary-btn"
-                                            onClick={() => { pushEditHistory(); setPhotoFocalPoint(repositionPhotoId, 50, 50); }}
+                                            onClick={() => { pushEditHistory(); resetPhotoCrop(repositionPhotoId); }}
                                         >
-                                            Reset to center
+                                            Reset
                                         </button>
                                         <button className="primary-btn" onClick={() => setRepositionPhotoId(null)}>Done</button>
                                     </div>
