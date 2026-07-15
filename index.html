@@ -862,7 +862,7 @@
             flex: 0 0 auto;
             font-size: 18px;
             line-height: 1;
-            color: #b3b6c0;
+            color: #6b6f7a;
             padding: 4px 2px;
             cursor: grab;
         }
@@ -1664,13 +1664,13 @@
 
         .table-icon-btn {
             flex: 0 0 auto;
-            background: #f1f1f4;
-            color: #333;
+            background: #e4e5ea;
+            color: #1a1a1a;
             border: none;
             border-radius: 8px;
             padding: 6px 10px;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 14px;
+            font-weight: 700;
             position: relative;
         }
 
@@ -1994,7 +1994,7 @@
         }
 
         .sheet-muted-text {
-            color: #8a8d99;
+            color: #5f6470;
         }
 
         .dark-content .sheet-muted-text {
@@ -2558,7 +2558,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v106';
+        const APP_VERSION = 'v107';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -4458,11 +4458,28 @@
 
             const sizeClass = ' block-size-' + (block.size || 'medium');
             // In selectMode, the whole row is the press-and-drag highlight
-            // surface (touch-action:none only applies here, so normal
-            // scrolling by touching a line's text is completely unaffected
-            // outside of selectMode).
+            // surface. touch-action:none would block native scrolling for
+            // the entire time selectMode is on (reported on-device as "can't
+            // scroll unless I'm highlighting a line") since it disables the
+            // browser's own touch handling outright, not just during an
+            // active drag. pan-y instead lets an ordinary vertical swipe
+            // scroll normally — a real scroll gesture moves fast enough to
+            // blow past the 14px cancel-threshold in handleLineSelectPointerMove
+            // before our 350ms long-press timer ever fires, so it never
+            // starts a selection, and once a genuine long-press *has* fired
+            // (finger held still, so no native scroll had a chance to start
+            // yet) the handler's own preventDefault takes over cleanly for
+            // the rest of that drag. user-select is suppressed here too so
+            // Android's native text-selection/callout menu can't pop up
+            // mid-long-press and fight the custom drag for the same touch.
             const rowSelectProps = selectMode ? {
-                style: { marginLeft: (block.indent || 0) * LINE_INDENT_PX, touchAction: 'none' },
+                style: {
+                    marginLeft: (block.indent || 0) * LINE_INDENT_PX,
+                    touchAction: 'pan-y',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    WebkitTouchCallout: 'none',
+                },
                 onPointerDown: (e) => onLineSelectPointerDown(e, idx),
                 onPointerMove: onLineSelectPointerMove,
                 // Up carries the row index so a quick tap can toggle this
