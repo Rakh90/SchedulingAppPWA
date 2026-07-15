@@ -1040,10 +1040,27 @@
         /* One shared size for every button in a table's action row
            (Today / Pick Date / ➕ Row / 🗑 Remove Row / 🗑 Remove Table) —
            previously hand-rolled inline styles that had drifted into two
-           visibly different sizes within the same row. */
+           visibly different sizes within the same row. flex-shrink:0 +
+           white-space:nowrap keep every button at full readable width in
+           the row's horizontal scroll (see .table-action-row) instead of
+           squeezing their labels. */
         .table-action-btn {
             padding: 10px 12px;
             font-size: 13px;
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+
+        /* Single scrollable row instead of wrapping to a second line —
+           matches the .photo-row/.bg-swatch-row horizontal-scroll pattern
+           used elsewhere rather than growing the row's height. */
+        .table-action-row {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            gap: 8px;
+            margin-top: 10px;
+            padding-bottom: 4px;
         }
 
         .danger-btn {
@@ -2558,7 +2575,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v107';
+        const APP_VERSION = 'v108';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -5826,62 +5843,56 @@
                                                 onCellFocus={handleTableCellFocus}
                                                 onCellBlur={handleTableCellBlur}
                                             />
-                                            {/* Two deliberate groups — constructive (Today / Pick
-                                                Date / + Row) left, destructive (Remove Row / Remove
-                                                Table) right. Each group is its own flex item, so
-                                                when the row is too narrow the destructive pair
-                                                wraps as a unit instead of a stray margin-left:auto
-                                                shoving one button to the far edge and orphaning the
-                                                other on its own line (the v105 layout bug). */}
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6, rowGap: 10, marginTop: 10 }}>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10 }}>
-                                                    {hasDateColumn ? (
-                                                        <button
-                                                            className="secondary-btn table-action-btn"
-                                                            onMouseDown={(e) => e.preventDefault()}
-                                                            onClick={() => {
-                                                                const ref = tableRefs.current[table.id];
-                                                                if (dateCellActiveTableId === table.id && ref) {
-                                                                    ref.fillActiveDateCellWithToday();
-                                                                } else {
-                                                                    addTableRowWithToday(table.id);
-                                                                }
-                                                            }}
-                                                        >
-                                                            📅 Today
-                                                        </button>
-                                                    ) : null}
-                                                    {hasDateColumn ? (
-                                                        <button
-                                                            className="secondary-btn table-action-btn"
-                                                            onMouseDown={(e) => { e.preventDefault(); openDateSheetForTable(table.id); }}
-                                                        >
-                                                            📅 Pick Date
-                                                        </button>
-                                                    ) : null}
+                                            {/* One horizontally-scrollable row (see
+                                                .table-action-row) instead of wrapping to a second
+                                                line — keeps all five actions reachable without
+                                                growing the row's height or reviving the v105
+                                                orphaned-button wrap bug. */}
+                                            <div className="table-action-row">
+                                                {hasDateColumn ? (
                                                     <button
                                                         className="secondary-btn table-action-btn"
-                                                        onClick={() => addTableRow(table.id)}
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => {
+                                                            const ref = tableRefs.current[table.id];
+                                                            if (dateCellActiveTableId === table.id && ref) {
+                                                                ref.fillActiveDateCellWithToday();
+                                                            } else {
+                                                                addTableRowWithToday(table.id);
+                                                            }
+                                                        }}
                                                     >
-                                                        ➕ Row
+                                                        📅 Today
                                                     </button>
-                                                </div>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 10 }}>
+                                                ) : null}
+                                                {hasDateColumn ? (
                                                     <button
                                                         className="secondary-btn table-action-btn"
-                                                        disabled={table.rows.length === 0}
-                                                        onClick={() => setConfirmRemoveRow(table.id)}
+                                                        onMouseDown={(e) => { e.preventDefault(); openDateSheetForTable(table.id); }}
                                                     >
-                                                        🗑 Remove Row
+                                                        📅 Pick Date
                                                     </button>
-                                                    <button
-                                                        className="secondary-btn table-action-btn"
-                                                        title="Remove table"
-                                                        onClick={() => setConfirmRemoveTable(table.id)}
-                                                    >
-                                                        🗑 Remove Table
-                                                    </button>
-                                                </div>
+                                                ) : null}
+                                                <button
+                                                    className="secondary-btn table-action-btn"
+                                                    onClick={() => addTableRow(table.id)}
+                                                >
+                                                    ➕ Row
+                                                </button>
+                                                <button
+                                                    className="secondary-btn table-action-btn"
+                                                    disabled={table.rows.length === 0}
+                                                    onClick={() => setConfirmRemoveRow(table.id)}
+                                                >
+                                                    🗑 Remove Row
+                                                </button>
+                                                <button
+                                                    className="secondary-btn table-action-btn"
+                                                    title="Remove table"
+                                                    onClick={() => setConfirmRemoveTable(table.id)}
+                                                >
+                                                    🗑 Remove Table
+                                                </button>
                                             </div>
                                         </React.Fragment>
                                     )}
