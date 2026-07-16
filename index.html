@@ -3190,7 +3190,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v140';
+        const APP_VERSION = 'v141';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -6596,6 +6596,25 @@
                 setTimeout(run, 300);
             };
 
+            // Focusing a cell (or the table's own name field) only
+            // guarantees *that* field clears the keyboard — the table's
+            // own action row (Today/Pick Date/Now/Pick Time/Row/etc.) can
+            // still sit below it, off-screen, needing a separate manual
+            // scroll before any of those buttons are reachable. Runs right
+            // after scrollFocusedCellIntoView so its adjustment applies on
+            // top: if both the field and the action row already fit in the
+            // visible area nothing further happens, but if a tall table
+            // means they can't both fit, the action row's own visibility —
+            // what you're actually about to tap next — wins.
+            const scrollTableActionRowIntoView = (tableId) => {
+                const run = () => {
+                    const row = document.querySelector('.table-action-row[data-table-id="' + tableId + '"]');
+                    if (row) scrollRectIntoView(row.getBoundingClientRect());
+                };
+                requestAnimationFrame(run);
+                setTimeout(run, 300);
+            };
+
             // Filtered against the live blocks so ids of since-removed lines
             // can never leak into the bulk actions below.
             const selectedLineIds = selectedLineIdList.filter((id) => draft.blocks.some((b) => b.id === id));
@@ -7125,9 +7144,10 @@
                 }));
             };
 
-            const handleTableCellFocus = () => {
+            const handleTableCellFocus = (tableId) => {
                 tableEditSnapshotRef.current = { title: draft.title, blocks: draft.blocks, photos: draft.photos, background: draft.background, categoryIds: draft.categoryIds, tables: draft.tables };
                 scrollFocusedCellIntoView();
+                if (tableId) scrollTableActionRowIntoView(tableId);
             };
 
             const handleTableCellBlur = () => {
@@ -7384,7 +7404,7 @@
                                             placeholder="Table name"
                                             value={table.name}
                                             onChange={(e) => renameTable(table.id, e.target.value)}
-                                            onFocus={() => { handleTableCellFocus(); setFocusedTableNameId(table.id); }}
+                                            onFocus={() => { handleTableCellFocus(table.id); setFocusedTableNameId(table.id); }}
                                             onBlur={() => { handleTableCellBlur(); setFocusedTableNameId(null); }}
                                         />
                                         {!table.collapsed && table.rows.length > 0 ? (
@@ -7415,7 +7435,7 @@
                                                 onActiveDateCellChange={(isDate) => setDateCellActiveTableId((prev) => isDate ? table.id : (prev === table.id ? null : prev))}
                                                 onActiveTimeCellChange={(isTime) => setTimeCellActiveTableId((prev) => isTime ? table.id : (prev === table.id ? null : prev))}
                                                 timeFormat={timeFormat}
-                                                onCellFocus={handleTableCellFocus}
+                                                onCellFocus={() => handleTableCellFocus(table.id)}
                                                 onCellBlur={handleTableCellBlur}
                                             />
                                             {/* One horizontally-scrollable row (see
@@ -7423,7 +7443,7 @@
                                                 line — keeps all five actions reachable without
                                                 growing the row's height or reviving the v105
                                                 orphaned-button wrap bug. */}
-                                            <div className="table-action-row">
+                                            <div className="table-action-row" data-table-id={table.id}>
                                                 {hasDateColumn ? (
                                                     <button
                                                         className="secondary-btn table-action-btn"
