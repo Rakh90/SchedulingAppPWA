@@ -3239,7 +3239,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v146';
+        const APP_VERSION = 'v147';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -5421,6 +5421,28 @@
                         <button className="category-picker-row" onMouseDown={(e) => { e.preventDefault(); onPickTime(); }}>
                             <span className="category-picker-name">🕐 Time</span>
                         </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Only shown when canShareBackupFile() found real file-sharing
+        // support -- otherwise Export data just downloads directly, same as
+        // before this existed.
+        function ExportChooserSheet({ background, onSaveToDevice, onShare, onClose }) {
+            const dark = isThemeDark(background);
+            const rainbow = isThemeRainbow(background);
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className={'sheet' + (dark ? ' dark-content' : '') + (rainbow ? ' theme-rainbow' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
+                        <h2>Export data</h2>
+                        <button className="category-picker-row" onClick={onSaveToDevice}>
+                            <span className="category-picker-name">💾 Save to device</span>
+                        </button>
+                        <button className="category-picker-row" onClick={onShare}>
+                            <span className="category-picker-name">📤 Share...</span>
+                        </button>
+                        <p className="sheet-muted-text" style={{ fontSize: 12, marginTop: 10 }}>Share sends the same backup file straight to Drive, email, or another app — handy for getting it off this device.</p>
                     </div>
                 </div>
             );
@@ -8062,6 +8084,11 @@
             const [pinFlow, setPinFlow] = useState(null);
             const [pendingImport, setPendingImport] = useState(null);
             const [importError, setImportError] = useState('');
+            // Gate for the "Save to device vs Share..." chooser -- only
+            // shown when the browser can actually act on the second option
+            // (see canShareBackupFile), so browsers without file-sharing
+            // support skip straight to the download that always worked.
+            const [showExportChooser, setShowExportChooser] = useState(false);
             // null (closed) | 'menu' (topic list) | a HELP_TOPICS id (detail view)
             const [helpView, setHelpView] = useState(null);
 
@@ -8072,6 +8099,7 @@
             // their own back-closable layers themselves, and these ones are
             // simply inactive (no-ops) while a different screen is showing.
             useBackClose(showCategoryManager, () => { setShowCategoryManager(false); setImportError(''); });
+            useBackClose(showExportChooser, () => setShowExportChooser(false));
             useBackClose(showSortMenu, () => setShowSortMenu(false));
             useBackClose(showBatchCategory, () => { setShowBatchCategory(false); setSelectedIds([]); setSelectMode(false); });
             useBackClose(showTemplatePicker, () => setShowTemplatePicker(false));
@@ -8786,7 +8814,7 @@
                 return hash === settings.pinHash;
             };
 
-            const exportAllData = () => {
+            const buildBackupFile = () => {
                 const payload = {
                     app: 'Den Notes',
                     version: APP_VERSION,
@@ -8795,15 +8823,60 @@
                     categories,
                     settings,
                 };
+                const filename = 'den-notes-backup-' + new Date().toISOString().slice(0, 10) + '.json';
                 const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                return { blob, filename };
+            };
+
+            const downloadBackupFile = () => {
+                const { blob, filename } = buildBackupFile();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'den-notes-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+                a.download = filename;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+            };
+
+            // A backup saved straight to Downloads only helps if it also
+            // makes it off the device before that device is lost, reset, or
+            // wiped -- otherwise the backup and the notes it protects
+            // disappear together. Sharing hands the exact same file to
+            // whatever app the user picks (Drive, email, Dropbox, ...) in
+            // one tap instead of requiring a second manual move afterward.
+            const canShareBackupFile = () => {
+                if (!navigator.share || !navigator.canShare) return false;
+                const probe = new File([''], 'probe.json', { type: 'application/json' });
+                try {
+                    return navigator.canShare({ files: [probe] });
+                } catch (err) {
+                    return false;
+                }
+            };
+
+            const shareBackupFile = async () => {
+                const { blob, filename } = buildBackupFile();
+                const file = new File([blob], filename, { type: 'application/json' });
+                try {
+                    await navigator.share({ files: [file], title: 'Den Notes backup' });
+                } catch (err) {
+                    // AbortError just means the user closed the share sheet
+                    // without picking anything -- not a real failure, and
+                    // the backup itself was already built successfully.
+                    if (err && err.name !== 'AbortError') {
+                        downloadBackupFile();
+                    }
+                }
+            };
+
+            const startExport = () => {
+                if (canShareBackupFile()) {
+                    setShowExportChooser(true);
+                } else {
+                    downloadBackupFile();
+                }
             };
 
             const handleImportFile = (file) => {
@@ -9414,7 +9487,7 @@
                             onHandlePointerDown={handleCategoryHandlePointerDown}
                             onHandlePointerMove={handleCategoryHandlePointerMove}
                             onHandlePointerUp={handleCategoryHandlePointerUp}
-                            onExport={exportAllData}
+                            onExport={startExport}
                             onImportFile={handleImportFile}
                             importError={importError}
                             defaultNoteBackground={settings.defaultNoteBackground}
@@ -9435,6 +9508,20 @@
                             onDeleteTableTemplate={(id) => setDeleteTableTemplateId(id)}
                             mileagePresetHidden={settings.mileagePresetHidden}
                             onHideMileagePreset={() => setDeleteTableTemplateId('__mileage__')}
+                        />
+                    ) : null}
+
+                    {/* Rendered after CategoryManagerSheet (not before) so
+                        it stacks visually on top -- both are position:fixed
+                        overlays with no explicit z-index, so DOM order alone
+                        decides which one a click actually lands on while
+                        the Categories sheet stays open underneath. */}
+                    {showExportChooser ? (
+                        <ExportChooserSheet
+                            background={settings.dashboardBackground}
+                            onSaveToDevice={() => { setShowExportChooser(false); downloadBackupFile(); }}
+                            onShare={() => { setShowExportChooser(false); shareBackupFile(); }}
+                            onClose={() => setShowExportChooser(false)}
                         />
                     ) : null}
 
