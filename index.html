@@ -429,9 +429,8 @@
             border-radius: 8px;
             margin-bottom: 2px;
             /* See .photo-thumb-clip — a photo zoomed out below 100% is
-               smaller than this box, so the backing needs to look
-               deliberate rather than showing the card through it. */
-            background: #000;
+               smaller than this box, so an inline resolveCardBackground(...)
+               call matching the note's own card background fills the rest. */
         }
 
         .note-card-thumb {
@@ -1809,10 +1808,10 @@
             border-radius: 10px;
             /* Zooming a photo out below 100% (see .reposition-zoom-row)
                shrinks it smaller than this box, so there's real empty
-               space to fill now, not just a hidden overflow area — a
-               solid backing here keeps that letterboxing looking
-               deliberate instead of showing whatever's behind the card. */
-            background: #000;
+               space to fill now, not just a hidden overflow area — an
+               inline resolvePageBackground(...) call matching the note's
+               own swatch/theme keeps that letterboxing looking deliberate
+               instead of an arbitrary color. */
         }
 
         .photo-thumb {
@@ -1862,7 +1861,11 @@
             overflow: hidden;
             touch-action: none;
             cursor: crosshair;
-            background: #000;
+            /* No CSS fallback here — an inline resolvePageBackground(...)
+               call always supplies either background or backgroundImage,
+               matching the note's own chosen swatch/theme, so a zoomed-out
+               photo's letterboxing blends with the note instead of always
+               showing plain black. */
             user-select: none;
             -webkit-user-select: none;
         }
@@ -3187,7 +3190,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v138';
+        const APP_VERSION = 'v139';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3672,7 +3675,7 @@
                     ) : (
                         <React.Fragment>
                             {note.photos && note.photos.length > 0 ? (
-                                <div className="note-card-thumb-wrap">
+                                <div className="note-card-thumb-wrap" style={resolveCardBackground(note.background)}>
                                     <img
                                         className="note-card-thumb"
                                         src={note.photos[0].dataUrl}
@@ -7462,7 +7465,7 @@
                                         setPreviewPhoto(photo.dataUrl);
                                     }}
                                 >
-                                    <div className="photo-thumb-clip">
+                                    <div className="photo-thumb-clip" style={resolvePageBackground(draft.background)}>
                                         <img
                                             className="photo-thumb"
                                             src={photo.dataUrl}
@@ -7561,6 +7564,7 @@
                                     <p className="sheet-muted-text" style={{ fontSize: 13, marginBottom: 10 }}>Drag inside the photo to choose what shows on the dashboard, then zoom in to crop tighter or out to reveal the whole photo.</p>
                                     <div
                                         className="reposition-frame"
+                                        style={resolvePageBackground(draft.background)}
                                         ref={repositionFrameRef}
                                         onPointerDown={(e) => {
                                             e.currentTarget.setPointerCapture(e.pointerId);
