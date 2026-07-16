@@ -3190,7 +3190,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v139';
+        const APP_VERSION = 'v140';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -4572,6 +4572,15 @@
             };
 
             const handleFacePointerDown = (e) => {
+                // Text-insert targets (title, a table's name field, a body
+                // line) track their own undo via a focus/blur snapshot
+                // pair — losing focus to this sheet mid-gesture, before
+                // the actual time is even picked, would blur-commit an
+                // empty no-op edit and null out that snapshot, silently
+                // breaking undo for whatever's inserted once Done is
+                // pressed. preventDefault keeps the original field focused
+                // throughout, same reasoning as every button below.
+                e.preventDefault();
                 e.currentTarget.setPointerCapture(e.pointerId);
                 draggingRef.current = true;
                 applyAngle(angleFromEvent(e));
@@ -4611,28 +4620,28 @@
                         <div className="time-picker-top-row">
                             <h2 style={{ marginBottom: 0 }}>Pick a time</h2>
                             <div className="pill-toggle time-format-toggle">
-                                <button className={timeFormat !== '24h' ? 'active' : ''} onClick={() => onChangeTimeFormat('12h')}>12h</button>
-                                <button className={timeFormat === '24h' ? 'active' : ''} onClick={() => onChangeTimeFormat('24h')}>24h</button>
+                                <button className={timeFormat !== '24h' ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); onChangeTimeFormat('12h'); }}>12h</button>
+                                <button className={timeFormat === '24h' ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); onChangeTimeFormat('24h'); }}>24h</button>
                             </div>
                         </div>
 
                         <div className="pill-toggle time-mode-toggle">
-                            <button className={mode === 'single' ? 'active' : ''} onClick={() => setMode('single')}>Single time</button>
-                            <button className={mode === 'range' ? 'active' : ''} onClick={() => setMode('range')}>Time range</button>
+                            <button className={mode === 'single' ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); setMode('single'); }}>Single time</button>
+                            <button className={mode === 'range' ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); setMode('range'); }}>Time range</button>
                         </div>
 
                         {mode === 'range' ? (
                             <div className="time-range-tabs">
                                 <button
                                     className={'time-range-tab' + (activeEnd === 'start' ? ' active' : '')}
-                                    onClick={() => { setActiveEnd('start'); setStage('hour'); }}
+                                    onMouseDown={(e) => { e.preventDefault(); setActiveEnd('start'); setStage('hour'); }}
                                 >
                                     <span className="time-range-tab-label">Start</span>
                                     <span className="time-range-tab-value">{formatTimeParts(startHour, startMinute, timeFormat)}</span>
                                 </button>
                                 <button
                                     className={'time-range-tab' + (activeEnd === 'end' ? ' active' : '')}
-                                    onClick={() => { setActiveEnd('end'); setStage('hour'); }}
+                                    onMouseDown={(e) => { e.preventDefault(); setActiveEnd('end'); setStage('hour'); }}
                                 >
                                     <span className="time-range-tab-label">End</span>
                                     <span className="time-range-tab-value">{formatTimeParts(endHour, endMinute, timeFormat)}</span>
@@ -4643,16 +4652,16 @@
                         <div className="time-picker-readout">
                             <button
                                 className={'time-readout-part' + (stage === 'hour' ? ' active' : '')}
-                                onClick={() => setStage('hour')}
+                                onMouseDown={(e) => { e.preventDefault(); setStage('hour'); }}
                             >{timeFormat === '24h' ? hour.toString().padStart(2, '0') : (hour % 12 === 0 ? 12 : hour % 12)}</button>
                             <span className="time-readout-colon">:</span>
                             <button
                                 className={'time-readout-part' + (stage === 'minute' ? ' active' : '')}
-                                onClick={() => setStage('minute')}
+                                onMouseDown={(e) => { e.preventDefault(); setStage('minute'); }}
                             >{minute.toString().padStart(2, '0')}</button>
                             <div className="pill-toggle time-period-toggle">
-                                <button className={period === 'AM' ? 'active' : ''} onClick={() => setPeriod('AM')}>{timeFormat === '24h' ? '00–11' : 'AM'}</button>
-                                <button className={period === 'PM' ? 'active' : ''} onClick={() => setPeriod('PM')}>{timeFormat === '24h' ? '12–23' : 'PM'}</button>
+                                <button className={period === 'AM' ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); setPeriod('AM'); }}>{timeFormat === '24h' ? '00–11' : 'AM'}</button>
+                                <button className={period === 'PM' ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); setPeriod('PM'); }}>{timeFormat === '24h' ? '12–23' : 'PM'}</button>
                             </div>
                         </div>
 
@@ -4682,8 +4691,8 @@
                         </svg>
 
                         <div className="btn-row" style={{ marginTop: 14 }}>
-                            <button className="secondary-btn" onClick={onClose}>Cancel</button>
-                            <button className="primary-btn" onClick={() => onPick(buildResult())}>Done</button>
+                            <button className="secondary-btn" onMouseDown={(e) => { e.preventDefault(); onClose(); }}>Cancel</button>
+                            <button className="primary-btn" onMouseDown={(e) => { e.preventDefault(); onPick(buildResult()); }}>Done</button>
                         </div>
                     </div>
                 </div>
@@ -5339,7 +5348,7 @@
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, dateAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker, onEnterSelectMode, onDismissKeyboard, canUndo, onUndo }) {
+        function LineToolbar({ hasActiveLine, dateAvailable, timeAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker, onOpenTimePicker, onEnterSelectMode, onDismissKeyboard, canUndo, onUndo }) {
             const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
@@ -5401,6 +5410,12 @@
                         onMouseDown={(e) => { e.preventDefault(); if (dateAvailable) onOpenDatePicker(); }}
                         title="Insert date"
                     >📅</button>
+                    <button
+                        className="line-toolbar-btn"
+                        disabled={!timeAvailable}
+                        onMouseDown={(e) => { e.preventDefault(); if (timeAvailable) onOpenTimePicker(); }}
+                        title="Insert time"
+                    >🕐</button>
                     <span className="line-toolbar-divider"></span>
                     <button
                         className="line-toolbar-btn"
@@ -5736,10 +5751,8 @@
             //   { kind: 'table', tableId, rowId, colIdx }
             const dateTargetRef = useRef(null);
             const [showDatePickerSheet, setShowDatePickerSheet] = useState(false);
-            // Same idea as dateTargetRef, for the TimePickerSheet — only
-            // ever a table cell (unlike dates, time insertion isn't wired
-            // into body text or the title field), so this is just
-            // { tableId, rowId, colIdx } | null rather than a tagged union.
+            // Same idea as dateTargetRef, for the TimePickerSheet — same
+            // tagged-union shapes (block/title/tableName/table).
             const timeTargetRef = useRef(null);
             const [showTimePickerSheet, setShowTimePickerSheet] = useState(false);
             // Title is a controlled input — its value changes in React state on
@@ -6086,34 +6099,142 @@
             const openTimeSheetForTable = (tableId) => {
                 const ref = tableRefs.current[tableId];
                 const active = ref && ref.getActiveTimeCell ? ref.getActiveTimeCell() : null;
-                timeTargetRef.current = { tableId, rowId: active ? active.rowId : null, colIdx: active ? active.colIdx : null };
+                timeTargetRef.current = { kind: 'table', tableId, rowId: active ? active.rowId : null, colIdx: active ? active.colIdx : null };
                 setShowTimePickerSheet(true);
             };
 
+            // Mirrors openDateSheetForBlock/Title/TableName/Smart — the
+            // line toolbar's clock button serves the title field, every
+            // table's name field, and body lines, same as the calendar
+            // button next to it. A table's own time-typed cells have their
+            // own dedicated Now/Pick Time buttons (openTimeSheetForTable
+            // above), not this one.
+            const openTimeSheetForBlock = () => {
+                if (!editingBlockId) return;
+                const el = document.querySelector('.block-editable[data-block-id="' + editingBlockId + '"]');
+                if (!el) return;
+                timeTargetRef.current = {
+                    kind: 'block',
+                    blockId: editingBlockId,
+                    offset: getCaretCharOffset(el),
+                    html: sanitizeInlineHtml(el.innerHTML),
+                };
+                setShowTimePickerSheet(true);
+            };
+
+            const openTimeSheetForTitle = () => {
+                const el = titleInputRef.current;
+                if (!el) return;
+                timeTargetRef.current = {
+                    kind: 'title',
+                    selStart: el.selectionStart == null ? draft.title.length : el.selectionStart,
+                    selEnd: el.selectionEnd == null ? draft.title.length : el.selectionEnd,
+                    value: draft.title,
+                };
+                setShowTimePickerSheet(true);
+            };
+
+            const openTimeSheetForTableName = (tableId) => {
+                const el = document.querySelector('.table-name-input[data-table-id="' + tableId + '"]');
+                const table = (draft.tables || []).find(t => t.id === tableId);
+                if (!el || !table) return;
+                timeTargetRef.current = {
+                    kind: 'tableName',
+                    tableId,
+                    selStart: el.selectionStart == null ? table.name.length : el.selectionStart,
+                    selEnd: el.selectionEnd == null ? table.name.length : el.selectionEnd,
+                    value: table.name,
+                };
+                setShowTimePickerSheet(true);
+            };
+
+            const openTimeSheetSmart = () => {
+                const active = document.activeElement;
+                if (active && active.classList && active.classList.contains('editor-title-input')) {
+                    openTimeSheetForTitle();
+                } else if (active && active.classList && active.classList.contains('table-name-input')) {
+                    openTimeSheetForTableName(active.getAttribute('data-table-id'));
+                } else if (editingBlockId) {
+                    openTimeSheetForBlock();
+                }
+            };
+
             // Whatever is already in the cell openTimeSheetForTable targeted
-            // (or null for a fresh row) — TimePickerSheet parses this once on
-            // mount so reopening the picker on an existing range cell lands
-            // back on Time range mode with the same start/end already set,
-            // instead of resetting to Single time + the current clock time.
+            // (or null otherwise — text-insert targets don't have a single
+            // "current value" to prefill from, same as the date button) —
+            // TimePickerSheet parses this once on mount so reopening the
+            // picker on an existing range cell lands back on Time range
+            // mode with the same start/end already set, instead of
+            // resetting to Single time + the current clock time.
             const timeTargetCurrentValue = () => {
                 const target = timeTargetRef.current;
-                if (!target || !target.rowId) return null;
+                if (!target || target.kind !== 'table' || !target.rowId) return null;
                 const table = (draft.tables || []).find(t => t.id === target.tableId);
                 const row = table && table.rows.find(r => r.id === target.rowId);
                 return row ? (row.cells[target.colIdx] || null) : null;
             };
 
-            // Mirrors applyPickedDate's table branch — time insertion only
-            // ever targets a table cell (see timeTargetRef), so this is
-            // simpler than the full tagged-union version. timeStr is
-            // TimePickerSheet's own formatted string (a single time, or a
-            // "start – end" range), or null if the sheet was dismissed
-            // without picking anything.
+            // Mirrors applyPickedDate — a body line (splicing into the
+            // plain text at the saved caret offset, then re-wrapping in
+            // whatever bold/italic/underline chain the line already had),
+            // the title field, a table's own name field, or a table's
+            // time-typed cell. timeStr is TimePickerSheet's own formatted
+            // string (a single time, or a "start – end" range), or null if
+            // the sheet was dismissed without picking anything.
             const applyPickedTime = (timeStr) => {
                 setShowTimePickerSheet(false);
                 const target = timeTargetRef.current;
                 timeTargetRef.current = null;
                 if (!timeStr || !target) return;
+
+                if (target.kind === 'block') {
+                    const { blockId, html: sourceHtml } = target;
+                    if (!draft.blocks.some(b => b.id === blockId)) return;
+                    const plain = stripHtml(sourceHtml);
+                    const offset = target.offset == null ? plain.length : Math.min(target.offset, plain.length);
+                    const newPlain = plain.slice(0, offset) + timeStr + plain.slice(offset);
+                    const chain = getWholeLineTagChain(sourceHtml);
+                    const newHtml = wrapInTagChain(escapeHtml(newPlain), chain);
+                    const caretTarget = offset + timeStr.length;
+                    pushEditHistory();
+                    setDraft((d) => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, html: newHtml } : b) }));
+                    const liveEl = document.querySelector('.block-editable[data-block-id="' + blockId + '"]');
+                    if (liveEl) {
+                        liveEl.innerHTML = newHtml;
+                        liveEl.focus();
+                        setCaretCharOffset(liveEl, caretTarget);
+                    } else {
+                        pendingCaretOffsetRef.current = caretTarget;
+                    }
+                    setEditingBlockId(blockId);
+                    return;
+                }
+
+                if (target.kind === 'title') {
+                    const { selStart, selEnd, value } = target;
+                    const newTitle = value.slice(0, selStart) + timeStr + value.slice(selEnd);
+                    updateField('title', newTitle);
+                    const caretTarget = selStart + timeStr.length;
+                    requestAnimationFrame(() => {
+                        const el = titleInputRef.current;
+                        if (el) { el.focus(); el.setSelectionRange(caretTarget, caretTarget); }
+                    });
+                    return;
+                }
+
+                if (target.kind === 'tableName') {
+                    const { tableId, selStart, selEnd, value } = target;
+                    if (!(draft.tables || []).some(t => t.id === tableId)) return;
+                    const newName = value.slice(0, selStart) + timeStr + value.slice(selEnd);
+                    renameTable(tableId, newName);
+                    const caretTarget = selStart + timeStr.length;
+                    requestAnimationFrame(() => {
+                        const el = document.querySelector('.table-name-input[data-table-id="' + tableId + '"]');
+                        if (el) { el.focus(); el.setSelectionRange(caretTarget, caretTarget); }
+                    });
+                    return;
+                }
+
                 const table = (draft.tables || []).find(t => t.id === target.tableId);
                 if (!table) return;
                 if (target.rowId) {
@@ -7156,6 +7277,7 @@
                                     <LineToolbar
                                         hasActiveLine={!!editingBlockId}
                                         dateAvailable={!!editingBlockId || titleFocused || !!focusedTableNameId}
+                                        timeAvailable={!!editingBlockId || titleFocused || !!focusedTableNameId}
                                         activeType={activeBlock ? activeBlock.type : null}
                                         activeFormats={activeFormats}
                                         onFormat={toggleLineFormat}
@@ -7163,6 +7285,7 @@
                                         onSetType={(type) => setBlockType(editingBlockId, type)}
                                         onOpenSizeMenu={() => setTextSizeMenuBlockId(editingBlockId)}
                                         onOpenDatePicker={openDateSheetSmart}
+                                        onOpenTimePicker={openTimeSheetSmart}
                                         onEnterSelectMode={() => {
                                             // Entering select mode clears editingBlockId directly rather
                                             // than blurring the field (this button uses onMouseDown +
