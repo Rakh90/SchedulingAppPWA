@@ -4,6 +4,15 @@
 // Drive/email/another app instead of needing a second manual move off the
 // device later. Browsers without that support (stubbed as absent in the
 // first case below) keep the old direct-download behavior unchanged.
+//
+// v150: the chooser's own appearance only checks that navigator.share/
+// canShare exist, NOT navigator.canShare({files:[...]}) with a real file --
+// that per-file check turned out to be an unreliable predictor in practice
+// (some browsers reject a JSON file up front even though their real share
+// sheet handles it fine), which meant the chooser silently never appeared
+// on some devices and Export data always fell straight through to a
+// download with no indication why. The real navigator.share() call is now
+// the source of truth, with a visible toast if it genuinely fails.
 const { assert, assertEqual, openBlankNote } = require('./helpers');
 
 async function openExportFlow(page) {
@@ -67,4 +76,35 @@ module.exports = async function exportShare(page) {
     assertEqual(shareCalls.length, 1, 'Share... calls navigator.share exactly once');
     assertEqual(shareCalls[0].fileCount, 1, 'navigator.share is called with the backup file attached');
     assertEqual(await page.locator('.sheet h2 >> text=Export data').count(), 0, 'chooser closes after picking Share');
+
+    // --- navigator.share exists and canShare() would say yes, but the
+    // real share call itself rejects (e.g. this particular file type isn't
+    // actually shareable on this device) -- falls back to a download and
+    // tells the user why, instead of silently doing nothing. ---
+    await page.evaluate(() => {
+        window.navigator.share = () => Promise.reject(new TypeError('Permission denied'));
+    });
+    await page.click('button:has-text("⬇ Export data")');
+    await page.waitForSelector('.sheet h2 >> text=Export data');
+    const [download3] = await Promise.all([
+        page.waitForEvent('download'),
+        page.click('.category-picker-row:has-text("📤 Share...")'),
+    ]);
+    assert(/den-notes-backup-.*\.json/.test(download3.suggestedFilename()), 'a real share() failure still falls back to downloading the backup file');
+    await page.waitForSelector('.undo-toast:has-text("Sharing isn\'t supported here")');
+    assertEqual(await page.locator('.undo-toast:has-text("Sharing isn\'t supported here")').count(), 1, 'a toast explains why it fell back to downloading instead of failing silently');
+    // The toast auto-dismisses after 5s -- wait it out so the next check
+    // (no toast at all) isn't just seeing this one still lingering.
+    await page.waitForSelector('.undo-toast', { state: 'detached', timeout: 6000 });
+
+    // Cancelling the OS share sheet (AbortError) is a normal dismissal, not
+    // a failure -- no download, no toast.
+    await page.evaluate(() => {
+        window.navigator.share = () => Promise.reject(new DOMException('cancelled', 'AbortError'));
+    });
+    await page.click('button:has-text("⬇ Export data")');
+    await page.waitForSelector('.sheet h2 >> text=Export data');
+    await page.click('.category-picker-row:has-text("📤 Share...")');
+    await page.waitForTimeout(200);
+    assertEqual(await page.locator('.undo-toast').count(), 0, 'cancelling the share sheet does not trigger the fallback download or toast');
 };

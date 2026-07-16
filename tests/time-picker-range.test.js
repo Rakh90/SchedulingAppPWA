@@ -49,6 +49,10 @@ module.exports = async function timePickerRange(page) {
     await page.waitForSelector('.clock-face');
     assertEqual(await page.locator('.clock-number').count(), 12, 'hour ring shows 12 numbers');
 
+    // Defaults to whichever half of the day it currently is in the real
+    // world -- force AM so the "7:15 AM" assertions below don't flip based
+    // on what time of day the test happens to run.
+    await page.click('.time-period-toggle button:has-text("AM")');
     await tapClockValue(page, 7);
     await page.waitForTimeout(100);
     await tapClockValue(page, '15');
