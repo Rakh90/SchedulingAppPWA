@@ -1245,6 +1245,12 @@
 
         .dark-content .folder-theme-swatch-label {
             color: #f3f4f8;
+            /* The light-theme halo (see .folder-theme-swatch-label above)
+               is meant to keep dark text legible against a busy light
+               background — left in place here, it becomes a white glow
+               behind now-white text instead, reading as fuzzy/blurred
+               rather than crisp. */
+            text-shadow: none;
         }
 
         .add-category-form {
@@ -2241,6 +2247,12 @@
             color: #f3f4f8;
         }
 
+        /* .section-label's light-theme halo (see its base rule) would
+           otherwise survive as a white glow behind this now-white text. */
+        .dark-content .section-label {
+            text-shadow: none;
+        }
+
         .dark-content .trash-row {
             border-bottom-color: rgba(255,255,255,0.16);
         }
@@ -2390,6 +2402,7 @@
 
         .dark-content .calendar-weekdays span {
             color: rgba(243,244,248,0.6);
+            text-shadow: none;
         }
 
         .dark-content .calendar-day {
@@ -2463,6 +2476,7 @@
 
         .dark-content .sheet-muted-text {
             color: rgba(243,244,248,0.75);
+            text-shadow: none;
         }
 
         /* Confirmed on-device: the identical drag-handle icon renders
@@ -3205,7 +3219,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v144';
+        const APP_VERSION = 'v145';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
