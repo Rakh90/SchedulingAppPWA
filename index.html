@@ -1529,14 +1529,21 @@
         .line-toolbar {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 2px;
             flex-wrap: wrap;
+            /* flex-wrap justifies each wrapped line independently, so on a
+               narrow screen where a few buttons spill onto a second row,
+               this centers just that leftover handful instead of leaving
+               them stranded flush against the left edge. Barely noticeable
+               on the full first row (already nearly edge-to-edge), but
+               makes a real difference on a short trailing row. */
+            justify-content: center;
         }
 
         .line-toolbar-btn {
             flex: 0 0 auto;
-            width: 30px;
-            height: 30px;
+            width: 28px;
+            height: 28px;
             border-radius: 8px;
             border: 1px solid rgba(0,0,0,0.1);
             background: #fafafa;
@@ -1549,7 +1556,7 @@
 
         .line-toolbar-btn-all {
             width: auto;
-            padding: 0 8px;
+            padding: 0 6px;
             font-size: 10px;
             font-weight: 700;
             letter-spacing: 0.02em;
@@ -1569,7 +1576,7 @@
             width: 1px;
             height: 20px;
             background: rgba(0,0,0,0.12);
-            margin: 0 2px;
+            margin: 0 1px;
             flex: 0 0 auto;
         }
 
@@ -3190,7 +3197,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v141';
+        const APP_VERSION = 'v142';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
