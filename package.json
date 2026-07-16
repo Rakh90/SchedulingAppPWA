@@ -1,0 +1,12 @@
+{
+  "name": "den-notes",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Den Notes -- single-file React PWA notes app.",
+  "scripts": {
+    "test": "node tests/run-all.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
+  }
+}
