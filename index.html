@@ -3239,7 +3239,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v147';
+        const APP_VERSION = 'v148';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3302,6 +3302,7 @@
             { id: 'categories', title: 'Categories', icon: '🏷', body: [
                 'Tap "Uncategorized" (or a note\'s existing categories) near the top of a note to assign one or more categories, or create a new one on the spot with its own color.',
                 'Category chips at the top of the dashboard let you filter to just that category.',
+                'Want to see notes tagged with more than one category at once? Long-press a second chip (or folder tile) to add it to the filter — the dashboard then shows only notes that have every category you\'ve picked. Tapping a chip normally still jumps straight to just that one.',
                 'Manage, rename, recolor, or delete categories any time from Settings — drag a category\'s handle there to reorder it.',
             ] },
             { id: 'folderView', title: 'Folder view', icon: '📁', body: [
@@ -3579,10 +3580,26 @@
             return lines.join('\n');
         }
 
+        // Used for the per-tile/per-pill note counts, which always count
+        // against a single category regardless of what's currently
+        // selected in the dashboard's own (possibly multi-category) filter.
         function noteMatchesCategory(note, filterCategory) {
             if (filterCategory === 'all') return true;
             if (filterCategory === 'uncategorized') return !note.categoryIds || note.categoryIds.length === 0;
             return !!(note.categoryIds && note.categoryIds.includes(filterCategory));
+        }
+
+        // The dashboard's actual active filter: an array of 0+ selected ids.
+        // Empty (or null, folder view's "nothing picked yet" state) matches
+        // everything. 'uncategorized' can't combine with anything else (a
+        // note can't be both uncategorized and tagged), so its presence
+        // always means "uncategorized only" regardless of what else the
+        // array might contain. Otherwise every id must match (AND, not
+        // OR) -- picking more than one narrows the results.
+        function noteMatchesCategoryFilter(note, filterCategoryIds) {
+            if (!filterCategoryIds || filterCategoryIds.length === 0) return true;
+            if (filterCategoryIds.includes('uncategorized')) return !note.categoryIds || note.categoryIds.length === 0;
+            return filterCategoryIds.every((id) => note.categoryIds && note.categoryIds.includes(id));
         }
 
         // Search-text cache: stripHtml() spins up a DOM element and parses
@@ -8056,7 +8073,10 @@
             // effect further down still treats IndexedDB as the source of
             // truth once it resolves.
             const [settings, setSettings] = useState({ id: 'app', dashboardBackground: localStorage.getItem('dashboardBackground') || null });
-            const [filterCategory, setFilterCategory] = useState('all');
+            // null (folder view, nothing picked yet) | [] (All) |
+            // ['uncategorized'] | one or more real category ids (AND'd
+            // together -- see noteMatchesCategoryFilter).
+            const [filterCategoryIds, setFilterCategoryIds] = useState([]);
             const [activeNoteId, setActiveNoteId] = useState(null);
             const [view, setView] = useState('home');
             const [showCategoryManager, setShowCategoryManager] = useState(false);
@@ -8440,8 +8460,8 @@
             }, [db]);
 
             const createNote = () => {
-                const categoryId = filterCategory !== 'all' && filterCategory !== 'uncategorized' ? filterCategory : null;
-                const note = blankNote(categoryId ? [categoryId] : [], settings.defaultNoteBackground);
+                const categoryIds = (filterCategoryIds || []).filter((id) => id !== 'uncategorized');
+                const note = blankNote(categoryIds, settings.defaultNoteBackground);
                 setNotes((prev) => [note, ...prev]);
                 if (db) idbPut(db, 'notes', note);
                 setActiveNoteId(note.id);
@@ -8450,8 +8470,8 @@
             const createNoteFromTemplate = (template) => {
                 setShowTemplatePicker(false);
                 if (!template) { createNote(); return; }
-                const categoryId = filterCategory !== 'all' && filterCategory !== 'uncategorized' ? filterCategory : null;
-                const note = noteFromTemplate(template, categoryId ? [categoryId] : []);
+                const categoryIds = (filterCategoryIds || []).filter((id) => id !== 'uncategorized');
+                const note = noteFromTemplate(template, categoryIds);
                 setNotes((prev) => [note, ...prev]);
                 if (db) idbPut(db, 'notes', note);
                 setActiveNoteId(note.id);
@@ -8669,7 +8689,9 @@
                         ? { ...t, categoryIds: t.categoryIds.filter(cid => cid !== id) }
                         : t));
                 }
-                if (filterCategory === id) setFilterCategory('all');
+                if (Array.isArray(filterCategoryIds) && filterCategoryIds.includes(id)) {
+                    setFilterCategoryIds((current) => (current || []).filter((cid) => cid !== id));
+                }
                 setDeleteCategoryId(null);
             };
 
@@ -8946,7 +8968,7 @@
             // for the same reason as toggleSelected: they're passed to every
             // memoized NoteCard.
             const handleCardPointerDown = useCallback((e, noteId) => {
-                if (filterCategory !== 'all') return;
+                if (!Array.isArray(filterCategoryIds) || filterCategoryIds.length !== 0) return;
                 e.currentTarget.setPointerCapture(e.pointerId);
                 dragRef.current = { pointerId: e.pointerId, noteId, timer: null, dragging: false, startX: e.clientX, startY: e.clientY };
                 dragRef.current.timer = setTimeout(() => {
@@ -8954,7 +8976,7 @@
                     setDraggingId(noteId);
                     if (navigator.vibrate) navigator.vibrate(12);
                 }, 450);
-            }, [filterCategory]);
+            }, [filterCategoryIds]);
 
             const handleCardPointerMove = useCallback((e) => {
                 if (dragRef.current.pointerId !== e.pointerId || !dragRef.current.noteId) return;
@@ -9029,9 +9051,9 @@
             const noteSortMode = settings.noteSortMode || 'manual';
             const visibleNotes = useMemo(
                 () => notes
-                    .filter(n => !n.deletedAt && noteMatchesCategory(n, filterCategory) && noteMatchesSearch(n, searchQuery) && (!showPinnedOnly || n.pinned))
+                    .filter(n => !n.deletedAt && noteMatchesCategoryFilter(n, filterCategoryIds) && noteMatchesSearch(n, searchQuery) && (!showPinnedOnly || n.pinned))
                     .sort(makeNoteSortCompare(noteSortMode, categoryById)),
-                [notes, filterCategory, searchQuery, showPinnedOnly, noteSortMode, categoryById]
+                [notes, filterCategoryIds, searchQuery, showPinnedOnly, noteSortMode, categoryById]
             );
 
             // Declared here (before the Trash-screen early return below) so
@@ -9055,12 +9077,18 @@
             useEffect(() => {
                 const prev = prevDashboardViewModeRef.current;
                 if (dashboardViewMode === 'folders' && prev !== 'folders') {
-                    setFilterCategory(null);
-                } else if (dashboardViewMode !== 'folders' && prev === 'folders' && filterCategory === null) {
-                    setFilterCategory('all');
+                    setFilterCategoryIds(null);
+                } else if (dashboardViewMode !== 'folders' && prev === 'folders' && filterCategoryIds === null) {
+                    setFilterCategoryIds([]);
                 }
                 prevDashboardViewModeRef.current = dashboardViewMode;
             }, [dashboardViewMode]);
+            // Long-press state for folder tiles/pills (see
+            // bindCategoryLongPress below) — declared here, not down with
+            // the functions that close over it, since every hook (unlike
+            // plain consts) has to run on every render regardless of which
+            // early return below actually fires.
+            const categoryLongPressRef = useRef({ timer: null, firedLongPress: false });
 
             if (view === 'trash') {
                 const trashedNotes = notes.filter(n => n.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt);
@@ -9130,12 +9158,71 @@
             // noteSortMode / categoryById / visibleNotes are computed above
             // (memoized, before the early returns) — see the useMemo block
             // following handleCardOpen.
-            const selectedFolderName = dashboardViewMode === 'folders' && filterCategory
-                ? (filterCategory === 'all' ? 'All' : filterCategory === 'uncategorized' ? 'Uncategorized' : (categories.find(c => c.id === filterCategory) || {}).name)
+            const selectedFolderName = dashboardViewMode === 'folders' && filterCategoryIds
+                ? (filterCategoryIds.length === 0 ? 'All'
+                    : filterCategoryIds.includes('uncategorized') ? 'Uncategorized'
+                    : filterCategoryIds.length === 1 ? (categories.find(c => c.id === filterCategoryIds[0]) || {}).name
+                    : filterCategoryIds.length + ' categories')
                 : null;
             const dashboardBackgroundDark = isThemeDark(settings.dashboardBackground);
 
-            const toggleFolder = (id) => setFilterCategory((current) => current === id ? null : id);
+            // Tap a folder tile: jump to viewing just that selection,
+            // replacing whatever else was picked — same as before multi-
+            // select existed. Tapping the tile that's already the *only*
+            // thing selected clears back to the empty grid, matching
+            // folder view's original toggle-off behavior.
+            const selectOnlyFolder = (selection) => setFilterCategoryIds((current) => {
+                const isSame = Array.isArray(current) && current.length === selection.length && current.every((v, i) => v === selection[i]);
+                return isSame ? null : selection;
+            });
+
+            // Long-press a tile or pill (Uncategorized or a real category —
+            // long-pressing "All" wouldn't mean anything, since selecting
+            // it already clears the rest): adds it to the current
+            // selection, or removes it if it's already in there. Picking
+            // Uncategorized always replaces the whole selection instead of
+            // adding to it — a note can't be both uncategorized and tagged,
+            // so combining it with anything else could never match.
+            const toggleCategoryInSelection = (id) => {
+                setFilterCategoryIds((current) => {
+                    const arr = current || [];
+                    if (id === 'uncategorized') {
+                        return arr.length === 1 && arr[0] === 'uncategorized' ? [] : ['uncategorized'];
+                    }
+                    const withoutUncategorized = arr.filter((x) => x !== 'uncategorized');
+                    return withoutUncategorized.includes(id)
+                        ? withoutUncategorized.filter((x) => x !== id)
+                        : [...withoutUncategorized, id];
+                });
+            };
+
+            // Shared long-press detection for folder tiles/pills — a plain
+            // onClick still fires right after the pointerup of a real long
+            // press, so firedLongPress suppresses that one follow-up tap.
+            // (categoryLongPressRef itself is declared up with the other
+            // hooks, before the early returns above — only the ref() call
+            // has to run unconditionally every render; these plain
+            // functions closing over it are fine to define down here.)
+            const bindCategoryLongPress = (id) => ({
+                onPointerDown: () => {
+                    categoryLongPressRef.current.firedLongPress = false;
+                    categoryLongPressRef.current.timer = setTimeout(() => {
+                        categoryLongPressRef.current.firedLongPress = true;
+                        if (navigator.vibrate) navigator.vibrate(12);
+                        toggleCategoryInSelection(id);
+                    }, 500);
+                },
+                onPointerUp: () => clearTimeout(categoryLongPressRef.current.timer),
+                onPointerLeave: () => clearTimeout(categoryLongPressRef.current.timer),
+                onPointerCancel: () => clearTimeout(categoryLongPressRef.current.timer),
+            });
+            const runIfNotLongPress = (fn) => () => {
+                if (categoryLongPressRef.current.firedLongPress) {
+                    categoryLongPressRef.current.firedLongPress = false;
+                    return;
+                }
+                fn();
+            };
 
             const toggleSearch = () => {
                 setShowSearch((s) => {
@@ -9229,8 +9316,8 @@
                         {dashboardViewMode === 'folders' ? (
                             <div className="folder-tabs">
                                 <button
-                                    className={'folder-tile' + (filterCategory === 'all' ? ' active' : '')}
-                                    onClick={() => toggleFolder('all')}
+                                    className={'folder-tile' + (Array.isArray(filterCategoryIds) && filterCategoryIds.length === 0 ? ' active' : '')}
+                                    onClick={() => selectOnlyFolder([])}
                                 >
                                     {allFolderIconTheme.img ? (
                                         <img className="folder-tile-icon-img" src={allFolderIconTheme.img} alt="" aria-hidden="true" />
@@ -9241,8 +9328,9 @@
                                     <span className="folder-tile-count">{notes.filter(n => !n.deletedAt).length}</span>
                                 </button>
                                 <button
-                                    className={'folder-tile' + (filterCategory === 'uncategorized' ? ' active' : '')}
-                                    onClick={() => toggleFolder('uncategorized')}
+                                    className={'folder-tile' + (Array.isArray(filterCategoryIds) && filterCategoryIds.includes('uncategorized') ? ' active' : '')}
+                                    onClick={runIfNotLongPress(() => selectOnlyFolder(['uncategorized']))}
+                                    {...bindCategoryLongPress('uncategorized')}
                                 >
                                     {uncategorizedFolderIconTheme.img ? (
                                         <img className="folder-tile-icon-img" src={uncategorizedFolderIconTheme.img} alt="" aria-hidden="true" />
@@ -9257,8 +9345,9 @@
                                     return (
                                         <button
                                             key={cat.id}
-                                            className={'folder-tile' + (filterCategory === cat.id ? ' active' : '')}
-                                            onClick={() => toggleFolder(cat.id)}
+                                            className={'folder-tile' + (Array.isArray(filterCategoryIds) && filterCategoryIds.includes(cat.id) ? ' active' : '')}
+                                            onClick={runIfNotLongPress(() => selectOnlyFolder([cat.id]))}
+                                            {...bindCategoryLongPress(cat.id)}
                                         >
                                             {catTheme.img ? (
                                                 <img className="folder-tile-icon-img" src={catTheme.img} alt="" aria-hidden="true" />
@@ -9278,22 +9367,24 @@
                         ) : (
                             <div className="category-tabs">
                                 <button
-                                    className={'category-pill' + (filterCategory === 'all' ? ' active' : '')}
-                                    onClick={() => setFilterCategory('all')}
+                                    className={'category-pill' + (Array.isArray(filterCategoryIds) && filterCategoryIds.length === 0 ? ' active' : '')}
+                                    onClick={() => setFilterCategoryIds([])}
                                 >
                                     All
                                 </button>
                                 <button
-                                    className={'category-pill' + (filterCategory === 'uncategorized' ? ' active' : '')}
-                                    onClick={() => setFilterCategory('uncategorized')}
+                                    className={'category-pill' + (Array.isArray(filterCategoryIds) && filterCategoryIds.includes('uncategorized') ? ' active' : '')}
+                                    onClick={runIfNotLongPress(() => setFilterCategoryIds(['uncategorized']))}
+                                    {...bindCategoryLongPress('uncategorized')}
                                 >
                                     Uncategorized
                                 </button>
                                 {categories.map((cat) => (
                                     <button
                                         key={cat.id}
-                                        className={'category-pill' + (filterCategory === cat.id ? ' active' : '')}
-                                        onClick={() => setFilterCategory(cat.id)}
+                                        className={'category-pill' + (Array.isArray(filterCategoryIds) && filterCategoryIds.includes(cat.id) ? ' active' : '')}
+                                        onClick={runIfNotLongPress(() => setFilterCategoryIds([cat.id]))}
+                                        {...bindCategoryLongPress(cat.id)}
                                     >
                                         <span className="color-dot" style={{ background: cat.color }}></span>
                                         {cat.name}
@@ -9308,7 +9399,7 @@
                         {selectedFolderName ? <h2 className={'folder-selected-heading' + (dashboardBackgroundDark ? ' dark' : '')}>{selectedFolderName}</h2> : null}
                         {loading ? null : visibleNotes.length === 0 ? (
                             <div className="empty-state">
-                                {dashboardViewMode === 'folders' && filterCategory === null ? (
+                                {dashboardViewMode === 'folders' && filterCategoryIds === null ? (
                                     folderIconTheme.img ? (
                                         <img className="empty-state-icon-img" src={folderIconTheme.img} alt="" aria-hidden="true" />
                                     ) : (
@@ -9317,7 +9408,7 @@
                                 ) : (
                                     <div className="emoji">{searchQuery.trim() ? '🔍' : showPinnedOnly ? '📌' : '🗒️'}</div>
                                 )}
-                                {dashboardViewMode === 'folders' && filterCategory === null ? (
+                                {dashboardViewMode === 'folders' && filterCategoryIds === null ? (
                                     <p>Select a folder above to view its notes.</p>
                                 ) : searchQuery.trim() ? (
                                     <p>No notes match "{searchQuery.trim()}".</p>
@@ -9350,7 +9441,7 @@
                                         onOpen={handleCardOpen}
                                         onTrash={trashNote}
                                         onTogglePin={togglePin}
-                                        dragEnabled={filterCategory === 'all' && !selectMode && noteSortMode === 'manual'}
+                                        dragEnabled={Array.isArray(filterCategoryIds) && filterCategoryIds.length === 0 && !selectMode && noteSortMode === 'manual'}
                                         isDragging={draggingId === note.id}
                                         onCardPointerDown={handleCardPointerDown}
                                         onCardPointerMove={handleCardPointerMove}
