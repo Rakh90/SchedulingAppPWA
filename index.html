@@ -428,6 +428,10 @@
             overflow: hidden;
             border-radius: 8px;
             margin-bottom: 2px;
+            /* See .photo-thumb-clip — a photo zoomed out below 100% is
+               smaller than this box, so the backing needs to look
+               deliberate rather than showing the card through it. */
+            background: #000;
         }
 
         .note-card-thumb {
@@ -1803,6 +1807,12 @@
             height: 84px;
             overflow: hidden;
             border-radius: 10px;
+            /* Zooming a photo out below 100% (see .reposition-zoom-row)
+               shrinks it smaller than this box, so there's real empty
+               space to fill now, not just a hidden overflow area — a
+               solid backing here keeps that letterboxing looking
+               deliberate instead of showing whatever's behind the card. */
+            background: #000;
         }
 
         .photo-thumb {
@@ -3117,7 +3127,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v136';
+        const APP_VERSION = 'v137';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -7459,7 +7469,7 @@
                             <div className="sheet-backdrop centered" onClick={() => setRepositionPhotoId(null)}>
                                 <div className="sheet" onClick={(e) => e.stopPropagation()}>
                                     <h2>Choose thumbnail crop</h2>
-                                    <p className="sheet-muted-text" style={{ fontSize: 13, marginBottom: 10 }}>Drag inside the photo to choose what shows on the dashboard, then zoom to crop in tighter.</p>
+                                    <p className="sheet-muted-text" style={{ fontSize: 13, marginBottom: 10 }}>Drag inside the photo to choose what shows on the dashboard, then zoom in to crop tighter or out to reveal the whole photo.</p>
                                     <div
                                         className="reposition-frame"
                                         ref={repositionFrameRef}
@@ -7483,7 +7493,7 @@
                                         <span aria-hidden="true">🔍</span>
                                         <input
                                             type="range"
-                                            min="1"
+                                            min="0.2"
                                             max="3"
                                             step="0.01"
                                             value={zoom}
