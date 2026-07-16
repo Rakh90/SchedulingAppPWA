@@ -268,6 +268,12 @@
             color: white;
             font-size: 13px;
             white-space: nowrap;
+            /* Same reasoning as .folder-tile -- long-pressing to add a
+               pill to the filter would otherwise trigger the browser's own
+               text-selection highlight on its label. */
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
         }
 
         .category-pill.active {
@@ -300,6 +306,15 @@
             background: rgba(255,255,255,0.16);
             color: white;
             font-size: 11px;
+            /* Long-pressing to add a tile to the filter (see
+               bindCategoryLongPress) would otherwise also trigger the
+               browser's own long-press handling on this button's text and
+               icon image — a text-selection highlight, or on Android
+               Chrome specifically, the native "Copy/Download/Share image"
+               context menu on the folder icon <img>. */
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
         }
 
         .folder-tile.active {
@@ -3239,7 +3254,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v148';
+        const APP_VERSION = 'v149';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3589,15 +3604,20 @@
             return !!(note.categoryIds && note.categoryIds.includes(filterCategory));
         }
 
-        // The dashboard's actual active filter: an array of 0+ selected ids.
-        // Empty (or null, folder view's "nothing picked yet" state) matches
-        // everything. 'uncategorized' can't combine with anything else (a
-        // note can't be both uncategorized and tagged), so its presence
-        // always means "uncategorized only" regardless of what else the
-        // array might contain. Otherwise every id must match (AND, not
-        // OR) -- picking more than one narrows the results.
+        // The dashboard's actual active filter. null is folder view's
+        // "nothing picked yet / collapsed" state -- deliberately matches
+        // NO notes, not everything, so tapping the active folder to close
+        // it actually hides the list instead of silently falling back to
+        // showing it all. An empty array (pills view's "All", or folder
+        // view after explicitly picking the All tile) is the one that
+        // matches everything. 'uncategorized' can't combine with anything
+        // else (a note can't be both uncategorized and tagged), so its
+        // presence always means "uncategorized only" regardless of what
+        // else the array might contain. Otherwise every id must match
+        // (AND, not OR) -- picking more than one narrows the results.
         function noteMatchesCategoryFilter(note, filterCategoryIds) {
-            if (!filterCategoryIds || filterCategoryIds.length === 0) return true;
+            if (filterCategoryIds === null) return false;
+            if (filterCategoryIds.length === 0) return true;
             if (filterCategoryIds.includes('uncategorized')) return !note.categoryIds || note.categoryIds.length === 0;
             return filterCategoryIds.every((id) => note.categoryIds && note.categoryIds.includes(id));
         }
@@ -9083,6 +9103,27 @@
                 }
                 prevDashboardViewModeRef.current = dashboardViewMode;
             }, [dashboardViewMode]);
+            // The transition-detection effect above relies on comparing
+            // against the dashboardViewMode captured when this component
+            // first mounted — but settings load from IndexedDB
+            // asynchronously, and in practice that load can resolve before
+            // React's first paint, so prevDashboardViewModeRef sometimes
+            // captures the *already-loaded* 'folders' value directly rather
+            // than ever seeing a transition away from the 'pills' fallback.
+            // That silently skipped opening folder view collapsed (all
+            // notes shown instead) whenever it was the persisted mode.
+            // This one-time correction runs the moment loading finishes,
+            // decoupled from that unreliable transition detection.
+            useEffect(() => {
+                if (!loading && dashboardViewMode === 'folders') {
+                    setFilterCategoryIds(null);
+                }
+                // Intentionally depends only on `loading` -- this should
+                // fire exactly once, right when the persisted settings
+                // first become available, not on every later mode switch
+                // (the effect above already owns those).
+                // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, [loading]);
             // Long-press state for folder tiles/pills (see
             // bindCategoryLongPress below) — declared here, not down with
             // the functions that close over it, since every hook (unlike
@@ -9215,6 +9256,12 @@
                 onPointerUp: () => clearTimeout(categoryLongPressRef.current.timer),
                 onPointerLeave: () => clearTimeout(categoryLongPressRef.current.timer),
                 onPointerCancel: () => clearTimeout(categoryLongPressRef.current.timer),
+                // Without this, a real long-press also triggers the
+                // browser's own handling underneath -- Android Chrome's
+                // native image context menu on a folder tile's icon <img>
+                // in particular (see .folder-tile's user-select/-webkit-
+                // touch-callout for the text-selection half of this).
+                onContextMenu: (e) => e.preventDefault(),
             });
             const runIfNotLongPress = (fn) => () => {
                 if (categoryLongPressRef.current.firedLongPress) {
