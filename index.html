@@ -3254,7 +3254,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v151';
+        const APP_VERSION = 'v152';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -8911,7 +8911,15 @@
 
             const shareBackupFile = async () => {
                 const { blob, filename } = buildBackupFile();
-                const file = new File([blob], filename, { type: 'application/json' });
+                // text/plain, not application/json -- many apps' share-
+                // target filters only register for a handful of common
+                // MIME types (text/plain, image/*, application/pdf, ...)
+                // and never list application/json explicitly, so the OS
+                // share sheet can end up with zero compatible destinations
+                // even on a device/browser that otherwise supports file
+                // sharing fine. The file still has a .json name/extension,
+                // just a broader MIME type for matching purposes.
+                const file = new File([blob], filename, { type: 'text/plain' });
                 try {
                     await navigator.share({ files: [file], title: 'Den Notes backup' });
                 } catch (err) {

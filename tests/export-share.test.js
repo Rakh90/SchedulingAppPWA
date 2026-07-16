@@ -70,7 +70,14 @@ module.exports = async function exportShare(page) {
     await page.evaluate(() => {
         window.__shareCalls = [];
         window.navigator.canShare = () => true;
-        window.navigator.share = (data) => { window.__shareCalls.push({ fileCount: data.files ? data.files.length : 0, title: data.title }); return Promise.resolve(); };
+        window.navigator.share = (data) => {
+            window.__shareCalls.push({
+                fileCount: data.files ? data.files.length : 0,
+                fileType: data.files && data.files[0] ? data.files[0].type : null,
+                title: data.title,
+            });
+            return Promise.resolve();
+        };
     });
 
     // The Categories sheet from the block above is still open (exporting
@@ -98,6 +105,11 @@ module.exports = async function exportShare(page) {
     const shareCalls = await page.evaluate(() => window.__shareCalls);
     assertEqual(shareCalls.length, 1, 'Share... calls navigator.share exactly once');
     assertEqual(shareCalls[0].fileCount, 1, 'navigator.share is called with the backup file attached');
+    // text/plain rather than application/json -- many apps' share-target
+    // filters never list application/json explicitly, leaving the OS share
+    // sheet with zero compatible destinations even when file sharing
+    // itself works fine; text/plain is far more broadly recognized.
+    assertEqual(shareCalls[0].fileType, 'text/plain', 'the shared file uses a broadly-recognized MIME type');
     assertEqual(await page.locator('.sheet h2 >> text=Export data').count(), 0, 'chooser closes after picking Share');
 
     // --- navigator.share exists and canShare() would say yes, but the
