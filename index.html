@@ -1529,14 +1529,21 @@
         .line-toolbar {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 2px;
             flex-wrap: wrap;
+            /* flex-wrap justifies each wrapped line independently, so on a
+               narrow screen where a few buttons spill onto a second row,
+               this centers just that leftover handful instead of leaving
+               them stranded flush against the left edge. Barely noticeable
+               on the full first row (already nearly edge-to-edge), but
+               makes a real difference on a short trailing row. */
+            justify-content: center;
         }
 
         .line-toolbar-btn {
             flex: 0 0 auto;
-            width: 30px;
-            height: 30px;
+            width: 28px;
+            height: 28px;
             border-radius: 8px;
             border: 1px solid rgba(0,0,0,0.1);
             background: #fafafa;
@@ -1549,7 +1556,7 @@
 
         .line-toolbar-btn-all {
             width: auto;
-            padding: 0 8px;
+            padding: 0 6px;
             font-size: 10px;
             font-weight: 700;
             letter-spacing: 0.02em;
@@ -1569,7 +1576,7 @@
             width: 1px;
             height: 20px;
             background: rgba(0,0,0,0.12);
-            margin: 0 2px;
+            margin: 0 1px;
             flex: 0 0 auto;
         }
 
@@ -3190,7 +3197,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v141';
+        const APP_VERSION = 'v143';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -5348,7 +5355,34 @@
         // preventDefault so tapping it never blurs (and thus never loses) the
         // active line — the same trick that keeps a text selection alive for
         // execCommand.
-        function LineToolbar({ hasActiveLine, dateAvailable, timeAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDatePicker, onOpenTimePicker, onEnterSelectMode, onDismissKeyboard, canUndo, onUndo }) {
+        // The date and time buttons used to sit side-by-side in the line
+        // toolbar; merged into one to save a button's worth of width (v143).
+        // Its two options just delegate to the same openDateSheetSmart /
+        // openTimeSheetSmart the standalone buttons used to call directly —
+        // no targeting logic duplicated here. Options use onMouseDown +
+        // preventDefault (not onClick), same as every other toolbar/sheet
+        // control that needs to preserve field focus: those smart-open
+        // functions read document.activeElement to decide which field
+        // (title/table name/body line) to target, so nothing here may steal
+        // focus before they run.
+        function DateTimeChooserSheet({ background, onPickDate, onPickTime, onClose }) {
+            const dark = isThemeDark(background);
+            return (
+                <div className="sheet-backdrop" onClick={onClose}>
+                    <div className={'sheet' + (dark ? ' dark-content' : '')} style={resolvePageBackground(background)} onClick={(e) => e.stopPropagation()}>
+                        <h2>Insert</h2>
+                        <button className="category-picker-row" onMouseDown={(e) => { e.preventDefault(); onPickDate(); }}>
+                            <span className="category-picker-name">📅 Date</span>
+                        </button>
+                        <button className="category-picker-row" onMouseDown={(e) => { e.preventDefault(); onPickTime(); }}>
+                            <span className="category-picker-name">🕐 Time</span>
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        function LineToolbar({ hasActiveLine, dateTimeAvailable, activeType, activeFormats, onFormat, onToggleAllFormats, onSetType, onOpenSizeMenu, onOpenDateTimeChooser, onEnterSelectMode, onDismissKeyboard, canUndo, onUndo }) {
             const runFormat = (tag) => (e) => {
                 e.preventDefault();
                 if (!hasActiveLine) return;
@@ -5406,16 +5440,10 @@
                         picker, with no native picker quirks to fight. */}
                     <button
                         className="line-toolbar-btn"
-                        disabled={!dateAvailable}
-                        onMouseDown={(e) => { e.preventDefault(); if (dateAvailable) onOpenDatePicker(); }}
-                        title="Insert date"
+                        disabled={!dateTimeAvailable}
+                        onMouseDown={(e) => { e.preventDefault(); if (dateTimeAvailable) onOpenDateTimeChooser(); }}
+                        title="Insert date or time"
                     >📅</button>
-                    <button
-                        className="line-toolbar-btn"
-                        disabled={!timeAvailable}
-                        onMouseDown={(e) => { e.preventDefault(); if (timeAvailable) onOpenTimePicker(); }}
-                        title="Insert time"
-                    >🕐</button>
                     <span className="line-toolbar-divider"></span>
                     <button
                         className="line-toolbar-btn"
@@ -5755,6 +5783,10 @@
             // tagged-union shapes (block/title/tableName/table).
             const timeTargetRef = useRef(null);
             const [showTimePickerSheet, setShowTimePickerSheet] = useState(false);
+            // Gate sheet shown by the combined date/time toolbar button,
+            // before either of the two smart-open functions above actually
+            // runs — see DateTimeChooserSheet.
+            const [showDateTimeChooser, setShowDateTimeChooser] = useState(false);
             // Title is a controlled input — its value changes in React state on
             // every keystroke, unlike a block's contentEditable (which only
             // syncs to state on commit). Pushing history per keystroke would
@@ -5809,6 +5841,7 @@
             useBackClose(showCategoryPicker, () => setShowCategoryPicker(false));
             useBackClose(showDatePickerSheet, () => setShowDatePickerSheet(false));
             useBackClose(showTimePickerSheet, () => setShowTimePickerSheet(false));
+            useBackClose(showDateTimeChooser, () => setShowDateTimeChooser(false));
             useBackClose(lineSelectMode, () => { setLineSelectMode(false); setSelectedLineIdList([]); });
 
             const resolvedEditorIconOrder = resolveIconOrder(editorIconOrder, DEFAULT_EDITOR_ICON_ORDER);
@@ -7296,16 +7329,14 @@
                                     </button>
                                     <LineToolbar
                                         hasActiveLine={!!editingBlockId}
-                                        dateAvailable={!!editingBlockId || titleFocused || !!focusedTableNameId}
-                                        timeAvailable={!!editingBlockId || titleFocused || !!focusedTableNameId}
+                                        dateTimeAvailable={!!editingBlockId || titleFocused || !!focusedTableNameId}
                                         activeType={activeBlock ? activeBlock.type : null}
                                         activeFormats={activeFormats}
                                         onFormat={toggleLineFormat}
                                         onToggleAllFormats={toggleAllFormats}
                                         onSetType={(type) => setBlockType(editingBlockId, type)}
                                         onOpenSizeMenu={() => setTextSizeMenuBlockId(editingBlockId)}
-                                        onOpenDatePicker={openDateSheetSmart}
-                                        onOpenTimePicker={openTimeSheetSmart}
+                                        onOpenDateTimeChooser={() => setShowDateTimeChooser(true)}
                                         onEnterSelectMode={() => {
                                             // Entering select mode clears editingBlockId directly rather
                                             // than blurring the field (this button uses onMouseDown +
@@ -7760,6 +7791,15 @@
                             value={draft.background}
                             onChange={(v) => { pushEditHistory(); updateField('background', v); }}
                             onClose={() => setShowBackgroundPicker(false)}
+                        />
+                    ) : null}
+
+                    {showDateTimeChooser ? (
+                        <DateTimeChooserSheet
+                            background={draft.background}
+                            onPickDate={() => { setShowDateTimeChooser(false); openDateSheetSmart(); }}
+                            onPickTime={() => { setShowDateTimeChooser(false); openTimeSheetSmart(); }}
+                            onClose={() => setShowDateTimeChooser(false)}
                         />
                     ) : null}
 
