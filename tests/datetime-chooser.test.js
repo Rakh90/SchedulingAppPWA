@@ -21,6 +21,11 @@ async function tapClockValue(page, value) {
 
 async function pickTime(page, hour, minute) {
     await page.waitForSelector('.clock-face');
+    // The period defaults to whichever half of the day it currently is in
+    // the real world, not necessarily AM -- force it explicitly so these
+    // assertions (which all expect "AM") don't flip based on what time of
+    // day the test happens to run.
+    await page.click('.time-period-toggle button:has-text("AM")');
     await tapClockValue(page, hour);
     await page.waitForTimeout(100);
     await tapClockValue(page, minute.toString().padStart(2, '0'));

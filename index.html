@@ -3254,7 +3254,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v149';
+        const APP_VERSION = 'v150';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -8111,6 +8111,11 @@
             const [searchQuery, setSearchQuery] = useState('');
             const [showPinnedOnly, setShowPinnedOnly] = useState(false);
             const [trashToast, setTrashToast] = useState(null);
+            // Brief info message when Share... couldn't actually hand off
+            // the backup file (see shareBackupFile) -- distinct from
+            // trashToast since this one never has an Undo action.
+            const [exportToast, setExportToast] = useState(null);
+            const exportToastTimer = useRef(null);
             const [selectMode, setSelectMode] = useState(false);
             const [selectedIds, setSelectedIds] = useState([]);
             const [showBatchCategory, setShowBatchCategory] = useState(false);
@@ -8888,15 +8893,18 @@
             // disappear together. Sharing hands the exact same file to
             // whatever app the user picks (Drive, email, Dropbox, ...) in
             // one tap instead of requiring a second manual move afterward.
-            const canShareBackupFile = () => {
-                if (!navigator.share || !navigator.canShare) return false;
-                const probe = new File([''], 'probe.json', { type: 'application/json' });
-                try {
-                    return navigator.canShare({ files: [probe] });
-                } catch (err) {
-                    return false;
-                }
-            };
+            //
+            // Only checks that the Web Share API exists at all -- NOT
+            // navigator.canShare({ files: [...] }) with a real file, which
+            // turned out to be an unreliable gate in practice: some mobile
+            // browsers report a JSON file as unshareable up front (so the
+            // chooser never even appeared, silently downloading instead)
+            // even though the same browser's actual share sheet handles it
+            // fine. Letting the real navigator.share() call in
+            // shareBackupFile be the source of truth, with its own
+            // fallback + visible explanation on failure, is more honest
+            // than trying to predict support in advance.
+            const canShareBackupFile = () => !!(navigator.share && navigator.canShare);
 
             const shareBackupFile = async () => {
                 const { blob, filename } = buildBackupFile();
@@ -8907,9 +8915,11 @@
                     // AbortError just means the user closed the share sheet
                     // without picking anything -- not a real failure, and
                     // the backup itself was already built successfully.
-                    if (err && err.name !== 'AbortError') {
-                        downloadBackupFile();
-                    }
+                    if (err && err.name === 'AbortError') return;
+                    downloadBackupFile();
+                    if (exportToastTimer.current) clearTimeout(exportToastTimer.current);
+                    setExportToast("Sharing isn't supported here — downloaded the backup instead.");
+                    exportToastTimer.current = setTimeout(() => setExportToast(null), 5000);
                 }
             };
 
@@ -9604,6 +9614,12 @@
                         <div className="undo-toast">
                             <span>Note moved to trash</span>
                             <button onClick={() => undoTrashNote(trashToast)}>Undo</button>
+                        </div>
+                    ) : null}
+
+                    {exportToast ? (
+                        <div className="undo-toast">
+                            <span>{exportToast}</span>
                         </div>
                     ) : null}
 
