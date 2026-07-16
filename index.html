@@ -3254,7 +3254,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v150';
+        const APP_VERSION = 'v151';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -8894,17 +8894,20 @@
             // whatever app the user picks (Drive, email, Dropbox, ...) in
             // one tap instead of requiring a second manual move afterward.
             //
-            // Only checks that the Web Share API exists at all -- NOT
-            // navigator.canShare({ files: [...] }) with a real file, which
-            // turned out to be an unreliable gate in practice: some mobile
-            // browsers report a JSON file as unshareable up front (so the
-            // chooser never even appeared, silently downloading instead)
-            // even though the same browser's actual share sheet handles it
-            // fine. Letting the real navigator.share() call in
-            // shareBackupFile be the source of truth, with its own
-            // fallback + visible explanation on failure, is more honest
-            // than trying to predict support in advance.
-            const canShareBackupFile = () => !!(navigator.share && navigator.canShare);
+            // Only checks that navigator.share itself exists -- not
+            // navigator.canShare, and not navigator.canShare({ files:
+            // [...] }) with a real file (an earlier version of this check
+            // required both, which turned out to still hide the option
+            // entirely on real devices: canShare is a separate, optional
+            // part of the Web Share API level that a browser can support
+            // share() without ever implementing, and at least one real
+            // report confirmed exactly that -- share existed, canShare did
+            // not, so the chooser never appeared at all). Letting the real
+            // navigator.share() call in shareBackupFile be the only actual
+            // test, with its own fallback + visible explanation on
+            // failure, is more honest than trying to predict support in
+            // advance from either API in isolation.
+            const canShareBackupFile = () => !!navigator.share;
 
             const shareBackupFile = async () => {
                 const { blob, filename } = buildBackupFile();
