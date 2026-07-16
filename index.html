@@ -2421,6 +2421,14 @@
             color: rgba(243,244,248,0.6);
         }
 
+        /* The value itself (e.g. "10:00 PM") only inherited color:#333 from
+           .time-range-tab's `color: inherit` — legible on the plain white
+           sheet, but low-contrast to invisible against a dark theme's own
+           background showing through the tab's translucent fill. */
+        .dark-content .time-range-tab-value {
+            color: #f3f4f8;
+        }
+
         .dark-content .time-readout-part {
             color: rgba(243,244,248,0.35);
         }
@@ -3197,7 +3205,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v143';
+        const APP_VERSION = 'v144';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
