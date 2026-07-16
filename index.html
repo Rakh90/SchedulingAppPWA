@@ -2616,6 +2616,10 @@
             return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
+        // Resolves with the resized data URL plus its final pixel
+        // dimensions — photoThumbStyle needs those to know how far a photo
+        // can be zoomed out before the whole image is visible (see its own
+        // comment for why).
         function resizeImage(dataUrl, maxDim, quality) {
             return new Promise((resolve) => {
                 const img = new Image();
@@ -2635,9 +2639,9 @@
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', quality));
+                    resolve({ dataUrl: canvas.toDataURL('image/jpeg', quality), width, height });
                 };
-                img.onerror = () => resolve(dataUrl);
+                img.onerror = () => resolve({ dataUrl, width: null, height: null });
                 img.src = dataUrl;
             });
         }
@@ -2651,20 +2655,76 @@
             });
         }
 
+        // Aspect ratios (width/height) of the three boxes photoThumbStyle
+        // renders into — kept in sync with the matching CSS by hand since
+        // there's no build step to derive them from it. .note-card-thumb-
+        // wrap is actually responsive (width:100%, height:90px), so this is
+        // an approximation of a typical card width rather than an exact
+        // value; that only affects exactly where "fully revealed" lands on
+        // the dashboard specifically; it can't reintroduce the cropping
+        // bug this ratio-based approach fixes, since contain never
+        // discards pixels regardless of which ratio is used.
+        const PHOTO_THUMB_BOX_ASPECT = 1; // .photo-thumb-clip: 84x84
+        const NOTE_CARD_THUMB_BOX_ASPECT = 1.8; // .note-card-thumb-wrap: ~90px tall
+        const REPOSITION_FRAME_BOX_ASPECT = 2; // .reposition-frame: aspect-ratio 2/1
+
+        // How much bigger an object-fit:cover render of an image is than an
+        // object-fit:contain render of the same image, in the same box —
+        // always >= 1, and exactly 1 when the image's aspect ratio matches
+        // the box's. photoThumbStyle uses this to know how far a photo can
+        // be zoomed out before the *whole* image is visible with nothing
+        // left to reveal.
+        function coverToContainRatio(imgW, imgH, boxAspect) {
+            if (!imgW || !imgH) return 1;
+            const imgAspect = imgW / imgH;
+            return imgAspect > boxAspect ? (imgAspect / boxAspect) : (boxAspect / imgAspect);
+        }
+
         // Shared by every place a photo's thumbnail crop is rendered
         // (dashboard card, editor photo row, reposition sheet preview) so
-        // the focal point + zoom always look identical everywhere. Zoom is
-        // an extra scale applied on top of the object-fit:cover baseline,
-        // anchored at the same point the focal position already uses —
-        // that keeps the chosen focus visually still while the rest of the
-        // image grows around it.
-        function photoThumbStyle(photo) {
+        // the focal point + zoom always look identical everywhere.
+        //
+        // Renders with object-fit:contain always, never cover — cover
+        // crops (permanently discards) whatever doesn't fit the box's
+        // aspect ratio *before* any zoom is applied, so scaling that
+        // result back down can only ever shrink what's left, never
+        // recover what cover already cut off. contain never discards
+        // anything, so a zoom-out can always get back to showing 100% of
+        // the photo.
+        //
+        // focalZoom keeps meaning "relative to the old cover-fill look"
+        // (1 = fills the box exactly like before, matching every photo
+        // saved before this existed) rather than "relative to contain" —
+        // multiplying by coverToContainRatio is what translates that
+        // familiar 1-means-default value onto the contain-based render:
+        // at zoom=1 the effective scale becomes exactly `ratio`, which
+        // reproduces cover's fill pixel-for-pixel, and at zoom=1/ratio it
+        // becomes exactly 1 — plain contain, the whole photo, no more to
+        // reveal.
+        function photoThumbStyle(photo, boxAspect) {
             const focalX = photo.focalX == null ? 50 : photo.focalX;
             const focalY = photo.focalY == null ? 50 : photo.focalY;
             const zoom = photo.focalZoom == null ? 1 : photo.focalZoom;
+            if (!photo.width || !photo.height) {
+                // No known natural size (an older photo saved before this
+                // existed, before its dimensions get backfilled) — fall
+                // back to the original cover-based render so it keeps
+                // looking exactly as it always has by default. It won't
+                // properly reveal the whole image on zoom-out until its
+                // dimensions are known; NoteEditor's backfill effect
+                // measures and patches those in the moment its reposition
+                // sheet is opened.
+                return {
+                    objectPosition: focalX + '% ' + focalY + '%',
+                    transform: zoom !== 1 ? 'scale(' + zoom + ')' : undefined,
+                    transformOrigin: focalX + '% ' + focalY + '%',
+                };
+            }
+            const scale = zoom * coverToContainRatio(photo.width, photo.height, boxAspect);
             return {
-                objectPosition: focalX + '% ' + focalY + '%',
-                transform: zoom !== 1 ? 'scale(' + zoom + ')' : undefined,
+                objectFit: 'contain',
+                objectPosition: '50% 50%',
+                transform: scale !== 1 ? 'scale(' + scale + ')' : undefined,
                 transformOrigin: focalX + '% ' + focalY + '%',
             };
         }
@@ -3127,7 +3187,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v137';
+        const APP_VERSION = 'v138';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -3617,7 +3677,7 @@
                                         className="note-card-thumb"
                                         src={note.photos[0].dataUrl}
                                         alt=""
-                                        style={photoThumbStyle(note.photos[0])}
+                                        style={photoThumbStyle(note.photos[0], NOTE_CARD_THUMB_BOX_ASPECT)}
                                     />
                                 </div>
                             ) : null}
@@ -5746,6 +5806,29 @@
                 return () => clearTimeout(saveTimer.current);
             }, [draft]);
 
+            // A photo saved before natural dimensions were tracked has no
+            // width/height, so photoThumbStyle can't compute how far it can
+            // zoom out — measure it the moment its reposition sheet opens
+            // and patch those in, so the fix applies without needing the
+            // photo to be re-uploaded. Not a content edit (no
+            // pushEditHistory), just backfilling metadata.
+            useEffect(() => {
+                if (!repositionPhotoId) return undefined;
+                const photo = draft.photos.find((p) => p.id === repositionPhotoId);
+                if (!photo || (photo.width && photo.height)) return undefined;
+                let cancelled = false;
+                const img = new Image();
+                img.onload = () => {
+                    if (cancelled) return;
+                    setDraft((d) => ({
+                        ...d,
+                        photos: d.photos.map((p) => p.id === repositionPhotoId ? { ...p, width: img.naturalWidth, height: img.naturalHeight } : p),
+                    }));
+                };
+                img.src = photo.dataUrl;
+                return () => { cancelled = true; };
+            }, [repositionPhotoId]);
+
             const updateField = (field, value) => setDraft((d) => ({ ...d, [field]: value }));
 
             // Call before applying a line-level change to snapshot what the note
@@ -6576,7 +6659,7 @@
                     for (const file of files) {
                         const raw = await readFileAsDataUrl(file);
                         const resized = await resizeImage(raw, 1280, 0.82);
-                        newPhotos.push({ id: makeId(), dataUrl: resized });
+                        newPhotos.push({ id: makeId(), dataUrl: resized.dataUrl, width: resized.width, height: resized.height });
                     }
                     setDraft((d) => ({ ...d, photos: [...d.photos, ...newPhotos] }));
                 } finally {
@@ -7384,7 +7467,7 @@
                                             className="photo-thumb"
                                             src={photo.dataUrl}
                                             alt=""
-                                            style={photoThumbStyle(photo)}
+                                            style={photoThumbStyle(photo, PHOTO_THUMB_BOX_ASPECT)}
                                         />
                                     </div>
                                     {/* Only the first photo is ever shown as the
@@ -7457,6 +7540,12 @@
                         const focalX = photo.focalX == null ? 50 : photo.focalX;
                         const focalY = photo.focalY == null ? 50 : photo.focalY;
                         const zoom = photo.focalZoom == null ? 1 : photo.focalZoom;
+                        // Below this, the photo is already fully visible
+                        // (plain object-fit:contain, nothing more to
+                        // reveal) — going lower would just shrink it
+                        // smaller within the frame for no benefit, so this
+                        // is the slider's floor rather than a flat value.
+                        const minZoom = 1 / coverToContainRatio(photo.width, photo.height, REPOSITION_FRAME_BOX_ASPECT);
                         const applyPointer = (e) => {
                             const frame = repositionFrameRef.current;
                             if (!frame) return;
@@ -7486,14 +7575,14 @@
                                         onPointerUp={() => { repositionDraggingRef.current = false; }}
                                         onPointerCancel={() => { repositionDraggingRef.current = false; }}
                                     >
-                                        <img src={photo.dataUrl} alt="" style={photoThumbStyle(photo)} />
+                                        <img src={photo.dataUrl} alt="" style={photoThumbStyle(photo, REPOSITION_FRAME_BOX_ASPECT)} />
                                         <div className="reposition-crosshair" style={{ left: focalX + '%', top: focalY + '%' }}></div>
                                     </div>
                                     <div className="reposition-zoom-row">
                                         <span aria-hidden="true">🔍</span>
                                         <input
                                             type="range"
-                                            min="0.2"
+                                            min={minZoom}
                                             max="3"
                                             step="0.01"
                                             value={zoom}
@@ -7900,7 +7989,7 @@
                         for (const file of (pending.files || [])) {
                             const raw = await readFileAsDataUrl(file);
                             const resized = await resizeImage(raw, 1280, 0.82);
-                            photos.push({ id: makeId(), dataUrl: resized });
+                            photos.push({ id: makeId(), dataUrl: resized.dataUrl, width: resized.width, height: resized.height });
                         }
                         const bodyParts = [sharedText];
                         if (sharedUrl && !sharedText.includes(sharedUrl)) bodyParts.push(sharedUrl);
