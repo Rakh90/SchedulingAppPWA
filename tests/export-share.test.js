@@ -13,6 +13,13 @@
 // on some devices and Export data always fell straight through to a
 // download with no indication why. The real navigator.share() call is now
 // the source of truth, with a visible toast if it genuinely fails.
+//
+// v151: v150 still required BOTH navigator.share AND navigator.canShare to
+// exist before showing the chooser -- still too strict. canShare is a
+// separate, optional part of the Web Share API that a browser can support
+// share() without ever implementing, and a real device confirmed exactly
+// that combination (share present, canShare absent), so the chooser still
+// never appeared. Now only navigator.share itself is required.
 const { assert, assertEqual, openBlankNote } = require('./helpers');
 
 async function openExportFlow(page) {
@@ -41,6 +48,22 @@ module.exports = async function exportShare(page) {
     ]);
     assert(/den-notes-backup-.*\.json/.test(download1.suggestedFilename()), 'download filename looks like a backup file: ' + download1.suggestedFilename());
     assertEqual(await page.locator('.sheet h2 >> text=Export data').count(), 0, 'no chooser shown when the browser cannot share files');
+
+    // --- navigator.share exists but navigator.canShare does NOT -- the
+    // exact combination that shipped as a real bug in v150: the chooser
+    // must still appear here, not fall back to the no-support path above. ---
+    await page.evaluate(() => {
+        delete window.navigator.canShare;
+        window.navigator.share = () => Promise.resolve();
+    });
+    await page.click('button:has-text("⬇ Export data")');
+    await page.waitForSelector('.sheet h2 >> text=Export data');
+    assertEqual(await page.locator('.category-picker-row:has-text("📤 Share...")').count(), 1, 'Share option still shown when canShare is missing but share exists');
+    // Two backdrops are stacked right now (the chooser on top of the still-
+    // open Categories sheet) -- .last() is the topmost one, matching JSX
+    // render order (see the comment on ExportChooserSheet's render site).
+    await page.locator('.sheet-backdrop').last().click({ position: { x: 5, y: 5 } });
+    await page.waitForTimeout(150);
 
     // --- File-sharing supported: chooser appears; each option does the
     // right thing. ---
