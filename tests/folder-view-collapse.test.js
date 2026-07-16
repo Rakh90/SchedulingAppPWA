@@ -21,16 +21,22 @@ module.exports = async function folderViewCollapse(page) {
     await page.click('.editor-header .icon-btn:has-text("←")');
     await page.waitForTimeout(150);
 
+    // Switching view modes commits in two steps: .folder-tabs appears as
+    // soon as dashboardViewMode flips, but the useEffect that resets
+    // filterCategoryIds to null lands in a slightly later render --
+    // waitForSelector actively retries until that second commit lands,
+    // rather than checking .count() once immediately.
     await page.click('button[title="Switch to folder view"]');
     await page.waitForSelector('.folder-tabs');
+    await page.waitForSelector('.empty-state p:has-text("Select a folder")');
     assertEqual(await page.locator('.empty-state p:has-text("Select a folder")').count(), 1, 'folder view opens with nothing selected');
 
     await page.click('.folder-tile:has-text("All")');
-    await page.waitForTimeout(150);
+    await page.waitForSelector('.note-card-title:has-text("Collapse test note")');
     assertEqual(await page.locator('.note-card-title:has-text("Collapse test note")').count(), 1, 'tapping All shows notes');
 
     await page.click('.folder-tile:has-text("All")');
-    await page.waitForTimeout(150);
+    await page.waitForSelector('.empty-state p:has-text("Select a folder")');
     assertEqual(await page.locator('.note-card-title:has-text("Collapse test note")').count(), 0, 'tapping the already-active All tile again collapses the list');
     assertEqual(await page.locator('.empty-state p:has-text("Select a folder")').count(), 1, 'collapsing shows the "select a folder" prompt again');
 
@@ -56,7 +62,8 @@ module.exports = async function folderViewCollapse(page) {
     // collapsed, not showing every note.
     await page.reload();
     await page.waitForSelector('.app-header h1');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('.folder-tabs');
+    await page.waitForSelector('.empty-state p:has-text("Select a folder")');
     assertEqual(await page.locator('.folder-tabs').count(), 1, 'folder view mode persisted across reload');
     assertEqual(await page.locator('.note-card-title:has-text("Collapse test note")').count(), 0, 'folder view starts collapsed on a cold load, not showing all notes');
     assertEqual(await page.locator('.empty-state p:has-text("Select a folder")').count(), 1, 'the "select a folder" prompt shows immediately on cold load');
