@@ -2673,6 +2673,42 @@
             return h12 + ':' + m2 + ' ' + period;
         }
 
+        // The inverse of formatTimeParts, for reopening the time picker on a
+        // cell that already has a value: recognizes both a single time
+        // ("7:15 AM" or, in 24h, "07:15") and a range ("7:15 AM – 3:00 PM"),
+        // so TimePickerSheet can restore Time range mode (with the same
+        // start/end already set) instead of resetting to Single time +
+        // whatever time it happens to be right now. Returns null for
+        // anything it can't confidently parse — an unrecognized value (an
+        // empty cell, or free text someone typed instead of using the
+        // picker) just falls back to the picker's normal defaults.
+        function parseTimeValue(str) {
+            if (!str) return null;
+            const parseOne = (s) => {
+                const m = s.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+                if (!m) return null;
+                let hour = parseInt(m[1], 10);
+                const minute = parseInt(m[2], 10);
+                if (isNaN(hour) || isNaN(minute) || minute > 59) return null;
+                if (m[3]) {
+                    hour = hour % 12;
+                    if (m[3].toUpperCase() === 'PM') hour += 12;
+                } else if (hour > 23) {
+                    return null;
+                }
+                return { hour, minute };
+            };
+            const parts = str.split(/\s[–-]\s/);
+            if (parts.length === 2) {
+                const start = parseOne(parts[0]);
+                const end = parseOne(parts[1]);
+                if (!start || !end) return null;
+                return { mode: 'range', startHour: start.hour, startMinute: start.minute, endHour: end.hour, endMinute: end.minute };
+            }
+            const single = parseOne(str);
+            return single ? { mode: 'single', hour: single.hour, minute: single.minute } : null;
+        }
+
         function escapeHtml(str) {
             const div = document.createElement('div');
             div.textContent = str == null ? '' : str;
@@ -3081,7 +3117,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v135';
+        const APP_VERSION = 'v136';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -4399,16 +4435,23 @@
         // than drawing a second concentric ring for 13-23 (a real second
         // ring is the more "native" look but is a lot more geometry for a
         // note-taking app's schedule table).
-        function TimePickerSheet({ background, timeFormat, onChangeTimeFormat, onPick, onClose }) {
+        function TimePickerSheet({ background, timeFormat, onChangeTimeFormat, initialValue, onPick, onClose }) {
             const dark = isThemeDark(background);
             const now = new Date();
-            const [mode, setMode] = useState('single'); // 'single' | 'range'
+            // Parsed once, here — not in a useEffect — since this sheet is
+            // always freshly mounted when it opens (see the conditional
+            // render in NoteEditor) and unmounted when it closes, so a
+            // plain useState initial value already gets a clean parse of
+            // whatever was in the cell every time, with no stale state to
+            // reset.
+            const parsedInitial = parseTimeValue(initialValue);
+            const [mode, setMode] = useState(parsedInitial ? parsedInitial.mode : 'single'); // 'single' | 'range'
             const [stage, setStage] = useState('hour'); // 'hour' | 'minute'
             const [activeEnd, setActiveEnd] = useState('start'); // 'start' | 'end'
-            const [startHour, setStartHour] = useState(now.getHours());
-            const [startMinute, setStartMinute] = useState(now.getMinutes());
-            const [endHour, setEndHour] = useState((now.getHours() + 1) % 24);
-            const [endMinute, setEndMinute] = useState(now.getMinutes());
+            const [startHour, setStartHour] = useState(parsedInitial ? (parsedInitial.mode === 'range' ? parsedInitial.startHour : parsedInitial.hour) : now.getHours());
+            const [startMinute, setStartMinute] = useState(parsedInitial ? (parsedInitial.mode === 'range' ? parsedInitial.startMinute : parsedInitial.minute) : now.getMinutes());
+            const [endHour, setEndHour] = useState(parsedInitial && parsedInitial.mode === 'range' ? parsedInitial.endHour : (now.getHours() + 1) % 24);
+            const [endMinute, setEndMinute] = useState(parsedInitial && parsedInitial.mode === 'range' ? parsedInitial.endMinute : now.getMinutes());
             const faceRef = useRef(null);
             const draggingRef = useRef(false);
 
@@ -5951,6 +5994,19 @@
                 setShowTimePickerSheet(true);
             };
 
+            // Whatever is already in the cell openTimeSheetForTable targeted
+            // (or null for a fresh row) — TimePickerSheet parses this once on
+            // mount so reopening the picker on an existing range cell lands
+            // back on Time range mode with the same start/end already set,
+            // instead of resetting to Single time + the current clock time.
+            const timeTargetCurrentValue = () => {
+                const target = timeTargetRef.current;
+                if (!target || !target.rowId) return null;
+                const table = (draft.tables || []).find(t => t.id === target.tableId);
+                const row = table && table.rows.find(r => r.id === target.rowId);
+                return row ? (row.cells[target.colIdx] || null) : null;
+            };
+
             // Mirrors applyPickedDate's table branch — time insertion only
             // ever targets a table cell (see timeTargetRef), so this is
             // simpler than the full tagged-union version. timeStr is
@@ -7474,6 +7530,7 @@
                             background={draft.background}
                             timeFormat={timeFormat}
                             onChangeTimeFormat={onChangeTimeFormat}
+                            initialValue={timeTargetCurrentValue()}
                             onPick={applyPickedTime}
                             onClose={() => applyPickedTime(null)}
                         />
