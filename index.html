@@ -3121,8 +3121,17 @@
             }, [active]);
         }
 
-        const DEFAULT_DASHBOARD_ICON_ORDER = ['search', 'pinnedFilter', 'sort', 'folderView', 'trash', 'select', 'settings'];
+        const DEFAULT_DASHBOARD_ICON_ORDER = ['search', 'pinnedFilter', 'sort', 'folderView', 'trash', 'select', 'settings', 'timer'];
         const DEFAULT_EDITOR_ICON_ORDER = ['background', 'copy', 'templates', 'pin', 'trash', 'lock'];
+
+        // Android's Clock app can be opened straight to "set a timer" via an
+        // intent: URL -- iOS has no equivalent public way for a web page to
+        // reach the Clock app, so the shortcut button is Android-only rather
+        // than a dead button on other platforms.
+        const IS_ANDROID = /Android/i.test(navigator.userAgent);
+        function openNativeTimer() {
+            window.location.href = 'intent://#Intent;action=android.intent.action.SET_TIMER;end';
+        }
 
         // A saved order might be missing ids a later update introduced, or
         // carry ids that no longer exist — keeps whatever's still valid, in
@@ -3254,7 +3263,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v153';
+        const APP_VERSION = 'v154';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -5552,7 +5561,7 @@
         // a press-and-drag line selection is active — same row, same button
         // styling, different job: acts on every highlighted line at once
         // instead of whichever single line has editing focus.
-        function LineSelectionToolbar({ count, uniformType, activeFormats, onSetType, onFormat, onFormatAll, onDelete, onDone }) {
+        function LineSelectionToolbar({ count, uniformType, activeFormats, onSetType, onFormat, onFormatAll, onCopy, copiedFlash, onDelete, onDone }) {
             const hasSelection = count > 0;
             const run = (fn) => (e) => { e.preventDefault(); if (hasSelection) fn(); };
             const allActive = activeFormats.b && activeFormats.i && activeFormats.u;
@@ -5577,6 +5586,7 @@
                         </button>
                     ))}
                     <span className="line-toolbar-divider"></span>
+                    <button className="line-toolbar-btn" disabled={!hasSelection} onMouseDown={run(onCopy)} title="Copy selected lines">{copiedFlash ? '✓' : '📋'}</button>
                     <button className="line-toolbar-btn" disabled={!hasSelection} onMouseDown={run(onDelete)} title="Delete selected lines">🗑</button>
                     <button className="line-toolbar-btn" onMouseDown={(e) => { e.preventDefault(); onDone(); }} title="Done">✕</button>
                 </div>
@@ -5769,6 +5779,8 @@
             const [focusedTableNameId, setFocusedTableNameId] = useState(null);
             const [copiedFlash, setCopiedFlash] = useState(false);
             const copiedFlashTimer = useRef(null);
+            const [selectionCopiedFlash, setSelectionCopiedFlash] = useState(false);
+            const selectionCopiedFlashTimer = useRef(null);
             const [draggingBlockId, setDraggingBlockId] = useState(null);
             // Press-and-drag range highlighting for bulk reformat/delete, gated
             // behind an explicit toggle (rather than always-on from any
@@ -6796,6 +6808,25 @@
                 setEditingBlockId(null);
             };
 
+            // Copies just the selected lines as plain text (same list-marker
+            // formatting as the whole-note copy button) so they can be pasted
+            // into another note, another app, or elsewhere in this one.
+            // Selection order doesn't matter -- filter() walks draft.blocks in
+            // document order, so the copied text always comes out top-to-bottom.
+            const copySelectedLines = async () => {
+                if (!selectedLineIds.length) return;
+                const selectedBlocks = draft.blocks.filter((b) => selectedLineIds.includes(b.id));
+                try {
+                    await navigator.clipboard.writeText(noteToPlainText({ blocks: selectedBlocks }));
+                    if (selectionCopiedFlashTimer.current) clearTimeout(selectionCopiedFlashTimer.current);
+                    setSelectionCopiedFlash(true);
+                    selectionCopiedFlashTimer.current = setTimeout(() => setSelectionCopiedFlash(false), 1500);
+                } catch (err) {
+                    // Clipboard permission denied or unavailable — nothing
+                    // useful to do beyond not pretending it worked.
+                }
+            };
+
             // Bulleted/numbered/checklist lines get a 3-stage Enter cycle on
             // an EMPTY line: 1st Enter (line has content) — normal, moves to
             // a new line of the same type/indent. 2nd Enter (that new line
@@ -7386,6 +7417,8 @@
                                     onSetType={applyTypeToSelection}
                                     onFormat={applyFormatToSelection}
                                     onFormatAll={applyAllFormatsToSelection}
+                                    onCopy={copySelectedLines}
+                                    copiedFlash={selectionCopiedFlash}
                                     onDelete={deleteSelectedLines}
                                     onDone={() => { setLineSelectMode(false); setSelectedLineIdList([]); }}
                                 />
@@ -7434,7 +7467,21 @@
                                             setSelectedLineIdList([]);
                                             setEditingBlockId(null);
                                         }}
-                                        onDismissKeyboard={() => { if (document.activeElement) document.activeElement.blur(); }}
+                                        onDismissKeyboard={() => {
+                                            // Same reasoning as onEnterSelectMode above: don't rely on
+                                            // the native blur event alone to flush state and clear
+                                            // editingBlockId. If the on-screen keyboard hides without a
+                                            // real DOM blur firing (seen on some Android builds), the
+                                            // line stays internally "active" even though nothing visibly
+                                            // is, and tapping its checkbox can bring the keyboard right
+                                            // back. Flush + clear directly first, then blur as well.
+                                            if (editingBlockId) {
+                                                const el = document.querySelector('.block-editable');
+                                                if (el) commitBlockHtml(editingBlockId, el.innerHTML);
+                                            }
+                                            setEditingBlockId(null);
+                                            if (document.activeElement) document.activeElement.blur();
+                                        }}
                                         canUndo={canUndoEdit}
                                         onUndo={undoLastEdit}
                                     />
@@ -9227,6 +9274,11 @@
                 trash: { className: 'icon-btn', title: 'Trash', onClick: () => setView('trash'), content: '🗑' },
                 select: { className: 'icon-btn', title: 'Select notes', onClick: toggleSelectMode, content: '☑' },
                 settings: { className: 'icon-btn', title: 'Categories', onClick: () => setShowCategoryManager(true), content: '⚙' },
+                // Android-only -- see IS_ANDROID's comment. Omitting the
+                // entry entirely (rather than just disabling it) makes the
+                // header row render one fewer button on iOS instead of a
+                // button that can never do anything there.
+                ...(IS_ANDROID ? { timer: { className: 'icon-btn', title: 'Set a timer', onClick: openNativeTimer, content: '⏱' } } : {}),
             };
 
             return (
