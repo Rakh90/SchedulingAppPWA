@@ -72,6 +72,9 @@ function startServer(port) {
 async function withPage(fn) {
     const browser = await chromium.launch(launchOptions());
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, serviceWorkers: 'block' });
+    // Needed for tests that exercise the app's clipboard-copy features
+    // (whole-note copy, copy-selected-lines) via navigator.clipboard.
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     const page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', (err) => pageErrors.push(err.message));
