@@ -3121,25 +3121,8 @@
             }, [active]);
         }
 
-        const DEFAULT_DASHBOARD_ICON_ORDER = ['search', 'pinnedFilter', 'sort', 'folderView', 'trash', 'select', 'settings', 'timer'];
+        const DEFAULT_DASHBOARD_ICON_ORDER = ['search', 'pinnedFilter', 'sort', 'folderView', 'trash', 'select', 'settings'];
         const DEFAULT_EDITOR_ICON_ORDER = ['background', 'copy', 'templates', 'pin', 'trash', 'lock'];
-
-        // Android's Clock app can be opened straight to "set a timer" via an
-        // intent: URL -- iOS has no equivalent public way for a web page to
-        // reach the Clock app, so the shortcut button is Android-only rather
-        // than a dead button on other platforms.
-        const IS_ANDROID = /Android/i.test(navigator.userAgent);
-        // Rendered as a real <a href> (see dashboardIconDefs.timer) rather
-        // than triggered via window.location.href from a click handler --
-        // v154 shipped it as a JS-triggered navigation and it silently did
-        // nothing on a real device (no error, no Clock app). A native anchor
-        // tap is the standard, documented way browsers resolve intent: URLs
-        // on Android, and isn't subject to whatever heuristic was likely
-        // swallowing the programmatic version. Also drops the "//" before
-        // "#Intent" from the original URL -- with no host, that produced an
-        // empty authority component that may itself have kept Android's own
-        // URI parsing from resolving to a real intent at all.
-        const NATIVE_TIMER_INTENT_URL = 'intent:#Intent;action=android.intent.action.SET_TIMER;end';
 
         // A saved order might be missing ids a later update introduced, or
         // carry ids that no longer exist — keeps whatever's still valid, in
@@ -3271,7 +3254,7 @@
         // it's possible to confirm, from the UI itself, whether a device is
         // actually running the latest build or is stuck on a stale cached
         // version (useful for diagnosing iOS's flakier SW update behavior).
-        const APP_VERSION = 'v155';
+        const APP_VERSION = 'v156';
 
         // Just the neutral reset option now — the flat color swatches were
         // dropped in favor of the theme gradients below.
@@ -9282,11 +9265,6 @@
                 trash: { className: 'icon-btn', title: 'Trash', onClick: () => setView('trash'), content: '🗑' },
                 select: { className: 'icon-btn', title: 'Select notes', onClick: toggleSelectMode, content: '☑' },
                 settings: { className: 'icon-btn', title: 'Categories', onClick: () => setShowCategoryManager(true), content: '⚙' },
-                // Android-only -- see IS_ANDROID's comment. Omitting the
-                // entry entirely (rather than just disabling it) makes the
-                // header row render one fewer button on iOS instead of a
-                // button that can never do anything there.
-                ...(IS_ANDROID ? { timer: { className: 'icon-btn', title: 'Set a timer', href: NATIVE_TIMER_INTENT_URL, content: '⏱' } } : {}),
             };
 
             return (
@@ -9317,26 +9295,10 @@
                                         {dashboardIconOrder.map((id) => {
                                             const def = dashboardIconDefs[id];
                                             if (!def) return null;
-                                            const className = def.className + (dashboardIconDrag.draggingId === id ? ' dragging' : '');
-                                            // The timer shortcut needs to be a real anchor tap
-                                            // (see NATIVE_TIMER_INTENT_URL's comment) rather than
-                                            // a JS-triggered navigation, so it's rendered as an
-                                            // <a href> instead of a <button onClick>. Still gets
-                                            // the same drag-to-reorder props as every other icon.
-                                            return def.href ? (
-                                                <a
-                                                    key={id}
-                                                    className={className}
-                                                    title={def.title}
-                                                    href={def.href}
-                                                    {...dashboardIconDrag.getDragProps(id)}
-                                                >
-                                                    {def.content}
-                                                </a>
-                                            ) : (
+                                            return (
                                                 <button
                                                     key={id}
-                                                    className={className}
+                                                    className={def.className + (dashboardIconDrag.draggingId === id ? ' dragging' : '')}
                                                     title={def.title}
                                                     onClick={dashboardIconDrag.wrapClick(def.onClick)}
                                                     {...dashboardIconDrag.getDragProps(id)}
