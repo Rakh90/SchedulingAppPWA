@@ -22,10 +22,7 @@ async function main() {
         process.stdout.write(`RUN  ${file} ... `);
         const start = Date.now();
         try {
-            // A test file can export a .userAgent alongside its function to
-            // get a differently-configured browser context (e.g. spoofing
-            // an Android UA to reach UI gated behind navigator.userAgent).
-            await withPage((page) => testFn(page), { userAgent: testFn.userAgent });
+            await withPage((page) => testFn(page));
             const ms = Date.now() - start;
             console.log(`PASS (${ms}ms)`);
             results.push({ file, ok: true });

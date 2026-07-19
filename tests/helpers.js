@@ -69,14 +69,9 @@ function startServer(port) {
 // Every test gets its own isolated browser context (no shared storage), a
 // fresh page navigated to the app, and a callback to open a fresh note --
 // the flow every test starts from.
-async function withPage(fn, options) {
+async function withPage(fn) {
     const browser = await chromium.launch(launchOptions());
-    const contextOptions = { viewport: { width: 412, height: 915 }, serviceWorkers: 'block' };
-    // Some UI (the Android-only native-timer shortcut) is gated behind a
-    // navigator.userAgent sniff -- overriding it here is the only way to
-    // reach that code path from this Linux-hosted test browser.
-    if (options && options.userAgent) contextOptions.userAgent = options.userAgent;
-    const context = await browser.newContext(contextOptions);
+    const context = await browser.newContext({ viewport: { width: 412, height: 915 }, serviceWorkers: 'block' });
     // Needed for tests that exercise the app's clipboard-copy features
     // (whole-note copy, copy-selected-lines) via navigator.clipboard.
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
